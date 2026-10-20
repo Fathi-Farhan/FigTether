@@ -1,0 +1,8 @@
+# The environment file of the assessment holds no secret, but the pattern of
+# the repository root ignores every file whose name starts with ".env.". Keep
+# the example of the assessment tracked.
+!.env.example
+
+# The evidence of a run is local and unauthenticated agent output. It stays
+# on the machine of the reviewer.
+evidence/

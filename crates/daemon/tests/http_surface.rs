@@ -82,12 +82,7 @@ async fn the_pair_endpoint_mints_a_secret_for_the_loopback_peer() {
     let (handle, _temp) = start_daemon().await;
     let port = handle.port();
 
-    let answer = request(
-        port,
-        &format!(
-            "POST /control/pair HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
-        ),
-    );
+    let answer = request(port, &figtether_daemon::control::pair_request(port));
 
     assert!(answer.starts_with("HTTP/1.1 200"), "{answer}");
     let body = body_of(&answer);

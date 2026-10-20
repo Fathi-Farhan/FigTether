@@ -712,6 +712,13 @@ fn plan_of(state: &Arc<DaemonState>, request: &ClientRequest) -> Result<Plan, Fi
         JobKind::Export => Priority::Export,
         _ => Priority::SmallRead,
     };
+    // The daemon enforces the scope as well as the plugin (FR03, double
+    // enforcement). A node is inside the grant when it is one of the granted
+    // roots or a descendant of a root that the daemon has already seen in an
+    // answer. A node the daemon has never seen is refused: a traversal has to
+    // start at a granted root, and the daemon learns the shape of the granted
+    // tree from the answers it receives.
+    enforce_scope(state, &session_id, op, &context)?;
     Ok(Plan {
         op,
         kind,
@@ -720,6 +727,111 @@ fn plan_of(state: &Arc<DaemonState>, request: &ClientRequest) -> Result<Plan, Fi
         priority,
         context,
     })
+}
+
+/// Refuse a request that names a node outside the granted scope.
+///
+/// The check is the daemon half of the double enforcement: the plugin checks
+/// the scope against the live document, the daemon checks it against the
+/// tree it has proven to be inside the grant. A node that is unknown to the
+/// daemon is refused, not forwarded on trust.
+fn enforce_scope(
+    state: &Arc<DaemonState>,
+    session_id: &SessionId,
+    op: BridgeOp,
+    context: &ReadContext,
+) -> Result<(), FigError> {
+    if matches!(
+        op,
+        BridgeOp::GetSelection | BridgeOp::GetChanges | BridgeOp::ListSessions
+    ) {
+        return Ok(());
+    }
+    // A session that does not exist is reported by the session check, which
+    // knows the better error. A session that exists without a grant has no
+    // scope at all, so nothing is inside it.
+    let Some(session) = crate::guarded(None, || state.registry.get(session_id)) else {
+        return Ok(());
+    };
+    // A paused or revoked grant is reported with its own code, never as a
+    // scope question: the user decided, and the answer has to say so.
+    if let Some(grant) = session.grant.as_ref() {
+        match grant.state {
+            figtether_core::registry::GrantState::Revoked => {
+                return Err(FigError::new(
+                    ErrorCode::Revoked,
+                    "the grant was revoked; only the user can create a new one",
+                ));
+            }
+            figtether_core::registry::GrantState::Paused => {
+                return Err(FigError::new(
+                    ErrorCode::Paused,
+                    "the user paused the session; new reads are refused",
+                ));
+            }
+            figtether_core::registry::GrantState::Active => {}
+        }
+    }
+    if session.root_ids().is_empty() {
+        return Err(
+            FigError::new(ErrorCode::OutOfScope, "the session has no granted scope")
+                .with_action("ask the user to grant a root before reading"),
+        );
+    }
+    let mut named: Vec<&str> = Vec::new();
+    if let Some(root) = context.root_id.as_deref() {
+        named.push(root);
+    }
+    named.extend(context.node_ids.iter().map(String::as_str));
+
+    for node_id in named {
+        let inside = crate::guarded(false, || state.registry.is_in_scope(session_id, node_id));
+        if !inside {
+            return Err(FigError::new(
+                ErrorCode::OutOfScope,
+                format!("node {node_id} is outside the granted scope"),
+            )
+            .with_action(
+                "list the children of a granted root first, or ask the user to widen the grant",
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Learn the shape of the granted tree from a plugin answer.
+///
+/// Every answer carries the parent relation of the nodes it contains. The
+/// daemon records them, so a later request for one of those nodes can be
+/// checked on the daemon side as well.
+fn remember_nodes(state: &Arc<DaemonState>, session_id: &SessionId, data: &serde_json::Value) {
+    let mut relations: Vec<(String, Option<String>)> = Vec::new();
+    let mut collect = |nodes: &serde_json::Value| {
+        if let Some(list) = nodes.as_array() {
+            for node in list {
+                let Some(id) = node.get("id").and_then(serde_json::Value::as_str) else {
+                    continue;
+                };
+                let parent = node
+                    .get("parent_id")
+                    .and_then(serde_json::Value::as_str)
+                    .map(str::to_string);
+                relations.push((id.to_string(), parent));
+            }
+        }
+    };
+    if let Some(nodes) = data.get("nodes") {
+        collect(nodes);
+    }
+    if let Some(node) = data.get("node") {
+        collect(&serde_json::Value::Array(vec![node.clone()]));
+    }
+    if relations.is_empty() {
+        return;
+    }
+    crate::guarded((), || {
+        let _ = state.registry.record_nodes(session_id, &relations);
+    });
 }
 
 /// Parse the parameters of a client request.
@@ -1138,6 +1250,9 @@ async fn run_job(
             return Err(err.with_request_id(request_id.to_string()));
         }
     };
+    // The answer teaches the daemon the shape of the granted tree, which is
+    // what lets the daemon check the scope of a later request on its own.
+    remember_nodes(state, &session_id, &data);
     guard.finish(JobStatus::Completed);
 
     if plan.kind == JobKind::Export {

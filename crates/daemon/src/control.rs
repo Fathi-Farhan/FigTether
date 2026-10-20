@@ -178,6 +178,37 @@ pub struct RevokeOutcome {
     pub invalidated_cursors: usize,
 }
 
+/// The header that a local control request has to carry.
+///
+/// A native client sends it. A browser cannot send it in a simple request: a
+/// custom header forces a preflight, and the daemon never answers one. That
+/// is what keeps a foreign web page away from the control endpoints.
+pub const CONTROL_HEADER: &str = "x-figtether-control";
+
+/// The value the control header has to carry.
+pub const CONTROL_HEADER_VALUE: &str = "1";
+
+/// Build the raw HTTP request that mints a one time pairing secret.
+///
+/// The request builder lives here, next to the guard that checks the header,
+/// so that no caller can forget it. Every caller in the workspace uses this
+/// function.
+pub fn pair_request(port: u16) -> String {
+    control_request(port, "/control/pair")
+}
+
+/// Build the raw HTTP request that asks the daemon to stop.
+pub fn shutdown_request(port: u16) -> String {
+    control_request(port, "/control/shutdown")
+}
+
+/// Build a raw HTTP request against one of the control endpoints.
+fn control_request(port: u16, path: &str) -> String {
+    format!(
+        "POST {path} HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\n{CONTROL_HEADER}: {CONTROL_HEADER_VALUE}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+    )
+}
+
 /// The sanitized status of the running daemon.
 pub fn status(state: &Arc<DaemonState>) -> DaemonStatus {
     let metrics = state.metrics.snapshot();

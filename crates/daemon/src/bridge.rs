@@ -811,8 +811,46 @@ async fn handle_incoming(
         }
         MessageType::Chunk => {
             if let Ok(payload) = frame.payload_of::<ChunkPayload>() {
+                // The announced size is a promise by the plugin, and a promise
+                // is not a fact: a chunk may claim a transfer of any size. The
+                // budget of the bridge is the limit, and a transfer that
+                // announces more than the budget is refused instead of being
+                // accepted and dropped later.
+                if payload.total_bytes > figtether_protocol::MAX_TRANSFER_BYTES {
+                    tracing::warn!(
+                        code = "PAYLOAD_TOO_LARGE",
+                        "the plugin announced a transfer above the transfer budget"
+                    );
+                    let error = figtether_model::errors::FigError::new(
+                        figtether_model::errors::ErrorCode::PayloadTooLarge,
+                        "the announced transfer is larger than the transfer budget",
+                    )
+                    .with_request_id(frame.request_id.clone())
+                    .with_action("the plugin must transfer less than the transfer budget");
+                    // The peer is told, not just logged: a hostile plugin gets
+                    // a refusal it can read, and the pending request of that
+                    // transfer ends with the same code.
+                    let refusal = BridgeFrame::new(
+                        MessageType::Error,
+                        frame.request_id.clone(),
+                        serde_json::to_value(figtether_protocol::ErrorPayload {
+                            code: error.code.as_str().to_string(),
+                            message: error.message.clone(),
+                            retryable: error.retryable,
+                            action: error.action.clone(),
+                            request_id: frame.request_id.clone(),
+                            retry_after_ms: error.retry_after_ms,
+                        })
+                        .unwrap_or_default(),
+                    )
+                    .with_session(session_id);
+                    let _ = state.hub.send(&session_id, refusal).await;
+                    state
+                        .hub
+                        .complete(&frame.request_id, BridgeOutcome::Error(error));
+                    return;
+                }
                 tracing::debug!(code = "CHUNK", "chunk received");
-                let _ = payload.total_bytes;
             }
         }
         MessageType::Progress => {

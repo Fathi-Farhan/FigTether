@@ -132,6 +132,21 @@ rendering); the residual column is the reciprocal "residual limit" entry of the 
 | Read only operations, no document mutation               | `FR24`         | `AT18`: fixture hash and properties unchanged after reads and exports                                                   | G0/G2 | `02-access-control.md` Section 3               |
 | Attribution of network paths                             | `FR19`         | `N09`: zero official MCP or REST requests from core; connection capture attributed per process                          | G0    | `docs/06-testing/04-benchmark-plan.md`         |
 
+## 6.1 Adversarial validation
+
+Every control in the table above is checked by a deterministic test. The controls are also
+attacked by an autonomous agent, because a documented control is not the same thing as a control
+that holds. Two layers:
+
+| Layer                           | What it is                                                                                                                  | Where it lives                          | State                                                                                                           |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Deterministic adversarial suite | The eight threat classes of the local trust boundary, encoded as tests against the shipped daemon with no model in the loop | `crates/e2e/tests/adversarial.rs`       | Runs in CI                                                                                                      |
+| Autonomous assessment           | PentAGI flows, one per threat class, against a dedicated daemon on a dedicated port                                         | `security/pentagi/`, `scripts/pentagi/` | Written and scripted, not yet executed: Docker is unavailable on the authoring machine, so no result is claimed |
+
+The plan, the rules of engagement, the threat to flow mapping, and the evidence rules are in
+`docs/05-security/04-pentagi-validation.md`. The validation also found a design gap in the control
+endpoints, which is described in section 8 of that document and closed in the daemon and the CLI.
+
 ## 7. Attack surface inventory
 
 | Surface              | Position          | Allowlist or rule                                                                                                                                                                                                    | Evidence        |

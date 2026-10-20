@@ -1,0 +1,78 @@
+# Safe defaults for the PentAGI instance that runs the FigTether assessment.
+#
+# This file is an override for the upstream `docker-compose.yml` of PentAGI.
+# Use it with the upstream file, never instead of it:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.override.yml up -d
+#
+# Copy it next to the upstream compose file, or keep it here and point the
+# compose command at both files. Every value below is also present in
+# `security/pentagi/.env.example`, and the `.env` file of the instance is the
+# place where the placeholders are filled in.
+#
+# The override only sets environment variables. It does not touch the port
+# lists of the upstream file, because Compose appends port lists instead of
+# replacing them, and a second mapping of the same container port is a
+# startup error. The listen addresses of the services are therefore pinned
+# through the `.env` file, where the upstream compose file reads them from.
+
+services:
+  pentagi:
+    environment:
+      # The console and the API stay on the loopback interface. The upstream
+      # compose file reads the two values from the `.env` file, this is the
+      # same default written down again so that the file is readable on its
+      # own.
+      PENTAGI_LISTEN_IP: "127.0.0.1"
+      PENTAGI_LISTEN_PORT: "8443"
+
+      # The salt that signs the session cookies and the API tokens. The
+      # `.env` file of the instance has to set it to a random value.
+      COOKIE_SIGNING_SALT: "${COOKIE_SIGNING_SALT:?set COOKIE_SIGNING_SALT in the .env file of the instance}"
+
+      # The published sandbox ports of a flow stay on the loopback interface.
+      # Upstream publishes them on every interface of the host.
+      DOCKER_PUBLIC_IP: "127.0.0.1"
+
+      # The base port of the window that every flow publishes for its out of
+      # band callbacks. Upstream uses 28000, the assessment uses a window of
+      # its own so that two instances never fight over the same port.
+      DOCKER_PORTS_BASE: "${DOCKER_PORTS_BASE:-28100}"
+
+      # The flow sandbox shares the network stack of the host, so that
+      # 127.0.0.1 inside a sandbox is the loopback interface of the
+      # assessment host and the target of every flow prompt is reachable.
+      # This is the only deliberate exposure of the assessment. Read the
+      # comment block of `security/pentagi/.env.example` before using it.
+      DOCKER_NETWORK: "host"
+
+      # The sandbox uses the pentest image instead of an image that the model
+      # picks, so that a flow cannot pull an image that changes the surface
+      # under test.
+      DOCKER_IMAGE_SELECTION_MODE: "fixed"
+
+      # The database of the instance. The password has to be set in the `.env`
+      # file of the instance, the upstream compose file reads it from there.
+      DATABASE_URL: "postgres://${PENTAGI_POSTGRES_USER:-pentagi}:${PENTAGI_POSTGRES_PASSWORD:?set PENTAGI_POSTGRES_PASSWORD in the .env file of the instance}@pgvector:5432/${PENTAGI_POSTGRES_DB:-pentagidb}?sslmode=disable"
+
+  pgvector:
+    environment:
+      # The credentials of the database. The upstream compose file reads them
+      # from the `.env` file of the instance, this is the same default written
+      # down again so that the file is readable on its own.
+      POSTGRES_USER: "${PENTAGI_POSTGRES_USER:-pentagi}"
+      POSTGRES_PASSWORD: "${PENTAGI_POSTGRES_PASSWORD:?set PENTAGI_POSTGRES_PASSWORD in the .env file of the instance}"
+      POSTGRES_DB: "${PENTAGI_POSTGRES_DB:-pentagidb}"
+
+  pgexporter:
+    environment:
+      # The exporter reads the database with the same credentials.
+      DATA_SOURCE_NAME: "postgresql://${PENTAGI_POSTGRES_USER:-pentagi}:${PENTAGI_POSTGRES_PASSWORD:?set PENTAGI_POSTGRES_PASSWORD in the .env file of the instance}@pgvector:5432/${PENTAGI_POSTGRES_DB:-pentagidb}?sslmode=disable"
+
+  scraper:
+    environment:
+      # The scraper opens a browser for the web search of the agents. The
+      # assessment does not need it, and the credentials below are the
+      # placeholders of the upstream example.
+      USERNAME: "${LOCAL_SCRAPER_USERNAME:-pentagi-assessment}"
+      PASSWORD: "${LOCAL_SCRAPER_PASSWORD:-change-me-before-the-stack-starts}"

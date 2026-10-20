@@ -79,9 +79,7 @@ fn mint_secret(port: u16) -> String {
     stream
         .set_read_timeout(Some(Duration::from_secs(5)))
         .expect("timeout");
-    let request = format!(
-        "POST /control/pair HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
-    );
+    let request = figtether_daemon::control::pair_request(port);
     stream.write_all(request.as_bytes()).expect("written");
     let mut answer = String::new();
     let _ = stream.read_to_string(&mut answer);

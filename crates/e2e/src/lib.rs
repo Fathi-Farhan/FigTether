@@ -90,4 +90,4 @@ pub use fake_client::FakeLocalClient;
 pub use fake_plugin::{FakePlugin, PluginBehavior, PluginError};
 pub use fixtures::FixtureCorpus;
 pub use harness::{assert_loopback_only, DaemonHarness, HarnessError};
-pub use shipped::{free_loopback_port, ShippedDaemon};
+pub use shipped::{free_loopback_port, ShippedDaemon, ShortLivedPairingDaemon};

@@ -114,6 +114,13 @@ Execution organization (pyramid, environments, fixtures, evidence storage) is
 
 **Pass criteria.** Every negative case returns a structured error with `code`, `message`, `retryable`, `action`, and `request_id`; no crash; no data leak; no silent fallback. **Requirements.** FR02; FR03; FR15; P10. **Gate.** G1/G2.
 
+**Adversarial counterpart.** The deterministic form of these cases lives in
+`crates/e2e/tests/adversarial.rs`, and the same threat classes are attacked by an autonomous agent
+in the PentAGI assessment described in `docs/05-security/04-pentagi-validation.md`. Step 4 has one
+case that the deterministic suite adds beyond this catalog: a request that carries an `Origin`
+header, including `Origin: null`, must not reach the control endpoints that mint a pairing secret
+or stop the daemon.
+
 ## AT07 - Pagination, truncation, and no leakage on oversized scopes
 
 **Purpose.** A fixture exceeding bytes and depth limits yields correct partial results with a resumable cursor; sibling or ancestor information outside scope never leaks. **Preconditions.** `FX-LARGE` (10000 nodes in scope) and `FX-CROSSPAGE` loaded; limits pinned in the artifact per `docs/04-data-contracts/06-resource-limits.md`.

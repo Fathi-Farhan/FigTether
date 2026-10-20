@@ -41,10 +41,25 @@ half negotiated.
 - `figtether doctor` reports the plugin capability report as a real check.
 - The asset store returns the hash in the same `sha256:` form as the response envelope.
 
+### Security
+
+- The control endpoints refuse a request that carries an `Origin` header and require a dedicated
+  control header, so a web page can no longer mint a pairing secret or stop the daemon. The
+  request builder lives in the daemon, so no caller can forget the header.
+- The daemon performs the scope check of its own now, the daemon half of the double enforcement
+  of `FR03`. A node the daemon has never seen inside the grant is refused instead of being
+  forwarded on trust.
+- A chunk frame that announces more than the transfer budget is refused with a
+  `PAYLOAD_TOO_LARGE` error frame instead of being accepted and dropped.
+- A deterministic adversarial suite of twenty tests covers the eight threat classes of the local
+  trust boundary, and the PenAGI integration runs the same classes as autonomous flows.
+
 ### Known limitations
 
 - Gate `G0` is not closed. Every plugin side test runs against a fake plugin client, and no claim
   about a real Figma Desktop session is made anywhere in this repository.
+- The PenAGI assessment has not been executed: Docker was unavailable on the authoring machine.
+  The procedure, the flows, and the scripts exist, and no result is claimed.
 
 ## [0.1.0] - Unreleased
 

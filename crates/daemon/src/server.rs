@@ -76,10 +76,51 @@ pub fn router(state: Arc<DaemonState>) -> Router {
         .route("/bridge", get(bridge_handler))
         .route("/client", get(client_handler))
         .route("/health", get(health_handler))
-        .route("/control/pair", post(pair_handler))
-        .route("/control/shutdown", post(shutdown_handler))
+        .route(
+            "/control/pair",
+            post(pair_handler).route_layer(middleware::from_fn(control_guard)),
+        )
+        .route(
+            "/control/shutdown",
+            post(shutdown_handler).route_layer(middleware::from_fn(control_guard)),
+        )
         .layer(middleware::from_fn_with_state(state.clone(), guard_headers))
         .with_state(state)
+}
+
+/// Reject a control request that did not come from a native local client.
+///
+/// Two rules, both about the browser:
+///
+/// 1. a request that carries an `Origin` header is refused, whatever the
+///    origin is. A native client never sends one, while every browser
+///    request does, including the `null` origin of a sandboxed frame;
+/// 2. the request has to carry the control header. A browser can only send
+///    that header after a preflight, and the daemon answers no preflight, so
+///    the actual request never leaves the browser.
+///
+/// The loopback peer check still applies, so a remote host is refused even
+/// before this guard runs.
+async fn control_guard(request: axum::extract::Request, next: Next) -> Response {
+    let has_origin = request.headers().contains_key(axum::http::header::ORIGIN);
+    let has_control_header = request
+        .headers()
+        .get(crate::control::CONTROL_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .is_some_and(|value| value.trim() == crate::control::CONTROL_HEADER_VALUE);
+
+    if has_origin || !has_control_header {
+        tracing::warn!(
+            code = "PERMISSION_DENIED",
+            "control request refused: the caller did not prove it is a native client"
+        );
+        return (
+            StatusCode::FORBIDDEN,
+            Json(serde_json::json!({ "code": "PERMISSION_DENIED" })),
+        )
+            .into_response();
+    }
+    next.run(request).await
 }
 
 /// Reject requests that do not come from the loopback interface.
