@@ -365,9 +365,10 @@ impl ShortLivedPairingDaemon {
 
     /// The audit trail of the applied write plans.
     ///
-    /// The daemon keeps the trail in its own state and does not expose it
-    /// over the wire, so a test that proves the daemon audits a write reads
-    /// the state of the running daemon.
+    /// The daemon exposes the trail to its clients as well, and the flow
+    /// that proves the audit reads it through the client. This helper reads
+    /// the state of the running daemon, so a test can look at the trail
+    /// without a client.
     pub fn write_audit_records(&self) -> Vec<figtether_core::write::AuditRecord> {
         self.state.writes.audit_records()
     }

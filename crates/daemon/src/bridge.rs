@@ -808,40 +808,47 @@ async fn handle_incoming(
                         pause_session(state, &session_id);
                         state.writes.invalidate_grant(grant.grant_epoch);
                     }
-                    // The plugin learns the epoch of the grant it holds and
-                    // the mode of the session, so both sides agree on the
-                    // authorization.
-                    let grant_epoch = crate::guarded(Some(grant.grant_epoch), || {
-                        state
-                            .registry
-                            .get(&session_id)
-                            .and_then(|session| session.grant_epoch())
-                    })
-                    .unwrap_or(grant.grant_epoch);
-                    let reply = BridgeFrame::new(
-                        MessageType::GrantUpdate,
-                        frame.request_id.clone(),
-                        serde_json::to_value(GrantUpdatePayload {
-                            root_ids: payload.root_ids,
-                            grant_epoch,
-                            mode: Some(mode_wire(mode).to_string()),
-                            session_mode: Some(
-                                session_mode_of_state(state, &session_id)
-                                    .as_str()
-                                    .to_string(),
-                            ),
-                        })
-                        .unwrap_or_default(),
-                    )
-                    .with_session(session_id)
-                    .with_connection_epoch(epoch);
-                    let _ = state.hub.try_send(&session_id, reply);
                     tracing::info!(code = "GRANT_UPDATED", "grant scope changed");
                 }
                 Err(err) => {
                     tracing::warn!(code = err.code.as_str(), "grant update refused");
+                    // A paused session refuses a new grant, and the pause is
+                    // the decision of the user: the daemon applies it even
+                    // when the scope did not move.
+                    if session_mode == SessionMode::Paused {
+                        pause_session(state, &session_id);
+                    }
                 }
             }
+            // The plugin learns the epoch of the grant it holds and the mode
+            // of the session, so both sides agree on the authorization. The
+            // daemon is the authority, so the answer carries the state the
+            // daemon holds and not the state the plugin asked for.
+            let grant_epoch = crate::guarded(None, || {
+                state
+                    .registry
+                    .get(&session_id)
+                    .and_then(|session| session.grant_epoch())
+            })
+            .unwrap_or_default();
+            let reply = BridgeFrame::new(
+                MessageType::GrantUpdate,
+                frame.request_id.clone(),
+                serde_json::to_value(GrantUpdatePayload {
+                    root_ids: payload.root_ids,
+                    grant_epoch,
+                    mode: Some(mode_wire(mode).to_string()),
+                    session_mode: Some(
+                        session_mode_of_state(state, &session_id)
+                            .as_str()
+                            .to_string(),
+                    ),
+                })
+                .unwrap_or_default(),
+            )
+            .with_session(session_id)
+            .with_connection_epoch(epoch);
+            let _ = state.hub.try_send(&session_id, reply);
         }
         MessageType::Approval => {
             // The user approved or rejected a previewed plan. The daemon

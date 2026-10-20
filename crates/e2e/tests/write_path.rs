@@ -619,8 +619,9 @@ async fn a_destructive_plan_without_the_destructive_flag_is_refused() {
 
 #[tokio::test]
 async fn an_approved_plan_reaches_the_plugin_and_the_daemon_audits_it() {
-    // The daemon keeps the audit trail in its own state and does not expose
-    // it over the wire, so the flow reads the state of the running daemon.
+    // The daemon keeps the audit trail in its own state and exposes it to
+    // its clients, so the flow reads the state of the running daemon to
+    // look at the record itself.
     let daemon = ShortLivedPairingDaemon::start(Duration::from_secs(300))
         .await
         .expect("the daemon starts");

@@ -6,8 +6,9 @@
 //!   on demand, lives in memory only, is bound to the local installation that
 //!   asked for it, and is never logged;
 //! - the sanitized status, which the health endpoint and the status tool
-//!   read. It carries versions, counts, sizes, and the capabilities of the
-//!   known sessions, never design content and never a secret;
+//!   read. It carries versions, counts, sizes, the capabilities of the known
+//!   sessions, and the recent write audit records of the installation, never
+//!   design content and never a secret;
 //! - the revocation, which cancels the work of a session, drops its cache
 //!   entries and assets, and refuses later reads.
 
@@ -30,8 +31,9 @@ const MAX_SANITIZED_TEXT: usize = 160;
 
 /// The sanitized status of the daemon.
 ///
-/// Every field is a version, a counter, or a size. The struct has no field
-/// for a credential, a node id, a layer name, or any other design content.
+/// Every field is a version, a counter, a size, or an identifier. The struct
+/// has no field for a credential, a node id, a layer name, or any other
+/// design content.
 #[derive(Debug, Clone, Serialize)]
 pub struct DaemonStatus {
     /// Version of the daemon.
@@ -248,9 +250,14 @@ fn control_request(port: u16, path: &str) -> String {
 
 /// The sanitized status of the running daemon.
 ///
-/// The status carries the audit records of the installation of the daemon.
+/// The status of the health endpoint carries no audit record: the health
+/// endpoint is not authenticated, and the trail of the write path belongs
+/// to the installation of the client that asks for it. A client reads the
+/// trail through [`status_for`].
 pub fn status(state: &Arc<DaemonState>) -> DaemonStatus {
-    status_for(state, &state.owner_key())
+    // The empty owner names no installation, so no record of the trail
+    // belongs to it.
+    status_for(state, "")
 }
 
 /// The sanitized status of the daemon for one installation.
@@ -824,11 +831,18 @@ mod tests {
     }
 
     #[test]
-    fn the_status_of_the_daemon_carries_the_records_of_its_installation() {
+    fn the_health_status_carries_no_audit_record() {
         let (state, own, _other) = state_with_two_installations();
         state.writes.record_audit(&own, audit_record("plan_own"));
 
+        // The health endpoint is not authenticated, so it carries no record
+        // of the trail.
         let status = status(&state);
+        assert!(status.write_audit.is_empty());
+
+        // The in-process view of the daemon carries the records of its own
+        // installation.
+        let status = status_for(&state, &state.owner_key());
         assert_eq!(status.write_audit.len(), 1);
         assert_eq!(status.write_audit[0].plan_id, "plan_own");
     }

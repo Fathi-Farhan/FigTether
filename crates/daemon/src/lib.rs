@@ -289,8 +289,11 @@ impl DaemonHandle {
     }
 
     /// The sanitized status of the daemon.
+    ///
+    /// The status carries the audit records of the sessions of the
+    /// installation of the daemon.
     pub fn status(&self) -> DaemonStatus {
-        control::status(&self.state)
+        control::status_for(&self.state, &self.state.owner_key())
     }
 
     /// Ask the daemon to stop gracefully.

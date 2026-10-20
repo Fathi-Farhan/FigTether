@@ -13,8 +13,8 @@
 //!   document;
 //! - the approval tokens, which are bound to the plan hash, the session, the
 //!   grant epoch, and the approval id;
-//! - the audit trail of the applied plans, which carries counts and hashes
-//!   only and never design content.
+//! - the audit trail of the applied plans, which carries the session, the
+//!   counts, and the hashes, and never design content.
 //!
 //! The daemon never mutates the document itself. It forwards plans, it
 //! refuses the plans it does not trust, and it records what happened.
