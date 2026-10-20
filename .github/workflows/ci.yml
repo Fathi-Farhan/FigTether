@@ -41,9 +41,11 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - name: Install Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1
         with:
           components: rustfmt
           cache: true
@@ -58,9 +60,11 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - name: Install Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1
         with:
           components: clippy
           cache: true
@@ -75,9 +79,11 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - name: Install Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1
         with:
           cache: true
       - name: cargo test --workspace
@@ -91,9 +97,11 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - name: Install Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1
         with:
           cache: true
       - name: Check the committed schemas against the generated ones
@@ -107,7 +115,9 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       # The plugin workspace does not exist yet. The detection runs as a step
       # so the job stays out of the way until plugins/figma/package.json lands
       # and then runs the full loop.
@@ -123,9 +133,9 @@ jobs:
           fi
       - name: Install Node.js
         if: steps.plugin.outputs.present == 'true'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: lts/*
+          node-version: "22"
       - name: Verify the plugin lockfile
         if: steps.plugin.outputs.present == 'true'
         run: test -f plugins/figma/package-lock.json
@@ -135,11 +145,11 @@ jobs:
         working-directory: plugins/figma
       - name: Typecheck
         if: steps.plugin.outputs.present == 'true'
-        run: npm run typecheck
+        run: npm run build:types && npm run typecheck
         working-directory: plugins/figma
       - name: Lint
         if: steps.plugin.outputs.present == 'true'
-        run: npm run lint
+        run: npm run lint:all
         working-directory: plugins/figma
       - name: Build
         if: steps.plugin.outputs.present == 'true'
@@ -158,17 +168,21 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-      - name: Install Node.js
-        uses: actions/setup-node@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          node-version: lts/*
+          persist-credentials: false
+      - name: Install Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
           cache: npm
           cache-dependency-path: package-lock.json
       - name: Install documentation tooling
         run: npm ci
       - name: Prettier check
         run: npm run format:check
+      - name: Public documentation, links, and generated visuals
+        run: npm run public:test && npm run public:check
       - name: Em dash scan
         run: sh scripts/scan-em-dash.sh
 
@@ -180,13 +194,15 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - name: Install Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1
         with:
           cache: true
       - name: Install the audit tools
-        uses: taiki-e/install-action@v2
+        uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2
         with:
           tool: cargo-deny@0.20.2,cargo-audit@0.22.2
       - name: cargo deny check
@@ -194,15 +210,17 @@ jobs:
       - name: cargo audit
         run: cargo audit
       - name: Install Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: lts/*
+          node-version: "22"
           cache: npm
           cache-dependency-path: package-lock.json
       - name: Install documentation tooling
         run: npm ci
       - name: Frontend lockfile audit
         run: npm audit --audit-level=high
+      - name: Plugin dependency audit (including dev tooling)
+        run: npm --prefix plugins/figma audit --audit-level=high
 
   sbom:
     name: sbom
@@ -212,13 +230,15 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - name: Install Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1
         with:
           cache: true
       - name: Install cargo-cyclonedx
-        uses: taiki-e/install-action@v2
+        uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2
         with:
           tool: cargo-cyclonedx@0.5.9
       - name: Generate the CycloneDX SBOM
@@ -228,7 +248,7 @@ jobs:
           find crates -name '*.cdx.json' -exec cp {} artifacts/sbom/ \;
           ls -l artifacts/sbom
       - name: Upload the SBOM
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: sbom-cyclonedx
           path: artifacts/sbom/
@@ -243,13 +263,15 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - name: Install Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1
         with:
           cache: true
       - name: Install cargo-deny
-        uses: taiki-e/install-action@v2
+        uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2
         with:
           tool: cargo-deny@0.20.2
       - name: Verify the license files
@@ -274,3 +296,18 @@ jobs:
             echo "the workspace license expression drifted from MIT OR Apache-2.0" >&2
             exit 1
           fi
+
+  secret-scan:
+    name: secret scan (history)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout all history
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install pinned Gitleaks
+        run: go install github.com/zricethezav/gitleaks/v8@v8.24.3
+      - name: Scan reachable history without printing credentials
+        run: '"$(go env GOPATH)/bin/gitleaks" git --log-opts="--all" --config .gitleaks.toml --redact --no-banner .'

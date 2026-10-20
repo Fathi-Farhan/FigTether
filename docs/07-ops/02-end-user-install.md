@@ -2,6 +2,10 @@
 
 Status: `Proposed`
 
+> **Planned distribution guide.** There are no public binaries or Community plugin releases yet.
+> For commands that work with the current source checkout, use the [quickstart](../quickstart.md).
+> Archive names and release instructions below describe a future distribution, not a download available today.
+
 This document is the end-user quickstart for FigTether v0.1, following PRD section 5.1 step by
 step, then the post-install controls, an error cheat sheet, upgrade and rollback pointers, and the
 privacy wording. Gate `G0` has not run, so the `figtether` commands below are the **proposed CLI

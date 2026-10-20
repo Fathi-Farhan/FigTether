@@ -202,12 +202,12 @@ unavailable capability is answered with `CAPABILITY_UNAVAILABLE`.
 
 - **Transforms.** The Figma transform is a 2x3 matrix. The wire format carries four numbers, so
   the plugin sends the linear part `[a, b, c, d]` and the translation travels in the bounding box.
-  The rotation has its own field.
+   The rotation has its own field. Review this convention before using it as a CSS transform.
 - **Sizing.** The Plugin API exposes `FIXED` and `AUTO` per axis, not `HUG` and `FILL`. The
   plugin reports `HUG` when one of the axes is automatic and `FIXED` otherwise. It never claims
   `FILL`, because that depends on the parent and cannot be proven from the node.
 - **Automatic line height.** The API does not expose the value of an automatic line height. The
-  plugin reports 1.2 times the font size, which is the editor default for single spacing.
+   plugin currently uses 1.2 times the font size as a heuristic. It is not an observed line-height value.
 - **Font weight.** The API exposes the style name, never a numeric weight. The plugin maps the
   well known style names to a weight and uses 400 for a name it does not know.
 - **Font availability.** The plugin compares the runs of a text node with the font list of the

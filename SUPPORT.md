@@ -1,75 +1,42 @@
-# Support
+# Getting help
 
-Status: `Proposed`. The support channels below are the intended ones for the project.
+FigTether is experimental. For installation and the known limits, start with the
+[quickstart](docs/quickstart.md). For suspected vulnerabilities, use [SECURITY.md](SECURITY.md),
+not a public issue.
 
-FigTether is a local tool. Most problems are local problems: a permission the editor denied, a
-plugin that is not running, a daemon that cannot bind its port, a seat that does not support
-the capability you need. The issue template is built around that.
+## Before opening an issue
 
-## Where to ask
+Run `figtether status` and `figtether doctor --manifest plugins/figma/manifest.local.json`.
+The doctor can fail before the daemon is started or a session is paired; include which step you
+reached, not just its exit code.
 
-| Topic                                | Channel                               |
-| ------------------------------------ | ------------------------------------- |
-| A defect or a crash                  | The bug report issue template         |
-| A missing capability                 | The feature request issue template    |
-| A question about how to use the tool | The question issue template           |
-| A possible vulnerability             | `SECURITY.md`, never a public issue   |
-| A change to a published contract     | An ADR in `docs/02-architecture/adr/` |
+Use the repository's bug-report, question, or capability-request form. Include:
 
-Before opening an issue, run `figtether doctor`. The output is sanitized and it already
-answers most configuration questions: versions, runtime directory, bound port, manifest state,
-pairing state, and detected capabilities.
+- FigTether commit or version, OS, and architecture;
+- Figma Desktop build if the issue involves the plugin;
+- steps on a synthetic design or [public fixture](fixtures/README.md);
+- expected behavior, actual behavior, and the error code;
+- relevant diagnostic lines, after reviewing them for private content.
 
-## What to put in a report
+Do not attach designs, screenshots of client work, exported node data, pairing secrets, tokens,
+or `daemon.json`. Redact your username, file paths, and document names from diagnostics. If you
+cannot reproduce without private data, describe the structure rather than uploading the file.
 
-Every report carries these fields. The template asks for them so that a report can be
-triaged without a back and forth.
+## Common cases
 
-| Field                        | Why it matters                                                                                                                                                                                                   |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| FigTether version            | The version or commit the behavior belongs to. Use the version that `figtether doctor` prints, not the one you think you have.                                                                                   |
-| Operating system and version | The support matrix is per operating system and per architecture. Windows 11 and Windows 10 behave differently around the runtime directory permissions.                                                          |
-| CPU architecture             | `x86_64` and `arm64` are separate builds.                                                                                                                                                                        |
-| Figma Desktop version        | The editor version decides which capabilities exist. Report the build number, not only the marketing version.                                                                                                    |
-| Capability report            | The sanitized capability output of the session. It names the capabilities and their state, and never contains design content. It is the fastest way to show that a capability is unavailable rather than broken. |
-| Error id                     | The stable error code, for example `PLUGIN_OFFLINE`, `OUT_OF_SCOPE`, or `CAPABILITY_UNAVAILABLE`, plus the correlation id from the diagnostic output.                                                            |
-| Public fixture               | The fixture from `fixtures/`, or a synthetic fixture you created for the report, with the steps to reproduce it.                                                                                                 |
-| What you expected            | The expected behavior.                                                                                                                                                                                           |
-| What happened                | The observed behavior, with the exact error text.                                                                                                                                                                |
-| Logs                         | The sanitized diagnostic output, with the design content removed.                                                                                                                                                |
+| Error                            | Recovery                                                                       |
+| -------------------------------- | ------------------------------------------------------------------------------ |
+| `PLUGIN_OFFLINE`                 | Open Figma and restart/pair the plugin. No snapshot fallback is implied.       |
+| `AUTH_REQUIRED` / `AUTH_EXPIRED` | Generate a new secret locally with `figtether pair`.                           |
+| `OUT_OF_SCOPE`                   | Traverse from a granted root, or change the grant in the plugin.               |
+| `BUSY`                           | Wait for the suggested retry delay and reduce concurrent requests.             |
+| `CAPABILITY_UNAVAILABLE`         | Check whether the workflow is implemented; some advertised tools are reserved. |
+| Port collision                   | Stop the conflicting local process. The UI currently uses port 38947.          |
 
-## What never goes into a report
+## Support status
 
-- Private designs, screenshots of private designs, exported node data, or file contents.
-- Tokens, pairing secrets, session credentials, or the contents of the runtime directory.
-- Personal data of anyone else.
+Windows and macOS are intended desktop targets, not a verified support matrix. Linux runs the
+core/tests only. Reports from real-editor sessions are welcome; please distinguish an automated
+mock test from a desktop result. There is no guaranteed support response time.
 
-If a defect cannot be shown without a real design, build a synthetic fixture that reproduces
-the shape of the problem. A maintainer can help with that: open a public issue with the
-sanitized details and ask for help in building a fixture. Never attach a private design to a
-public issue to make a report easier to understand, and never ask a maintainer for one either.
-
-The same rule applies to the maintainers: a report never needs a private design, and the
-project never asks for one.
-
-## Support matrix
-
-The support matrix lists the operating systems, the architecture, and the last tested Figma
-Desktop version with the date of the test. It is published with the release notes and it
-reflects real desktop tests only. A platform that has not been tested is listed as untested,
-not as supported.
-
-## Response expectation
-
-- A well formed report with the fields above is triaged without a clarification round.
-- A report that is missing the capability report or the error id is asked for once, with the
-  exact command to produce it.
-- A defect that blocks a release is treated as a release blocker, following the incident
-  procedure in `docs/07-ops/03-runbook.md`.
-- A security report never goes through this path. Use `SECURITY.md`.
-
-## Contributing
-
-If you want to fix the problem yourself, `CONTRIBUTING.md` describes the process, the ADR rule
-for contract changes, the traceability requirement, and the evidence rules. A small pull
-request with a regression test is the fastest route to a fix.
+To work on a fix, see [CONTRIBUTING.md](CONTRIBUTING.md).

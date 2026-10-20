@@ -19,18 +19,18 @@ the same machine, a web page that a browser loads, and a foreign MCP client are 
 callers. The threat model turns that trust model into rows, and this assessment is the adversarial
 check of the rows that the loopback surface carries.
 
-| What is validated | Where it is written down |
-| ------------------ | ------------------------ |
-| `TH01`, `TH02` spoofing of the bridge through a foreign `Host` or `Origin` header, and the reach of the bridge from a web page | `docs/05-security/01-threat-model.md` section 4, section 7 |
-| `TH03`, `TH04` the credential lifecycle of the pairing secret and of the installation credential | `docs/05-security/01-threat-model.md` section 2, assets `AS2` and `AS3` |
-| `TH05`, `TH10` the isolation of two sessions that use identical node ids | `docs/05-security/01-threat-model.md` section 4 |
-| `TH06` the resource contract of the daemon under pressure | `docs/05-security/01-threat-model.md` section 4 |
-| `TH11` the epoch rules that keep a stale answer from being served | `docs/05-security/01-threat-model.md` section 4 |
-| `TH13` the sanitized diagnostics | `docs/05-security/01-threat-model.md` section 4 |
-| `AT06` wrong, expired, and replayed secrets, and a wrong `Host` or `Origin` | `docs/06-testing/02-acceptance-catalog.md` |
-| `AT13` the parsers and the path resolution under extreme input | `docs/06-testing/02-acceptance-catalog.md` |
-| `AT17` the freshness of the membership check while a scope moves | `docs/06-testing/02-acceptance-catalog.md` |
-| The requirements behind the rows: `FR02`, `FR03`, `FR04`, `FR07`, `FR13`, `FR14`, `FR16`, `FR18`, `FR19` | `FGT-PRD-001` sections 8.5.4, 8.5.5, 8.6.1, 8.7 |
+| What is validated                                                                                                              | Where it is written down                                                |
+| ------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------- |
+| `TH01`, `TH02` spoofing of the bridge through a foreign `Host` or `Origin` header, and the reach of the bridge from a web page | `docs/05-security/01-threat-model.md` section 4, section 7              |
+| `TH03`, `TH04` the credential lifecycle of the pairing secret and of the installation credential                               | `docs/05-security/01-threat-model.md` section 2, assets `AS2` and `AS3` |
+| `TH05`, `TH10` the isolation of two sessions that use identical node ids                                                       | `docs/05-security/01-threat-model.md` section 4                         |
+| `TH06` the resource contract of the daemon under pressure                                                                      | `docs/05-security/01-threat-model.md` section 4                         |
+| `TH11` the epoch rules that keep a stale answer from being served                                                              | `docs/05-security/01-threat-model.md` section 4                         |
+| `TH13` the sanitized diagnostics                                                                                               | `docs/05-security/01-threat-model.md` section 4                         |
+| `AT06` wrong, expired, and replayed secrets, and a wrong `Host` or `Origin`                                                    | `docs/06-testing/02-acceptance-catalog.md`                              |
+| `AT13` the parsers and the path resolution under extreme input                                                                 | `docs/06-testing/02-acceptance-catalog.md`                              |
+| `AT17` the freshness of the membership check while a scope moves                                                               | `docs/06-testing/02-acceptance-catalog.md`                              |
+| The requirements behind the rows: `FR02`, `FR03`, `FR04`, `FR07`, `FR13`, `FR14`, `FR16`, `FR18`, `FR19`                       | `FGT-PRD-001` sections 8.5.4, 8.5.5, 8.6.1, 8.7                         |
 
 The assessment answers one question for every row: does the daemon still behave the way the threat
 model says it behaves, when a tool that was not written by the maintainer drives it?
@@ -89,27 +89,27 @@ front of the host.
 
 ## 3. Files of this assessment
 
-| Path | Purpose |
-| ---- | ------- |
-| `security/pentagi/README.md` | This runbook |
-| `security/pentagi/.env.example` | The environment of the PentAGI instance, with the safe defaults |
-| `security/pentagi/docker-compose.override.yml` | The override that applies the safe defaults to the upstream compose file |
-| `security/pentagi/flows/` | One flow prompt per threat class |
-| `scripts/pentagi/start-target.sh`, `scripts/pentagi/start-target.ps1` | Start the daemon as the assessment target |
-| `scripts/pentagi/run-assessment.sh`, `scripts/pentagi/run-assessment.ps1` | Create one flow per prompt and write the identifiers into a JSON summary |
-| `scripts/pentagi/collect-evidence.sh`, `scripts/pentagi/collect-evidence.ps1` | Collect the flow reports and the daemon log into an evidence directory |
-| `security/pentagi/evidence/` | The evidence of a run. Ignored by git, because it is local agent output |
+| Path                                                                          | Purpose                                                                  |
+| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `security/pentagi/README.md`                                                  | This runbook                                                             |
+| `security/pentagi/.env.example`                                               | The environment of the PentAGI instance, with the safe defaults          |
+| `security/pentagi/docker-compose.override.yml`                                | The override that applies the safe defaults to the upstream compose file |
+| `security/pentagi/flows/`                                                     | One flow prompt per threat class                                         |
+| `scripts/pentagi/start-target.sh`, `scripts/pentagi/start-target.ps1`         | Start the daemon as the assessment target                                |
+| `scripts/pentagi/run-assessment.sh`, `scripts/pentagi/run-assessment.ps1`     | Create one flow per prompt and write the identifiers into a JSON summary |
+| `scripts/pentagi/collect-evidence.sh`, `scripts/pentagi/collect-evidence.ps1` | Collect the flow reports and the daemon log into an evidence directory   |
+| `security/pentagi/evidence/`                                                  | The evidence of a run. Ignored by git, because it is local agent output  |
 
 ## 4. Prerequisites
 
-| Requirement | Detail |
-| ----------- | ------ |
-| Docker and Docker Compose | The upstream requirements are Docker with Compose, at least 2 vCPU, 4 GB of memory, 20 GB of free disk, and internet access for the images |
-| An LLM provider | At least one of OpenAI, Anthropic, Gemini, Bedrock, Ollama, DeepSeek, GLM, Kimi, Qwen, MiniMax, Mistral, xAI, or any OpenAI compatible endpoint. The provider name is the one that is submitted with the `createFlow` mutation |
-| An API token | Created in the web console under Settings, PentAGI API. It is shown only once. The scripts read it from the environment and never print it |
-| The FigTether binary | `cargo build --release` in the repository root. The scripts find it in `target/release`, in `target/debug`, in `CARGO_TARGET_DIR`, or on `PATH` |
-| `curl` | The shell scripts use `curl` for every call to the API and for the health check |
-| An isolated host | The assessment runs an autonomous agent with security tools on the machine. Use a machine that holds no real design data, no production daemon, and no account that matters |
+| Requirement               | Detail                                                                                                                                                                                                                         |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Docker and Docker Compose | The upstream requirements are Docker with Compose, at least 2 vCPU, 4 GB of memory, 20 GB of free disk, and internet access for the images                                                                                     |
+| An LLM provider           | At least one of OpenAI, Anthropic, Gemini, Bedrock, Ollama, DeepSeek, GLM, Kimi, Qwen, MiniMax, Mistral, xAI, or any OpenAI compatible endpoint. The provider name is the one that is submitted with the `createFlow` mutation |
+| An API token              | Created in the web console under Settings, PentAGI API. It is shown only once. The scripts read it from the environment and never print it                                                                                     |
+| The FigTether binary      | `cargo build --release` in the repository root. The scripts find it in `target/release`, in `target/debug`, in `CARGO_TARGET_DIR`, or on `PATH`                                                                                |
+| `curl`                    | The shell scripts use `curl` for every call to the API and for the health check                                                                                                                                                |
+| An isolated host          | The assessment runs an autonomous agent with security tools on the machine. Use a machine that holds no real design data, no production daemon, and no account that matters                                                    |
 
 ## 5. The step by step run
 
@@ -130,6 +130,7 @@ front of the host.
    The override only sets environment variables. It does not touch the port lists, because Compose
    appends port lists instead of replacing them. The listen addresses are pinned through the `.env`
    file of the instance.
+
 4. Open the console on <https://localhost:8443>, sign in with `admin@pentagi.com` and `admin`, and
    change the default password before anything else happens.
 5. Create an API token under Settings, PentAGI API. Copy it into the environment of the shell that
@@ -236,10 +237,10 @@ disk and can be removed by hand.
 
 ### 5.6 The scripts and their parameters
 
-| Script | Parameters | Default |
-| ------ | ---------- | ------- |
-| `start-target.sh`, `start-target.ps1` | `--port`, `--runtime-dir`, `--binary`, `--timeout` | port `39047`, runtime directory `tmp/pentagi-assessment/runtime`, timeout `30` seconds |
-| `run-assessment.sh`, `run-assessment.ps1` | `--base-url`, `--token`, `--provider`, `--flow-dir`, `--out`, `--timeout`, `--insecure` | provider `openai`, flow directory `security/pentagi/flows`, summary `tmp/pentagi-assessment/flows.json`, timeout `60` seconds |
+| Script                                        | Parameters                                                                                       | Default                                                                                                                                              |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `start-target.sh`, `start-target.ps1`         | `--port`, `--runtime-dir`, `--binary`, `--timeout`                                               | port `39047`, runtime directory `tmp/pentagi-assessment/runtime`, timeout `30` seconds                                                               |
+| `run-assessment.sh`, `run-assessment.ps1`     | `--base-url`, `--token`, `--provider`, `--flow-dir`, `--out`, `--timeout`, `--insecure`          | provider `openai`, flow directory `security/pentagi/flows`, summary `tmp/pentagi-assessment/flows.json`, timeout `60` seconds                        |
 | `collect-evidence.sh`, `collect-evidence.ps1` | `--base-url`, `--token`, `--flows-file`, `--runtime-dir`, `--out-dir`, `--timeout`, `--insecure` | flow summary `tmp/pentagi-assessment/flows.json`, runtime directory `tmp/pentagi-assessment/runtime`, evidence directory `security/pentagi/evidence` |
 
 The shell twins take the long option names, the PowerShell twins take the same names as parameters,
@@ -263,14 +264,14 @@ is not in the trust store of the machine.
 
 ## 6. The flows
 
-| Flow | Threat class | Rows | Test |
-| ---- | ------------ | ---- | ---- |
-| `01-foreign-web-page-reaches-the-loopback-daemon.md` | A foreign web page reaches the loopback daemon | `TH01`, `TH02` | Forged `Host`, forged `Origin`, `Origin: null`, the WebSocket upgrade, and the reasoning about DNS rebinding |
-| `02-control-endpoints-reachable-from-a-browser.md` | The control endpoints are reachable from a browser | `TH01`, `TH03` | A pairing secret and a shutdown driven with browser headers |
-| `03-credential-replay-and-channel-confusion.md` | Credential replay and credential confusion between the two channels | `TH03`, `TH04`, `TH11` | A replayed pairing secret, a secret on the client channel, an installation credential on the plugin channel, and the epoch rules |
-| `04-cross-session-scope-escape.md` | Scope escape between two sessions | `TH05`, `TH10`, `TH11` | Two sessions with identical node ids, a frame that carries a foreign identity, a moved scope, and the session limit |
-| `05-editor-slot-denial-of-service.md` | Resource exhaustion and the single editor operation slot | `TH06`, `TH11` | Silent connections, a growing table of pending secrets, oversized and malformed frames, and the queue limits |
-| `06-health-and-status-information-disclosure.md` | Information disclosure through the health and status surfaces | `TH03`, `TH13` | The field list of the status, the paths that walk out of the route, and the counters |
+| Flow                                                 | Threat class                                                        | Rows                   | Test                                                                                                                             |
+| ---------------------------------------------------- | ------------------------------------------------------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `01-foreign-web-page-reaches-the-loopback-daemon.md` | A foreign web page reaches the loopback daemon                      | `TH01`, `TH02`         | Forged `Host`, forged `Origin`, `Origin: null`, the WebSocket upgrade, and the reasoning about DNS rebinding                     |
+| `02-control-endpoints-reachable-from-a-browser.md`   | The control endpoints are reachable from a browser                  | `TH01`, `TH03`         | A pairing secret and a shutdown driven with browser headers                                                                      |
+| `03-credential-replay-and-channel-confusion.md`      | Credential replay and credential confusion between the two channels | `TH03`, `TH04`, `TH11` | A replayed pairing secret, a secret on the client channel, an installation credential on the plugin channel, and the epoch rules |
+| `04-cross-session-scope-escape.md`                   | Scope escape between two sessions                                   | `TH05`, `TH10`, `TH11` | Two sessions with identical node ids, a frame that carries a foreign identity, a moved scope, and the session limit              |
+| `05-editor-slot-denial-of-service.md`                | Resource exhaustion and the single editor operation slot            | `TH06`, `TH11`         | Silent connections, a growing table of pending secrets, oversized and malformed frames, and the queue limits                     |
+| `06-health-and-status-information-disclosure.md`     | Information disclosure through the health and status surfaces       | `TH03`, `TH13`         | The field list of the status, the paths that walk out of the route, and the counters                                             |
 
 Every prompt carries the same rules, and the rules are part of the assessment:
 
@@ -293,10 +294,10 @@ that is submitted to the API.
 
 Every flow produces a report. The evidence collector stores two files per flow:
 
-| File | Content |
-| ---- | ------- |
-| `flow-<id>.md` | The readable report: the flow header, then every task with its input and its result, and every subtask with its description and its result |
-| `flow-<id>.json` | The raw API payload of the same flow. Use it when a line of the report looks cut off |
+| File             | Content                                                                                                                                    |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `flow-<id>.md`   | The readable report: the flow header, then every task with its input and its result, and every subtask with its description and its result |
+| `flow-<id>.json` | The raw API payload of the same flow. Use it when a line of the report looks cut off                                                       |
 
 The manifest of the run, `manifest.md` and `manifest.json`, names the collected files with their
 size and their SHA-256 digest, and it carries the review statement:

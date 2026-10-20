@@ -1,76 +1,64 @@
-# FigTether Documentation
+# Documentation
 
-This folder is the complete engineering documentation set for FigTether v0.1 and beyond, produced
-from `FigTether_PRD_Confluence_v1.1` (`FGT-PRD-001`). It is written **before implementation**, under
-an Agile SDLC whose increments are the PRD gates `G0` (feasibility) through `G4` (v0.3+).
+## Start here
 
-## Reading order
+| I want to...                           | Read                                                                                                        |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Try the experimental bridge            | [Quickstart](quickstart.md)                                                                                 |
+| Build, test, or send a patch           | [Contributing](../CONTRIBUTING.md)                                                                          |
+| Understand the process boundaries      | [Architecture diagram](../assets/architecture.svg) and [system design](02-architecture/01-system-design.md) |
+| Check what is implemented              | [Implementation status](10-implementation/01-implementation-status.md)                                      |
+| Reproduce the README chart             | [Published diagnostic data](../benchmarks/published/README.md)                                              |
+| Report a bug or vulnerability          | [Support](../SUPPORT.md) / [security policy](../SECURITY.md)                                                |
+| Prepare the repository for publication | [Publication checklist](maintainers/publication.md)                                                         |
 
-1. `00-overview/01-prd-analysis.md` - what the product is, what the PRD promises, where it is
-   ambiguous, and which interpretations this doc set commits to.
-2. `01-agile/01-sdlc-process.md` - how the work is organized (sprints, gates, DoR/DoD, CI).
-3. `02-architecture/01-system-design.md` - the system, then detailed sub-designs and ADRs.
-4. `03-uml/` - the same architecture expressed as UML (use case, class, sequence, state, activity,
-   deployment).
-5. `04-data-contracts/` - frozen-after-G0 surface: tools, envelopes, bridge frames, errors, limits.
-6. `05-security/` - threat model and privacy rules that block release.
-7. `06-testing/` - how every `FR*` becomes observable evidence (`AT*`), plus benchmarks `N01..N10`.
-8. `07-ops/` - setup for developers and end users, runbook, release process.
-9. `08-harness2/` - how FigTether plugs into an agent harness and how the Harness² methodology
-   (Google Research) is used to keep improving that harness.
-10. `10-implementation/` - what the code implements, which invariants are enforced, and the
-    open gaps between the running system and the PRD.
-11. `99-appendices/` - glossary, source register, approval record.
+## Design reference
 
-## Folder index
+These documents preserve the original requirements and design decisions. Much of the material
+was written before implementation and remains **proposed**, not a list of working features.
+In particular, snapshot storage, watch/resync, offline bundles, asset-resource delivery, and
+desktop compatibility are not proven by the diagrams or acceptance catalog.
 
-| Folder               | Focus                                                  | Primary audience                  |
-| -------------------- | ------------------------------------------------------ | --------------------------------- |
-| `00-overview/`       | PRD analysis, landscape, personas                      | Product maintainer, all engineers |
-| `01-agile/`          | SDLC Agile: sprints, backlog, roadmap, risks           | Project lead, eng, QA             |
-| `02-architecture/`   | System design, containers, ADRs                        | Rust/plugin engineers, reviewers  |
-| `03-uml/`            | UML diagrams (Mermaid source)                          | Engineers, reviewers              |
-| `04-data-contracts/` | Wire and product contracts                             | Rust + TypeScript engineers       |
-| `05-security/`       | Threat model, access control, privacy                  | Security reviewer, core owner     |
-| `06-testing/`        | Strategy, acceptance tests, traceability, benchmarks   | QA, eng, product                  |
-| `07-ops/`            | Environments, installs, runbook, releases              | Maintainers, support, users       |
-| `08-harness2/`       | Agent harness design + Harness² evaluation             | Maintainers, product, evaluation  |
-| `10-implementation/` | Code to design mapping, enforced invariants, open gaps | Engineers, reviewers, product     |
-| `99-appendices/`     | Glossary, sources, approvals                           | Everyone                          |
+| Area                                                                  | Contents                                                                                    |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| [Overview](00-overview/01-prd-analysis.md)                            | Product goals, scope, assumptions, alternatives                                             |
+| [Agile delivery](01-agile/01-sdlc-process.md)                         | Backlog, relative roadmap, risks, review gates                                              |
+| [Architecture](02-architecture/01-system-design.md)                   | Rust/TypeScript boundaries, transport, state machines                                       |
+| [Decisions](02-architecture/adr/ADR-000-template.md)                  | ADRs and the template for changing a contract                                               |
+| [UML](03-uml/01-use-case-diagrams.md)                                 | Use cases, classes, sequences, states, deployment                                           |
+| [Contracts](04-data-contracts/01-mcp-envelope.md)                     | Envelope, tool surface, wire protocol, normalized model, budgets                            |
+| [Security](05-security/01-threat-model.md)                            | Threat model, access control, privacy, [PentAGI plan](05-security/04-pentagi-validation.md) |
+| [Testing](06-testing/01-test-strategy.md)                             | Acceptance catalog, traceability, benchmark protocol                                        |
+| [Operations](07-ops/03-runbook.md)                                    | Diagnostics, recovery, planned release process                                              |
+| [Harness² research](08-harness2/01-harness2-overview.md)              | Optional evaluation design; not an installed product feature                                |
+| [Implementation notes](10-implementation/01-implementation-status.md) | Code map, limitations, integration history                                                  |
+| [Reference](99-appendices/01-glossary.md)                             | Glossary, sources, review record                                                            |
 
-Note: the PRD sketches a future repository layout `docs/{adr,runbooks,release-evidence}` alongside
-`crates/` and `plugins/`. Those paths will be created at implementation time; they mirror content
-from `docs/02-architecture/adr/`, `docs/07-ops/03-runbook.md`, and
-`docs/07-ops/04-release-process.md` respectively.
+The source PRD is identified as `FGT-PRD-001`, version 1.1. It is not shipped as an external
+Word document or a path into a maintainer's workspace. Relevant requirements are preserved here;
+a contributor should not need that external file to build or test a change.
 
-## Conventions
+## Reading the status labels
 
-- **Language.** English with PRD vocabulary preserved. Key Indonesian-source terms (grant, root,
-  scope, epoch) keep their PRD meaning.
-- **IDs.** `G0..G4` gates, `E01..E10` epics, `FR01..FR24` functional requirements, `N01..N10` NFR
-  targets, `AT01..AT20` acceptance tests, `P01..P14` problem evidence, `R01..R14` risks, `D01..D12`
-  PRD decisions. IDs are stable and must not be reassigned. Documents may mint doc-local ID
-  families with a scoped prefix, for example `FX-*` fixtures, `US-*` backlog stories, `CI-*` CI
-  gates, `L1..L10` test layers, `W1..W5` benchmark profiles, `UC-*` use cases, `TH-*` threats,
-  `SK-*` and `PR-*` harness playbooks and policies; doc-local IDs never collide with PRD families
-  and live only inside their owning file.
-- **Formatting.** Prettier (`npm run format`). No em dashes anywhere. Headings use `##` numbered
-  folders; document titles use `#`.
-- **Diagram format.** Mermaid blocks. Each diagram has a caption and a one-line "Read as" summary.
-- **Status labels.** `Proposed` / `Approved` / `Implemented-in-PRD-only` are tracked per document in
-  the approval record (`99-appendices/03-approval-record.md`).
+- **Proposed** means a design or process is awaiting review. It is not implementation evidence.
+- **Accepted** in an ADR records a design decision, not a release certification.
+- **G0** is the feasibility/editor-validation gate; it is still open. Later release gates are
+  plans, not announced dates.
+- `FR*`, `N*`, and `AT*` are stable requirement, target, and acceptance-test identifiers. Keep
+  them when editing design references; don't require them in every ordinary bug report.
 
-## Change management
+Wire behavior comes from the Rust types, [generated schemas](../schemas/README.md), shared
+TypeScript contracts, and tests. If a design document disagrees with code, record the discrepancy
+and resolve it explicitly. Don't silently turn a desired property into a claim about this build.
 
-1. Contract-affecting change: open an ADR first (`02-architecture/adr/`), get sign-off from the
-   owning role, then update contracts and the traceability matrix in the same PR.
-2. Spec-affecting change: update the PRD source document, then propagate here; never let this doc
-   set contradict the PRD silently.
-3. Docs-only change: direct PR, CI runs `npm run format:check`.
+## Editing
 
-## What is deliberately missing
+Use relative links, concrete commands, and a clear statement of what's untested. Put longer
+design discussions here, not in the root README. Run `npm run format` and `npm run public:check`
+after changes. Mermaid source stays in Markdown; README SVGs are generated with
+`node scripts/render-readme-assets.mjs`.
 
-- Benchmark results: every performance number is a target until measured (`N01..N10`, PRD section
-  2.1). Reports land in `07-ops/04-release-process.md` evidence slots per gate.
-- Version pins for the MCP Rust SDK (`D08`), transport choice (`D06`), and variable API coverage
-  (`D09`): documented as open ADR criteria, resolved only by G0 evidence.
+Keep `docs/` tracked. It contains reviewable design history and helps contributors understand
+security boundaries. Local notes containing customer data, raw logs, and private incident reports
+belong outside it. The [publication policy](maintainers/publication.md#what-belongs-in-git)
+lists what to keep and what to ignore.

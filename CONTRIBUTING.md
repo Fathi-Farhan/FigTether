@@ -1,149 +1,177 @@
 # Contributing to FigTether
 
-Thank you for helping to build FigTether. This guide describes how a change is proposed,
-reviewed, and merged. It is short on purpose: the rules below are the ones that protect the
-project's contracts, its evidence trail, and its users' data.
+Useful contributions include small bug fixes, protocol tests, clearer diagnostics, and reports
+from real Figma Desktop sessions. The bridge is experimental. Please use a synthetic design or
+one of the [public fixtures](fixtures/README.md), never a client's file.
 
-Status: `Proposed`. The project has not run Gate `G0` yet, so the process described here is
-the intended one and not a report of what has already happened.
+For a suspected vulnerability, use [SECURITY.md](SECURITY.md) instead of a public issue.
 
-## 1. Before you start
+## Set up a checkout
 
-1. Read `docs/01-agile/01-sdlc-process.md` for the process model and the CI gate list.
-2. Read `docs/02-architecture/adr/ADR-000-template.md` if your change touches a contract.
-3. Install the toolchain with `just bootstrap`, or with `sh scripts/bootstrap.sh` or
-   `pwsh -File scripts/bootstrap.ps1`. The tasks need Rust (pinned in `rust-toolchain.toml`),
-   Node.js LTS, and `just`. The audit, SBOM, and release tasks also need
-   `cargo install cargo-deny cargo-audit cargo-cyclonedx`.
-4. Make sure `just check` passes before you open a pull request.
+Install git, [rustup](https://rustup.rs/), and Node.js **22.14 or newer** with npm. On Windows,
+Rust's MSVC target also needs the Visual Studio C++ build tools. `just` is optional.
 
-## 2. ADR first for contract changes
+From the repository root:
 
-A contract change is any change to a published schema, an MCP tool signature, the bridge
-protocol, the error taxonomy, a resource limit, a grant rule, or a credential lifetime.
+```sh
+rustup show
+rustup component add rustfmt clippy
+npm ci
+npm --prefix plugins/figma ci
+cargo build --workspace --locked
+npm --prefix plugins/figma run build:types
+npm --prefix plugins/figma run build
+```
 
-Contract changes follow the ADR first rule:
+`rust-toolchain.toml` pins the tested compiler. The workspace declares Rust 1.88 as its intended
+minimum, but that minimum is not independently verified. Use the pinned toolchain for PRs.
+Keep `Cargo.lock` and the npm lockfiles committed; do not regenerate them just to fix formatting.
 
-1. Open an ADR in `docs/02-architecture/adr/` with the next free number and the
-   `ADR-000-template.md` structure.
-2. Get the sign-off of the owning role from the approval record in
-   `docs/99-appendices/03-approval-record.md`.
-3. Only then change the contract, and change the traceability matrix in the same change set.
+To run the desktop integration, follow the [quickstart](docs/quickstart.md). Keep a local
+manifest in `plugins/figma/manifest.local.json` so your plugin ID does not modify the shared example.
 
-The ADR records the problem, the options, the decision, the consequences, and the verification
-method. A pull request that changes a contract without an ADR is not ready for review.
+## Find the right component
 
-## 3. Traceability for every requirement
+| Path                   | Responsibility                                                    |
+| ---------------------- | ----------------------------------------------------------------- |
+| `crates/model`         | Response envelopes, normalized data, tool parameters, error codes |
+| `crates/protocol`      | Plugin bridge and local client wire contracts                     |
+| `crates/core`          | Session/grant rules, scope index, scheduler, cache, normalization |
+| `crates/assets`        | Asset-store facade                                                |
+| `crates/daemon`        | Loopback endpoints, authentication, request routing, cursors      |
+| `crates/mcp`           | MCP lifecycle, tool schemas, result/error mapping                 |
+| `crates/cli`           | Commands, configuration output, diagnostics, manifest generation  |
+| `crates/e2e`           | Simulated peers and shipped-daemon integration/adversarial tests  |
+| `crates/bench`         | Offline workloads and measurement reports                         |
+| `plugins/figma/main`   | Document reads through the Figma Plugin API                       |
+| `plugins/figma/ui`     | Pairing, controls, status, WebSocket relay                        |
+| `plugins/figma/shared` | Shared TypeScript contracts and encoding helpers                  |
 
-Every requirement you touch carries a row in `docs/06-testing/03-traceability-matrix.md` that
-links:
+The core must not call Figma REST or official MCP endpoints. The sandbox must not open network
+connections. Read handlers must not mutate nodes, selection, or the current page. Keep secrets
+out of tool arguments, logs, error messages, and fixtures.
 
-- the requirement id (`FRxx`, `Nxx`, `ATxx`, `Pxx`, or `Rxx`),
-- the acceptance test id that proves it,
-- the implementation location,
-- the evidence that the test ran.
+## Run the checks
 
-A new requirement without a traceability row, or a changed behavior without an updated
-acceptance test, is incomplete. If a requirement cannot be tested yet, say so in the pull
-request description and mark the row as pending with the reason.
+These commands work without a Figma account or an LLM API key:
 
-## 4. Evidence
+```sh
+cargo fmt --all --check
+cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo test --workspace --locked
+npm run format:check
+npm run public:check
+npm --prefix plugins/figma run build:types
+npm --prefix plugins/figma run typecheck
+npm --prefix plugins/figma run lint:all
+npm --prefix plugins/figma test
+npm --prefix plugins/figma run build
+```
 
-The project ships measured claims only. Unmeasured is unclaimed.
+For a focused Rust change, start with `cargo test -p figtether-core` or the affected crate.
+For a plugin change, use `npm --prefix plugins/figma test -- main` or `-- ui`.
 
-- Tests: attach the command and the outcome. `just test` and `just e2e` are the entry points.
-- Benchmarks: benchmarks are split by workload class. Cached reads, fresh reads, snapshot
-  reads, and asset exports are never averaged together. Attach the configuration, the raw
-  result file, and the summary. The procedure lives in
-  `docs/06-testing/04-benchmark-plan.md`.
-- Release evidence: the template of PRD Appendix C is printed by
-  `sh scripts/release-evidence.sh` or `pwsh -File scripts/release-evidence.ps1`. It records the
-  commit, the artifact hashes, the schema version, the environment, and the reviewer.
-- Never claim a performance number that was not measured on the exact commit under review.
+Existing `scripts/check.sh` and `scripts/check.ps1` cover the Rust and documentation checks;
+run the plugin checks separately. `just --list` shows optional task aliases. On Windows, the
+shell recipes require Git Bash; the PowerShell scripts are the alternative.
 
-## 5. Formatting and lint rules
+### Tests that exercise the real services
 
-| Area              | Rule                                                                 | Command                                                 |
-| ----------------- | -------------------------------------------------------------------- | ------------------------------------------------------- |
-| Rust              | `rustfmt` with the repository `rustfmt.toml`, no manual reformatting | `cargo fmt --all` and `cargo fmt --all --check`         |
-| Rust              | Clippy is clean with warnings denied                                 | `cargo clippy --workspace --all-targets -- -D warnings` |
-| Markdown and JSON | Prettier with the repository `.prettierrc.json`                      | `npm run format` and `npm run format:check`             |
-| TypeScript        | The plugin lint and typecheck rules of `plugins/figma/`              | `just plugin-typecheck` and `just plugin-lint`          |
+```sh
+cargo test -p figtether-e2e --test acceptance
+cargo test -p figtether-e2e --test adversarial
+```
 
-Prettier is configured with `printWidth: 100`, `proseWrap: preserve`, and `endOfLine: lf`. Run
-`npm run format` before pushing, and never hand edit a file that a formatter owns.
+Some acceptance scenarios use an in-process reference daemon to simulate faults; others exercise
+the shipped daemon and MCP adapter. Do not cite a reference-harness result as proof about the
+shipped service. The ignored real-editor scenario is a manual gate, not a passing test.
 
-## 6. The no em dash rule
+When reporting a desktop test, record OS/architecture, Figma build, commit, plugin manifest,
+fixture, steps, and outcome. Never remove a failing scenario just to make a support claim green.
 
-Do not use the em dash character anywhere in the repository: not in Markdown, not in Rust
-comments, not in a workflow file, not in a commit message. Use an ASCII hyphen, a colon, a
-comma, or a full stop instead. The same rule applies to en dashes.
+## Change a contract
 
-The rule is enforced in CI by `sh scripts/scan-em-dash.sh` or
-`pwsh -File scripts/scan-em-dash.ps1`. The reason is that the document set has to render the
-same way in Confluence, in a terminal, and in a PDF.
+A published schema, tool signature, bridge frame, grant rule, error code, resource budget, or
+credential lifetime is a contract. Discuss the change first, then add or amend an
+[architecture decision record](docs/02-architecture/adr/ADR-000-template.md).
 
-## 7. Pull request size
+1. Change the Rust types in `model` or `protocol`.
+2. Update their TypeScript counterparts in `plugins/figma/shared`; do not add a second copy in
+   `main` or `ui`.
+3. Update serialization and boundary tests, including a rejected-input case.
+4. Regenerate schemas and review the diff:
 
-Keep a pull request small enough to review in one sitting.
+   ```sh
+   cargo run --locked -p figtether-model --example export_schemas
+   ```
 
-- Target 400 changed lines or fewer per pull request, excluding generated files.
-- One concern per pull request: a fix, a feature, a refactor, and a formatting sweep do not
-  belong together.
-- Split anything larger into a stack of pull requests, each of which builds and passes CI on
-  its own. The first pull request in the stack may be a pure refactor with no behavior change.
-- Generated files (the files under `schemas/`) are committed with the change that produced
-  them, and their diff is reviewed for meaning, not for line count.
-- A pull request that only bumps a dependency is still a pull request: it needs the audit and
-  the license check to pass.
+5. Run `sh scripts/schema-check.sh` or `pwsh -File scripts/schema-check.ps1`.
+6. Update the relevant design document, compatibility notes, and
+   [traceability matrix](docs/06-testing/03-traceability-matrix.md).
 
-## 8. Commit and branch hygiene
+The schema exporter still includes checked mirrors for some types; it verifies them against the
+Rust source. If it rejects a change, update the mirror and its checks rather than bypassing them.
+Generated `schemas/*.json` are tracked but excluded from Prettier to keep regeneration byte-stable.
 
-- One topic per branch, named `feature/<short-topic>`, `fix/<short-topic>`, or
-  `chore/<short-topic>`.
-- Commit messages use the imperative mood and explain the why, not the what.
-- Do not commit build output, editor state, credentials, or client designs. The `.gitignore`
-  file already excludes the build directories; keep it that way.
-- Lockfiles are tracked on purpose. `Cargo.lock`, `package-lock.json`, and
-  `plugins/figma/package-lock.json` are part of the build contract and are reviewed like code.
+## Benchmarks and visuals
 
-## 9. Data handling
+Use [the benchmark guide](benchmarks/README.md). Cached reads, normalization, asset storage,
+editor rendering, and model inference are different measurements; do not combine their numbers.
+Commit, fixture hash, sample count, environment, build profile, and exclusions belong beside
+every published chart. One diagnostic run is not a release benchmark or a regression verdict.
 
-- Never attach a client design, a screenshot of a client design, a token, a pairing secret, or
-  a credential to an issue or a pull request.
-- Reproduce a problem with a public fixture from `fixtures/`, or with a synthetic fixture that
-  you create for the report.
-- Logs and diagnostics are sanitized by design. If you find a path that leaks design content
-  into a log, that is a security issue: report it privately as described in `SECURITY.md`.
+The README artwork is generated locally, with no image service:
 
-## 10. Local task reference
+```sh
+node scripts/render-readme-assets.mjs
+node scripts/render-readme-assets.mjs --check
+```
 
-| Task             | `just`                  | POSIX shell                                                        | PowerShell                                   |
-| ---------------- | ----------------------- | ------------------------------------------------------------------ | -------------------------------------------- |
-| Build            | `just build`            | `cargo build --workspace --release --locked`                       | `cargo build --workspace --release --locked` |
-| Test             | `just test`             | `cargo test --workspace --locked`                                  | `cargo test --workspace --locked`            |
-| Lint             | `just lint`             | `cargo clippy --workspace --all-targets -- -D warnings`            | same                                         |
-| Format           | `just fmt`              | `cargo fmt --all`                                                  | `cargo fmt --all`                            |
-| Format check     | `just fmt-check`        | `cargo fmt --all --check`                                          | `cargo fmt --all --check`                    |
-| Schemas          | `just schema`           | `cargo run -p figtether-model --example export_schemas -- schemas` | same                                         |
-| Schema check     | `just schema-check`     | `sh scripts/schema-check.sh`                                       | `pwsh -File scripts/schema-check.ps1`        |
-| Benchmarks       | `just bench`            | `cargo bench --workspace --locked`                                 | same                                         |
-| Plugin build     | `just plugin-build`     | `npm --prefix plugins/figma run build`                             | same                                         |
-| Plugin test      | `just plugin-test`      | `npm --prefix plugins/figma test`                                  | same                                         |
-| Docs check       | `just docs-check`       | `npm run format:check`                                             | `npm run format:check`                       |
-| Audit            | `just audit`            | `cargo deny check`                                                 | `cargo deny check`                           |
-| SBOM             | `just sbom`             | `cargo cyclonedx --all-features --format json`                     | same                                         |
-| End to end       | `just e2e`              | `cargo test -p figtether-e2e --locked`                             | same                                         |
-| Bootstrap        | `just bootstrap`        | `sh scripts/bootstrap.sh`                                          | `pwsh -File scripts/bootstrap.ps1`           |
-| Full check       | `just check`            | `sh scripts/check.sh`                                              | `pwsh -File scripts/check.ps1`               |
-| Release evidence | `just release-evidence` | `sh scripts/release-evidence.sh`                                   | `pwsh -File scripts/release-evidence.ps1`    |
+The chart reads [reviewed data](benchmarks/published/offline-stages.json), not raw local logs.
+Only replace that data with a new run after checking it for secrets and private machine paths.
+Keep unpublished measurements and assessment reports ignored.
 
-The `just` recipes run through `sh`, so on Windows run them from Git Bash. The PowerShell
-scripts are the supported alternative on Windows.
+## Write documentation people can use
 
-## 11. Reporting problems
+- Put install and usage instructions in the [quickstart](docs/quickstart.md), not in an ADR.
+- Use relative Markdown links so forks work without changing repository URLs.
+- Label design proposals as proposals. A requirement ID is not proof of implementation.
+- Prefer an example and its recovery action to a long list of promises.
+- Run `npm run format`; keep ASCII hyphens in prose, as required by the existing docs checks.
 
-- Bugs and feature requests: use the issue templates in `.github/ISSUE_TEMPLATE/`.
-- Security issues: follow `SECURITY.md`. Never use a public issue for a security report.
-- Behaviour that contradicts the documented contract: open an issue first, then a pull request
-  with the ADR.
+The [design archive](docs/README.md#design-reference) keeps requirement IDs stable. Ordinary typo
+fixes and small documentation improvements do not need a new requirement or a design review.
+
+## Open a pull request
+
+For a small fix, include the bug, the change, and the command that proves it. For larger work,
+open an issue first so the scope and compatibility impact are clear.
+
+Before requesting review:
+
+- [ ] One problem per PR, with unrelated formatting or dependency changes left out.
+- [ ] A regression test for changed behavior, including a negative case at a trust boundary.
+- [ ] Relevant checks above pass; list anything you could not run.
+- [ ] Contract changes include schema/TypeScript updates and an ADR.
+- [ ] User-visible changes appear under `Unreleased` in [CHANGELOG.md](CHANGELOG.md).
+- [ ] No design data, credentials, local runtime files, or generated bundles in the diff.
+
+There is no fixed line-count limit. Split a change when doing so makes it easier to review, not
+to meet an arbitrary number. Do not publish a security fix or an exploit PR before coordinating
+privately with maintainers.
+
+## Dependencies and licensing
+
+New dependencies need a reason, compatible licensing, and a lockfile update. Optional tools:
+
+```sh
+cargo install cargo-audit cargo-deny
+cargo audit
+cargo deny check
+npm audit
+npm --prefix plugins/figma audit
+```
+
+Don't hide an advisory with a broad allowlist; document the affected path and the resolution.
+Contributions are made under the project's **MIT OR Apache-2.0** license unless explicitly
+agreed otherwise. Retain third-party notices. The [code of conduct](CODE_OF_CONDUCT.md) applies.

@@ -8,14 +8,14 @@ a pairing secret, never design content, and never the identity of a session.
 
 ## Threat covered
 
-| Item                 | Value                                                                     |
-| -------------------- | ------------------------------------------------------------------------- |
-| Threat rows          | `TH03` information disclosure, `TH13` repudiation                         |
-| Requirements         | `FR18`                                                                     |
-| Acceptance test      | `AT06` (nothing is served before the authentication), `AT13` (the parsers survive extreme input) |
-| PRD reference        | `FGT-PRD-001` section 8.6.1 rows `TH03` and `TH13`, section 8.7           |
-| Threat model row     | `docs/05-security/01-threat-model.md` section 7, attack surface inventory  |
-| Target               | `127.0.0.1:39047`, the FigTether daemon on the assessment port            |
+| Item             | Value                                                                                            |
+| ---------------- | ------------------------------------------------------------------------------------------------ |
+| Threat rows      | `TH03` information disclosure, `TH13` repudiation                                                |
+| Requirements     | `FR18`                                                                                           |
+| Acceptance test  | `AT06` (nothing is served before the authentication), `AT13` (the parsers survive extreme input) |
+| PRD reference    | `FGT-PRD-001` section 8.6.1 rows `TH03` and `TH13`, section 8.7                                  |
+| Threat model row | `docs/05-security/01-threat-model.md` section 7, attack surface inventory                        |
+| Target           | `127.0.0.1:39047`, the FigTether daemon on the assessment port                                   |
 
 ## Target description
 
@@ -23,6 +23,7 @@ The text between the markers is the exact string that is submitted to the `creat
 the PentAGI API.
 
 <!-- BEGIN TARGET -->
+
 Assess the information that the FigTether daemon that listens on 127.0.0.1:39047 on this machine hands out without any credential. The daemon is the target of this flow and nothing else is.
 
 GET /health answers with a status in JSON and needs no credential. The status is meant to be sanitized: versions, counters, sizes, and the number of live things, never a credential, never a pairing secret, never design content, and never the identity of a session.

@@ -137,10 +137,13 @@ without a reply.
 The UI forwards every frame that the daemon sent to the sandbox with the type `frame`, and it
 answers the daemon with the result of the sandbox on the request id of the daemon.
 
-## Open dependencies on the other parts of the plugin
+## Integration notes
 
-These points are gaps in the current contracts. The user interface behaves correctly and states
-the boundary in the interface, but the other sides have to close them.
+The list below records the original integration gaps. Selection messages, request-ID propagation,
+and daemon grant-epoch acknowledgements have since been implemented and regression-tested.
+Items 1 to 3 are historical, not current blockers. Capture, reconnect, mode handling, and editor
+loading still need end-to-end validation; see the
+[current implementation status](../../../docs/10-implementation/01-implementation-status.md).
 
 1. **The candidate roots of the selection.** The sandbox has no message that reports the selection
    before a grant exists: the handler `get_selection` calls `requireGrant` and therefore refuses

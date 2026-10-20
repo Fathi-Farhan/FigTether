@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="555" viewBox="0 0 1100 555" role="img" aria-labelledby="title desc">
+<title id="title">Offline Rust stage diagnostic</title>
+<desc id="desc">One diagnostic run at commit e9e23b0, 2000 samples per stage. Bars show p50 and p95 in microseconds, on a linear zero-based axis. Figma work, network latency, and model inference are not measured.</desc>
+<style>text{font-family:system-ui,-apple-system,Segoe UI,sans-serif;fill:#172b3a;font-size:16px}.small{font-size:13px;fill:#526575}.title{font-size:26px;font-weight:700}.label{font-size:17px;font-weight:600}</style>
+<rect width="1100" height="555" rx="18" fill="#f5f8fb"/>
+
+<text x="32" y="45" class="title">Where the offline core spends time</text>
+<text x="32" y="76" class="small">2,000 samples / stage | Windows x64 | AMD Ryzen 5 4500 | e9e23b0</text>
+<rect x="790" y="29" width="14" height="14" rx="2" fill="#207f8c"/><text x="812" y="41" class="small">p50</text>
+<rect x="880" y="29" width="14" height="14" rx="2" fill="#6475ce"/><text x="902" y="41" class="small">p95</text>
+<path d="M 290 112 V 435" stroke="#d6e0e8"/><text x="290" y="460" class="small" text-anchor="middle">0</text>
+<path d="M 450 112 V 435" stroke="#d6e0e8"/><text x="450" y="460" class="small" text-anchor="middle">50</text>
+<path d="M 610 112 V 435" stroke="#d6e0e8"/><text x="610" y="460" class="small" text-anchor="middle">100</text>
+<path d="M 770 112 V 435" stroke="#d6e0e8"/><text x="770" y="460" class="small" text-anchor="middle">150</text>
+<path d="M 930 112 V 435" stroke="#d6e0e8"/><text x="930" y="460" class="small" text-anchor="middle">200</text>
+<text x="32" y="154" class="label">Queue admission</text>
+<rect x="290" y="132" width="6.08" height="17" rx="3" fill="#207f8c"/>
+<rect x="290" y="156" width="9.28" height="17" rx="3" fill="#6475ce"/>
+<text x="305.08" y="146" class="small">1.9</text>
+<text x="308.28" y="170" class="small">2.9</text>
+<text x="32" y="232" class="label">Frame encode / decode</text>
+<rect x="290" y="210" width="26.88" height="17" rx="3" fill="#207f8c"/>
+<rect x="290" y="234" width="35.20" height="17" rx="3" fill="#6475ce"/>
+<text x="325.88" y="224" class="small">8.4</text>
+<text x="334.2" y="248" class="small">11.0</text>
+<text x="32" y="310" class="label">Normalize 100 nodes</text>
+<rect x="290" y="288" width="202.88" height="17" rx="3" fill="#207f8c"/>
+<rect x="290" y="312" width="310.08" height="17" rx="3" fill="#6475ce"/>
+<text x="501.88" y="302" class="small">63.4</text>
+<text x="609.08" y="326" class="small">96.9</text>
+<text x="32" y="388" class="label">Shape + encode JSON</text>
+<rect x="290" y="366" width="377.28" height="17" rx="3" fill="#207f8c"/>
+<rect x="290" y="390" width="501.76" height="17" rx="3" fill="#6475ce"/>
+<text x="676.28" y="380" class="small">117.9</text>
+<text x="800.76" y="404" class="small">156.8</text>
+<text x="610" y="486" class="small" text-anchor="middle">Microseconds (lower is less time)</text>
+<text x="32" y="516" class="small">Independent stage operations, not an end-to-end request. One run; no confidence interval.</text>
+<text x="32" y="539" class="small">Figma / network / model: NOT MEASURED. This is not a release target or a competitor comparison.</text>
+</svg>

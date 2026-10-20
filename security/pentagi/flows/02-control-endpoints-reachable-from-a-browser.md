@@ -9,14 +9,14 @@ request, and a simple request does not need a preflight.
 
 ## Threat covered
 
-| Item                 | Value                                                                     |
-| -------------------- | ------------------------------------------------------------------------- |
-| Threat rows          | `TH01` spoofing and information disclosure, `TH03` information disclosure |
-| Requirements         | `FR02`, `FR19`                                                            |
-| Acceptance test      | `AT06` (a wrong `Origin` is refused, nothing is served before the auth)  |
-| PRD reference        | `FGT-PRD-001` section 8.6.1 rows `TH01` and `TH03`, section 8.5.4         |
-| Threat model row     | `docs/05-security/01-threat-model.md` section 7, attack surface inventory  |
-| Target               | `127.0.0.1:39047`, the FigTether daemon on the assessment port            |
+| Item             | Value                                                                     |
+| ---------------- | ------------------------------------------------------------------------- |
+| Threat rows      | `TH01` spoofing and information disclosure, `TH03` information disclosure |
+| Requirements     | `FR02`, `FR19`                                                            |
+| Acceptance test  | `AT06` (a wrong `Origin` is refused, nothing is served before the auth)   |
+| PRD reference    | `FGT-PRD-001` section 8.6.1 rows `TH01` and `TH03`, section 8.5.4         |
+| Threat model row | `docs/05-security/01-threat-model.md` section 7, attack surface inventory |
+| Target           | `127.0.0.1:39047`, the FigTether daemon on the assessment port            |
 
 ## Target description
 
@@ -24,6 +24,7 @@ The text between the markers is the exact string that is submitted to the `creat
 the PentAGI API.
 
 <!-- BEGIN TARGET -->
+
 Assess the two control endpoints of the FigTether daemon that listens on 127.0.0.1:39047 on this machine. The daemon is the target of this flow and nothing else is.
 
 POST /control/pair mints a one time pairing secret that a plugin user interface spends to open a session. POST /control/shutdown asks the daemon to stop gracefully. Both endpoints answer with a small JSON body, both take no request body, and both are plain posts, so a browser can send them as a simple request without asking the daemon for permission first. A simple request that carries no readable answer is still enough to stop the daemon, and that is the risk this flow has to measure.

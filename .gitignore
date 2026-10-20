@@ -24,12 +24,34 @@ runs/
 # Experiment runs and scratch data
 tmp/
 *.log
+/benchmarks/results/
+/security/pentagi/evidence/
+*.raw.jsonl
+*.tsbuildinfo
+
+# Local runtime and account-specific configuration
+**/daemon.json
+**/installation.json
+**/figtether.log*
+**/manifest.local.json
+**/*.local.env
+.envrc
+.direnv/
 
 # Environment and secrets
 .env
 .env.*
+!.env.example
+!**/.env.example
 *.pem
 *.key
+*.p12
+*.pfx
+*.keystore
+*.jks
+id_rsa
+id_ed25519
+.npmrc.local
 
 # OS / editor noise
 .DS_Store
@@ -38,6 +60,10 @@ desktop.ini
 .idea/
 .vscode/
 *.swp
+
+# Source, docs, schema output, safe manifest examples, workflow definitions,
+# and reviewed benchmark summaries stay tracked. Do not ignore docs/ or
+# files merely because they are used in production.
 
 # Lockfiles are tracked on purpose. Do not add them here.
 #   Cargo.lock

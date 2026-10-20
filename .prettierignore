@@ -10,6 +10,8 @@ out/
 # verified byte for byte by the schema contract job, so they are never
 # reformatted by hand.
 schemas/
+# Generated from reviewed data by scripts/render-readme-assets.mjs.
+assets/*.svg
 plugins/figma/dist/
 plugins/figma/*/dist/
 

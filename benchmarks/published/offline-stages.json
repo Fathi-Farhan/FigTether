@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "kind": "offline-diagnostic",
+  "recorded_at": "2026-10-20T10:13:26.242579200Z",
+  "source_commit": "e9e23b0ed210268d06e6697aad8b0356c32e530a",
+  "command": "cargo bench --locked -p figtether-bench --bench w5_decomposition -- --test",
+  "profile": "optimized bench profile; Criterion test mode, one diagnostic invocation",
+  "rustc": "1.95.0 (59807616e 2026-04-14)",
+  "environment": {
+    "os": "Windows 11 Pro 10.0.26200",
+    "architecture": "x86_64-pc-windows-msvc",
+    "cpu": "AMD Ryzen 5 4500",
+    "logical_processors": 12,
+    "visible_ram_kib": 16633016
+  },
+  "fixture": {
+    "generator": "crates/bench/src/fixtures.rs::small_fixture",
+    "name": "small-100",
+    "seed": "0x5EED0001",
+    "nodes": 100,
+    "sha256": "452476503f29ea9101029e3b1ab109b63199010bb430a5535990c4c598c03035"
+  },
+  "provenance": {
+    "benchmark_executable_sha256": "7160febfc1aa85a1872b542ce8d0a533064c8d04b3f65e9be174c5e8088e9845",
+    "original_summary_sha256": "6501302312a74a4579023da44d2d45e31ef8797ee17510c403f7664f4a9fb2f7",
+    "raw_samples_sha256": "ba15b04d15e74a68b5a4a8f78fbb7f1f237f31c7069ffb0ec6b902a41ac54897",
+    "note": "Reviewed aggregate export from a local run. Raw artifacts remain local; hashes identify them, not a signature or independent attestation."
+  },
+  "samples_per_stage": 2000,
+  "duration_seconds": 0.5008969,
+  "unit": "ms",
+  "stages": [
+    { "key": "queue", "label": "Queue admission", "p50": 0.0019, "p95": 0.0029, "p99": 0.0044 },
+    {
+      "key": "transport",
+      "label": "Frame encode / decode",
+      "p50": 0.0084,
+      "p95": 0.011,
+      "p99": 0.0177
+    },
+    {
+      "key": "normalization",
+      "label": "Normalize 100 nodes",
+      "p50": 0.0634,
+      "p95": 0.0969,
+      "p99": 0.1279
+    },
+    { "key": "render", "label": "Shape + encode JSON", "p50": 0.1179, "p95": 0.1568, "p99": 0.2073 }
+  ],
+  "not_measured": [
+    "Figma Plugin API",
+    "editor rendering",
+    "network latency",
+    "MCP client",
+    "model inference"
+  ],
+  "limitations": [
+    "A single machine and single diagnostic invocation, without Criterion statistical warmup or a confidence interval.",
+    "Queue admission uses a request naming 50 IDs; normalization uses the full 100-node synthetic fixture; shaping uses projected metadata.",
+    "Stages time different operations independently; do not add their percentiles or interpret them as end-to-end latency.",
+    "This is not the full release benchmark protocol and does not establish N01-N10 targets or a comparison with other products."
+  ]
+}

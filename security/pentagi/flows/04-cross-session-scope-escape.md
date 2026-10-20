@@ -9,14 +9,14 @@ again when a scope moves.
 
 ## Threat covered
 
-| Item                 | Value                                                                     |
-| -------------------- | ------------------------------------------------------------------------- |
-| Threat rows          | `TH05` elevation of privilege, `TH10` cross session confusion, `TH11` tampering |
-| Requirements         | `FR03`, `FR04`, `FR16`                                                    |
-| Acceptance test      | `AT05` (two sessions stay isolated), `AT17` (membership is checked fresh) |
-| PRD reference        | `FGT-PRD-001` section 8.6.1 rows `TH05` and `TH10`, section 8.5.4         |
-| Threat model row     | `docs/05-security/01-threat-model.md` section 4, rows `TH05` and `TH10`   |
-| Target               | `127.0.0.1:39047`, the FigTether daemon on the assessment port            |
+| Item             | Value                                                                           |
+| ---------------- | ------------------------------------------------------------------------------- |
+| Threat rows      | `TH05` elevation of privilege, `TH10` cross session confusion, `TH11` tampering |
+| Requirements     | `FR03`, `FR04`, `FR16`                                                          |
+| Acceptance test  | `AT05` (two sessions stay isolated), `AT17` (membership is checked fresh)       |
+| PRD reference    | `FGT-PRD-001` section 8.6.1 rows `TH05` and `TH10`, section 8.5.4               |
+| Threat model row | `docs/05-security/01-threat-model.md` section 4, rows `TH05` and `TH10`         |
+| Target           | `127.0.0.1:39047`, the FigTether daemon on the assessment port                  |
 
 ## Target description
 
@@ -24,6 +24,7 @@ The text between the markers is the exact string that is submitted to the `creat
 the PentAGI API.
 
 <!-- BEGIN TARGET -->
+
 Assess the session isolation of the FigTether daemon that listens on 127.0.0.1:39047 on this machine. The daemon is the target of this flow and nothing else is.
 
 The daemon serves several live sessions at the same time. A session is opened when a plugin spends a one time pairing secret on the WebSocket route GET /bridge. The answer of the daemon carries the session identity, a session credential, a connection epoch, and the capabilities of the daemon. The granted scope of a session arrives later, in a grant_update frame that carries the root node ids the user granted and that the daemon answers with the grant epoch of the new grant.

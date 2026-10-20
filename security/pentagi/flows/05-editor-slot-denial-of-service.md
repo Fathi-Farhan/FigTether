@@ -9,14 +9,14 @@ hold, that the daemon keeps answering while it is under pressure, and that it do
 
 ## Threat covered
 
-| Item                 | Value                                                                     |
-| -------------------- | ------------------------------------------------------------------------- |
-| Threat rows          | `TH06` denial of service, `TH11` tampering                                |
-| Requirements         | `FR07`, `FR13`, `FR14`                                                    |
-| Acceptance test      | `AT08` (queue overload and mixed soak stay inside the contract), `AT13` (the parsers survive extreme input) |
-| PRD reference        | `FGT-PRD-001` section 8.6.1 row `TH06`, section 8.5.5                     |
-| Threat model row     | `docs/05-security/01-threat-model.md` section 4, row `TH06`               |
-| Target               | `127.0.0.1:39047`, the FigTether daemon on the assessment port            |
+| Item             | Value                                                                                                       |
+| ---------------- | ----------------------------------------------------------------------------------------------------------- |
+| Threat rows      | `TH06` denial of service, `TH11` tampering                                                                  |
+| Requirements     | `FR07`, `FR13`, `FR14`                                                                                      |
+| Acceptance test  | `AT08` (queue overload and mixed soak stay inside the contract), `AT13` (the parsers survive extreme input) |
+| PRD reference    | `FGT-PRD-001` section 8.6.1 row `TH06`, section 8.5.5                                                       |
+| Threat model row | `docs/05-security/01-threat-model.md` section 4, row `TH06`                                                 |
+| Target           | `127.0.0.1:39047`, the FigTether daemon on the assessment port                                              |
 
 ## Target description
 
@@ -24,6 +24,7 @@ The text between the markers is the exact string that is submitted to the `creat
 the PentAGI API.
 
 <!-- BEGIN TARGET -->
+
 Assess the resource limits of the FigTether daemon that listens on 127.0.0.1:39047 on this machine. The daemon is the target of this flow and nothing else is.
 
 The daemon runs one editor operation at a time inside a session, one export lane for the whole installation, a queue that holds a bounded number of requests, and a bounded frame size. A request that does not fit the budget has to be refused with a structured answer that names a code and a retry hint, and the daemon has to keep answering while it is under pressure.

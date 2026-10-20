@@ -1,0 +1,23 @@
+title = "FigTether secret scanning"
+
+[extend]
+useDefault = true
+
+# Exact, public fixture values only. New findings must be reviewed; do not
+# exclude test directories or disable the generic credential rule globally.
+[[rules]]
+id = "generic-api-key"
+
+[[rules.allowlists]]
+description = "RFC 6455 section 1.3 public WebSocket sample nonce"
+condition = "AND"
+regexTarget = "line"
+paths = ['''^crates/e2e/(src/fake_plugin\.rs|tests/adversarial\.rs)$''']
+regexes = ['''dGhlIHNhbXBsZSBub25jZQ==''']
+
+[[rules.allowlists]]
+description = "Fixed nonfunctional credential in the UI redaction test"
+condition = "AND"
+regexTarget = "line"
+paths = ['''^plugins/figma/ui/test/secret\.test\.ts$''']
+regexes = ['''session_credential="abcdef1234567890"''']

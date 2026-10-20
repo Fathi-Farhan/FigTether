@@ -9,14 +9,14 @@ the three gates that enforce that: the bind address, the `Host` header, and the 
 
 ## Threat covered
 
-| Item                 | Value                                                                     |
-| -------------------- | ------------------------------------------------------------------------- |
-| Threat rows          | `TH01` spoofing and information disclosure, `TH02` DNS rebinding         |
-| Requirements         | `FR02`, `FR19`                                                            |
-| Acceptance test      | `AT06` (wrong `Host` and wrong `Origin` are refused)                      |
-| PRD reference        | `FGT-PRD-001` section 8.6.1 rows `TH01` and `TH02`, section 8.5.4         |
-| Threat model row     | `docs/05-security/01-threat-model.md` section 3, boundary `T3`            |
-| Target               | `127.0.0.1:39047`, the FigTether daemon on the assessment port            |
+| Item             | Value                                                             |
+| ---------------- | ----------------------------------------------------------------- |
+| Threat rows      | `TH01` spoofing and information disclosure, `TH02` DNS rebinding  |
+| Requirements     | `FR02`, `FR19`                                                    |
+| Acceptance test  | `AT06` (wrong `Host` and wrong `Origin` are refused)              |
+| PRD reference    | `FGT-PRD-001` section 8.6.1 rows `TH01` and `TH02`, section 8.5.4 |
+| Threat model row | `docs/05-security/01-threat-model.md` section 3, boundary `T3`    |
+| Target           | `127.0.0.1:39047`, the FigTether daemon on the assessment port    |
 
 ## Target description
 
@@ -24,6 +24,7 @@ The text between the markers is the exact string that is submitted to the `creat
 the PentAGI API.
 
 <!-- BEGIN TARGET -->
+
 Assess the local trust model of the FigTether daemon that listens on 127.0.0.1:39047 on this machine. The daemon is the target of this flow and nothing else is.
 
 The daemon is a loopback service with five routes: GET /health, POST /control/pair, POST /control/shutdown, GET /bridge (the WebSocket of the Figma plugin), and GET /client (the WebSocket of the local clients). It is supposed to be reachable only from this machine, and only from the paired plugin user interface or from a local client that holds a credential.

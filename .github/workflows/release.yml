@@ -48,15 +48,22 @@ jobs:
       version: ${{ steps.resolve.outputs.version }}
     steps:
       - name: Checkout the tag
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          persist-credentials: false
           ref: ${{ inputs.ref || github.ref }}
           fetch-depth: 0
       - name: Resolve and check the tag
         id: resolve
+        env:
+          TAG_REF: ${{ inputs.ref || github.ref_name }}
         run: |
           set -euo pipefail
-          tag="${{ inputs.ref || github.ref_name }}"
+          tag="$TAG_REF"
+          if ! [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?$ ]]; then
+            echo "expected an existing vMAJOR.MINOR.PATCH tag" >&2
+            exit 1
+          fi
           if ! git rev-parse --verify --quiet "refs/tags/$tag" >/dev/null; then
             echo "tag $tag does not exist in the repository" >&2
             exit 1
@@ -104,21 +111,22 @@ jobs:
             binary: figtether.exe
             archive: zip
           - target: x86_64-apple-darwin
-            os: macos-13
+            os: macos-15-intel
             binary: figtether
             archive: tar.gz
           - target: aarch64-apple-darwin
-            os: macos-14
+            os: macos-15
             binary: figtether
             archive: tar.gz
     steps:
       - name: Checkout the tag
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          persist-credentials: false
           ref: ${{ needs.verify.outputs.tag }}
           fetch-depth: 0
       - name: Install Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1
         with:
           target: ${{ matrix.target }}
           cache: true
@@ -149,7 +157,7 @@ jobs:
           fi
           ls -l dist
       - name: Upload the bundle
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: figtether-${{ needs.verify.outputs.version }}-${{ matrix.target }}
           path: dist/*
@@ -165,8 +173,9 @@ jobs:
       contents: read
     steps:
       - name: Checkout the tag
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          persist-credentials: false
           ref: ${{ needs.verify.outputs.tag }}
           fetch-depth: 0
       - name: Detect the plugin workspace
@@ -181,9 +190,9 @@ jobs:
           fi
       - name: Install Node.js
         if: steps.plugin.outputs.present == 'true'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: lts/*
+          node-version: "22"
       - name: Build the plugin
         if: steps.plugin.outputs.present == 'true'
         shell: bash
@@ -191,8 +200,9 @@ jobs:
           set -euo pipefail
           cd plugins/figma
           npm ci
+          npm run build:types
           npm run typecheck
-          npm run lint
+          npm run lint:all
           npm run build
           npm test
       - name: Package the plugin bundle
@@ -210,7 +220,7 @@ jobs:
           ls -l dist
       - name: Upload the plugin bundle
         if: steps.plugin.outputs.present == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: figtether-plugin-${{ needs.verify.outputs.version }}
           path: dist/figtether-plugin-*.tar.gz
@@ -226,16 +236,17 @@ jobs:
       contents: read
     steps:
       - name: Checkout the tag
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          persist-credentials: false
           ref: ${{ needs.verify.outputs.tag }}
           fetch-depth: 0
       - name: Install Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1
         with:
           cache: true
       - name: Install cargo-cyclonedx
-        uses: taiki-e/install-action@v2
+        uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2
         with:
           tool: cargo-cyclonedx@0.5.9
       - name: Generate the CycloneDX SBOM
@@ -246,7 +257,7 @@ jobs:
           find crates -name '*.cdx.json' -exec cp {} artifacts/sbom/ \;
           ls -l artifacts/sbom
       - name: Upload the SBOM
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: figtether-${{ needs.verify.outputs.version }}-sbom
           path: artifacts/sbom/
@@ -262,9 +273,9 @@ jobs:
       contents: read
     steps:
       - name: Download the release bundles
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          pattern: figtether-${{ needs.verify.outputs.version }}-*
+          pattern: figtether-*
           path: artifacts/bundles
       - name: Compute the SHA-256 checksums
         shell: bash
@@ -274,7 +285,7 @@ jobs:
           find . -type f ! -name 'SHA256SUMS.txt' -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt
           cat SHA256SUMS.txt
       - name: Upload the checksums
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: figtether-${{ needs.verify.outputs.version }}-checksums
           path: artifacts/bundles/SHA256SUMS.txt
@@ -290,14 +301,15 @@ jobs:
       contents: read
     steps:
       - name: Checkout the tag
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          persist-credentials: false
           ref: ${{ needs.verify.outputs.tag }}
           fetch-depth: 0
       - name: Download the release bundles
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          pattern: figtether-${{ needs.verify.outputs.version }}-*
+          pattern: figtether-*
           path: artifacts/bundles
       - name: Write the provenance record
         shell: bash
@@ -339,7 +351,7 @@ jobs:
           } > artifacts/provenance/provenance.json
           cat artifacts/provenance/provenance.json
       - name: Upload the provenance record
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: figtether-${{ needs.verify.outputs.version }}-provenance
           path: artifacts/provenance/provenance.json

@@ -10,14 +10,14 @@ directory of the daemon.
 
 ## Threat covered
 
-| Item                 | Value                                                                     |
-| -------------------- | ------------------------------------------------------------------------- |
-| Threat rows          | `TH03` information disclosure, `TH04` information disclosure, `TH11` tampering |
-| Requirements         | `FR02`, `FR16`                                                            |
-| Acceptance test      | `AT06` (a wrong, an expired, and a replayed secret are all refused)      |
-| PRD reference        | `FGT-PRD-001` section 8.6.1 rows `TH03` and `TH04`, section 8.5.4         |
-| Threat model row     | `docs/05-security/01-threat-model.md` section 2, assets `AS2` and `AS3`  |
-| Target               | `127.0.0.1:39047`, the FigTether daemon on the assessment port            |
+| Item             | Value                                                                          |
+| ---------------- | ------------------------------------------------------------------------------ |
+| Threat rows      | `TH03` information disclosure, `TH04` information disclosure, `TH11` tampering |
+| Requirements     | `FR02`, `FR16`                                                                 |
+| Acceptance test  | `AT06` (a wrong, an expired, and a replayed secret are all refused)            |
+| PRD reference    | `FGT-PRD-001` section 8.6.1 rows `TH03` and `TH04`, section 8.5.4              |
+| Threat model row | `docs/05-security/01-threat-model.md` section 2, assets `AS2` and `AS3`        |
+| Target           | `127.0.0.1:39047`, the FigTether daemon on the assessment port                 |
 
 ## Target description
 
@@ -25,6 +25,7 @@ The text between the markers is the exact string that is submitted to the `creat
 the PentAGI API.
 
 <!-- BEGIN TARGET -->
+
 Assess the credential handling of the FigTether daemon that listens on 127.0.0.1:39047 on this machine. The daemon is the target of this flow and nothing else is.
 
 The daemon has two WebSocket channels with two different credentials. GET /bridge is the plugin channel. Its first frame must be a hello_auth frame whose payload carries the secret, the client id, and the protocol version, and the daemon answers with a session identity, a session credential, a connection epoch, and the capabilities of the daemon. The secret is one time: it may be spent once, and it expires after five minutes. GET /client is the local client channel. Its first frame must carry the credential of the local installation, the client id, and the protocol version. The two credentials belong to different worlds and neither may work on the other channel.

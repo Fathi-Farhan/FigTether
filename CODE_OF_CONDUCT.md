@@ -66,11 +66,12 @@ account, or acting as an appointed representative at an online or offline event.
 
 ## Enforcement
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may be reported to the
-community leaders responsible for enforcement. Use the private reporting channel of the
-repository for conduct reports, and use the security channel described in `SECURITY.md` when
-the report is about a vulnerability rather than about conduct. All complaints will be reviewed
-and investigated promptly and fairly.
+Instances of abusive, harassing, or otherwise unacceptable behavior should be reported privately
+to a maintainer using the contact listed on their repository-owner profile. If no private contact
+is available, request one without posting sensitive details. A conduct-specific contact must be
+established before opening community discussion spaces. Use [SECURITY.md](SECURITY.md) for a
+vulnerability report instead; GitHub security advisories are not a general conduct inbox.
+Complaints should be reviewed promptly and fairly.
 
 All community leaders are obligated to respect the privacy and security of the reporter of any
 incident.
