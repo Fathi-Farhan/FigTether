@@ -1,0 +1,16 @@
+{
+  "$id": "urn:figtether:schema:get_write_approval_params",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Parameters of `get_write_approval`.\n\nThe answer carries the approval token once the user approved the plan.",
+  "properties": {
+    "approval_id": {
+      "description": "Approval to ask about.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "approval_id"
+  ],
+  "title": "GetWriteApprovalParams",
+  "type": "object"
+}

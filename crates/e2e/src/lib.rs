@@ -63,6 +63,21 @@
 //! Rust core, the daemon and the MCP adapter, so the harness is the primary
 //! evidence for them.
 //!
+//! # The write path
+//!
+//! The tests of `tests/write_path.rs` cover the write path of `ADR-013`:
+//! the grant of the session, the preview, the approval, the budget, the
+//! scope, the destructive policy, and the audit. They are **simulated
+//! editor tests**: the plugin is the fake plugin of this crate and the
+//! document is the fixture corpus.
+//!
+//! They do not prove Figma Desktop behaviour. The undo behaviour of an
+//! applied plan is editor behaviour: the plugin calls `figma.commitUndo()`
+//! once at the end of a plan, and only a real editor session can prove that
+//! the plan is one step in the undo history of Figma. The same is true for
+//! the refusal cases of the editor mutation API, for the font a text change
+//! needs, and for the version history.
+//!
 //! # Determinism rules
 //!
 //! - No test sleeps longer than it has to. Readiness and state changes are

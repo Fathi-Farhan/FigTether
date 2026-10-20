@@ -17,6 +17,7 @@ pub mod errors;
 pub mod ids;
 pub mod normalized;
 pub mod tools;
+pub mod write;
 
 pub use capabilities::{Capabilities, CapabilityState, ProbeOutcome};
 pub use envelope::{
@@ -25,6 +26,12 @@ pub use envelope::{
 };
 pub use errors::{ErrorCode, FigError};
 pub use ids::{AssetId, GrantId, JobId, ObservationId, SessionId, SnapshotId};
+pub use write::{
+    canonical_plan_hash, is_allowed_node_type, is_allowed_write_property, plan_is_destructive,
+    validate_plan, write_operations_count, GrantMode, WriteApproval, WriteBudget, WriteOperation,
+    WriteOperationKind, WritePlan, WritePreview, WriteResult, WriteViolation, ALLOWED_NODE_TYPES,
+    ALLOWED_WRITE_PROPERTIES,
+};
 
 /// Schema version of the FigTether response envelope and tool contracts.
 ///

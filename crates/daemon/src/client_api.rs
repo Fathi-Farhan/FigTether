@@ -57,6 +57,7 @@ use futures_util::{SinkExt, StreamExt};
 use crate::bridge::{protocol_version_matches, BridgeOutcome};
 use crate::control;
 use crate::cursor::{self, CursorRecord};
+use crate::write_path;
 use crate::DaemonState;
 
 /// Correlation id of the authentication answer.
@@ -185,6 +186,16 @@ pub struct Plan {
     pub priority: Priority,
     /// What the daemon needs to know about the request besides its parameters.
     pub context: ReadContext,
+    /// Whether the answer of the job may be kept in the cache.
+    ///
+    /// A write never caches: the answer of a write is not a read of the
+    /// document.
+    pub cacheable: bool,
+    /// Whether the job mutates the document.
+    ///
+    /// The core knows no write job kind yet, so a write travels as a job
+    /// that the daemon marks as a write.
+    pub write: bool,
 }
 
 /// What the daemon needs to know about a read besides the plugin parameters.
@@ -252,7 +263,7 @@ pub async fn serve_client(socket: axum::extract::ws::WebSocket, state: Arc<Daemo
         label: auth.client_id.clone(),
     };
 
-    let status = control::status(&state);
+    let status = control::status_for(&state, &identity.owner);
     let envelope = status_envelope(AUTH_REQUEST_ID, status);
     let response = ClientResponse::Ok {
         request_id: AUTH_REQUEST_ID.to_string(),
@@ -358,7 +369,9 @@ pub async fn dispatch(
 ) -> ClientResponse {
     match request {
         ClientRequest::Status { request_id } => {
-            let status = control::status(state);
+            // The status of a client carries the audit records of the
+            // sessions of its own installation only.
+            let status = control::status_for(state, &identity.owner);
             ClientResponse::Ok {
                 request_id: request_id.clone(),
                 envelope: status_envelope(&request_id, status),
@@ -509,6 +522,42 @@ pub async fn dispatch(
                 "this build does not keep snapshots",
             ),
         },
+        ClientRequest::PreviewWrite { request_id, params } => {
+            match preview_write(state, identity, &request_id, &params).await {
+                Ok(envelope) => ClientResponse::Ok {
+                    request_id,
+                    envelope,
+                },
+                Err(err) => ClientResponse::Error {
+                    request_id: request_id.clone(),
+                    error: err.with_request_id(request_id),
+                },
+            }
+        }
+        ClientRequest::ApplyWrite { request_id, params } => {
+            match apply_write(state, identity, &request_id, &params).await {
+                Ok(envelope) => ClientResponse::Ok {
+                    request_id,
+                    envelope,
+                },
+                Err(err) => ClientResponse::Error {
+                    request_id: request_id.clone(),
+                    error: err.with_request_id(request_id),
+                },
+            }
+        }
+        ClientRequest::GetWriteApproval { request_id, params } => {
+            match approval_status(state, identity, &request_id, &params) {
+                Ok(envelope) => ClientResponse::Ok {
+                    request_id,
+                    envelope,
+                },
+                Err(err) => ClientResponse::Error {
+                    request_id: request_id.clone(),
+                    error: err.with_request_id(request_id),
+                },
+            }
+        }
         other => {
             let request_id = request_id_of(&other);
             let plan = match plan_of(state, &other) {
@@ -534,6 +583,199 @@ pub async fn dispatch(
     }
 }
 
+/// Preview a write plan.
+///
+/// The daemon validates the plan against the write grant of the session, the
+/// granted scope, and the write budgets, mints an approval for it, and asks
+/// the plugin to resolve the plan against the live document without
+/// mutating it. The answer carries the preview of the plugin and the
+/// approval id the user has to approve.
+async fn preview_write(
+    state: &Arc<DaemonState>,
+    identity: &ClientIdentity,
+    request_id: &str,
+    params: &serde_json::Value,
+) -> Result<Envelope, FigError> {
+    let budget = figtether_model::write::WriteBudget::from(&state.limits);
+    let request = write_path::parse_plan(params, &budget)?;
+    write_path::require_write_grant(state, &request.session_id, &identity.owner)?;
+    write_path::require_scope(state, &request)?;
+
+    let grant_epoch = grant_epoch_of(state, &request.session_id)?;
+    let approval_id = write_path::mint_approval_id();
+    let issued_at = Utc::now();
+    let expires_at =
+        issued_at + chrono::Duration::from_std(state.writes.approval_ttl()).unwrap_or_default();
+    state.writes.record(write_path::ApprovalRequest::pending(
+        approval_id.clone(),
+        request.session_id,
+        request.plan_hash.clone(),
+        grant_epoch,
+        issued_at,
+        expires_at,
+        identity.label.clone(),
+        identity.owner.clone(),
+        request.plan.clone(),
+    ));
+
+    let plan = Plan {
+        op: BridgeOp::PreviewWrite,
+        kind: JobKind::Read,
+        session_id: Some(request.session_id),
+        // The plan travels with the approval id and the hash the daemon
+        // computed, so the plugin can bind the decision of the user to
+        // exactly this plan and refuse a plan that changed in transit.
+        params: serde_json::to_value(figtether_protocol::write::WritePlanPayload {
+            plan: request.plan.clone(),
+            approval_id: Some(approval_id.clone()),
+            plan_hash: Some(request.plan_hash.clone()),
+        })
+        .unwrap_or_default(),
+        priority: Priority::SmallRead,
+        context: ReadContext::default(),
+        cacheable: false,
+        write: true,
+    };
+    let envelope = run_job(state, &identity.label, request_id, plan).await?;
+    let preview = write_path::preview_of(&envelope.data);
+    let mut data = serde_json::json!({
+        "preview": preview,
+        "approval_id": approval_id,
+        "plan_id": request.plan_id(),
+        "plan_hash": request.plan_hash,
+    });
+    if let Some(expires_at) = state.writes.expires_at(&approval_id) {
+        data["expires_at"] = serde_json::Value::String(expires_at.to_rfc3339());
+    }
+    Ok(with_data(envelope, data))
+}
+
+/// Apply a write plan the user approved.
+///
+/// The daemon checks the approval token before the plugin is contacted: a
+/// missing token, a token of another plan, and an approval that a grant
+/// change invalidated are all refused here. After a successful apply the
+/// daemon appends a record to the audit trail.
+async fn apply_write(
+    state: &Arc<DaemonState>,
+    identity: &ClientIdentity,
+    request_id: &str,
+    params: &serde_json::Value,
+) -> Result<Envelope, FigError> {
+    let budget = figtether_model::write::WriteBudget::from(&state.limits);
+    let request = write_path::parse_plan(params, &budget)?;
+    write_path::require_write_grant(state, &request.session_id, &identity.owner)?;
+    write_path::require_scope(state, &request)?;
+
+    let grant_epoch = grant_epoch_of(state, &request.session_id)?;
+    let token = params
+        .get("approval_token")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default();
+    // The approval is verified before the plan is admitted and before the
+    // plugin is contacted.
+    let parts =
+        state
+            .writes
+            .check_token(token, &request.plan_hash, &request.session_id, grant_epoch)?;
+    write_path::admit(state, &request)?;
+
+    let plan = Plan {
+        op: BridgeOp::ApplyWrite,
+        kind: JobKind::Read,
+        session_id: Some(request.session_id),
+        params: serde_json::to_value(figtether_protocol::write::WriteApplyPayload {
+            plan: request.plan.clone(),
+            approval_token: token.to_string(),
+        })
+        .unwrap_or_default(),
+        priority: Priority::SmallRead,
+        context: ReadContext::default(),
+        cacheable: false,
+        write: true,
+    };
+    let envelope = run_job(state, &identity.label, request_id, plan).await?;
+    let result = write_path::result_of(&envelope.data);
+    state.writes.record_audit(
+        &request.session_id,
+        write_path::audit_record(&request, &parts.approval_id, &result),
+    );
+    let data = serde_json::json!({
+        "result": result,
+        "approval_id": parts.approval_id,
+        "plan_id": request.plan_id(),
+        "plan_hash": request.plan_hash,
+    });
+    Ok(with_data(envelope, data))
+}
+
+/// Answer the question about an approval.
+///
+/// Only the client that asked for the preview learns the answer: the token
+/// is a capability, and a capability never leaks to another client.
+fn approval_status(
+    state: &Arc<DaemonState>,
+    identity: &ClientIdentity,
+    request_id: &str,
+    params: &serde_json::Value,
+) -> Result<Envelope, FigError> {
+    let approval_id = params
+        .get("approval_id")
+        .and_then(serde_json::Value::as_str)
+        .ok_or_else(|| {
+            FigError::new(
+                ErrorCode::ApprovalRequired,
+                "the request does not name an approval",
+            )
+        })?;
+    let status = state
+        .writes
+        .status(approval_id, &identity.label, &identity.owner)?;
+    let mut data = serde_json::json!({
+        "approval_id": approval_id,
+        "status": status.as_str(),
+    });
+    if let Some(expires_at) = state.writes.expires_at(approval_id) {
+        data["expires_at"] = serde_json::Value::String(expires_at.to_rfc3339());
+    }
+    match &status {
+        write_path::ApprovalStatus::Approved { token } => {
+            data["approval_token"] = serde_json::Value::String(token.clone());
+        }
+        write_path::ApprovalStatus::Rejected {
+            reason: Some(reason),
+        } => {
+            data["reason"] = serde_json::Value::String(reason.clone());
+        }
+        _ => {}
+    }
+    Ok(envelope_from_value(
+        request_id,
+        None,
+        data,
+        Coverage::default(),
+    ))
+}
+
+/// The grant epoch in force for a session.
+fn grant_epoch_of(state: &Arc<DaemonState>, session_id: &SessionId) -> Result<u64, FigError> {
+    crate::guarded(None, || state.registry.get(session_id))
+        .and_then(|session| session.grant_epoch())
+        .ok_or_else(|| FigError::new(ErrorCode::SessionNotFound, "the session holds no grant"))
+}
+
+/// Rebuild an envelope with another payload.
+fn with_data(envelope: Envelope, data: serde_json::Value) -> Envelope {
+    Envelope::new(
+        envelope.request_id.clone(),
+        envelope.source.clone(),
+        envelope.observation.clone(),
+        envelope.coverage.clone(),
+        data,
+    )
+    .with_content_hash()
+}
+
 /// The correlation id of a client request.
 fn request_id_of(request: &ClientRequest) -> String {
     match request {
@@ -549,6 +791,9 @@ fn request_id_of(request: &ClientRequest) -> String {
         | ClientRequest::GetSnapshotInfo { request_id, .. }
         | ClientRequest::WatchScope { request_id, .. }
         | ClientRequest::GetChanges { request_id, .. }
+        | ClientRequest::PreviewWrite { request_id, .. }
+        | ClientRequest::ApplyWrite { request_id, .. }
+        | ClientRequest::GetWriteApproval { request_id, .. }
         | ClientRequest::GetJobStatus { request_id, .. }
         | ClientRequest::Cancel { request_id, .. }
         | ClientRequest::Revoke { request_id, .. } => request_id.clone(),
@@ -726,6 +971,8 @@ fn plan_of(state: &Arc<DaemonState>, request: &ClientRequest) -> Result<Plan, Fi
         params,
         priority,
         context,
+        cacheable: true,
+        write: false,
     })
 }
 
@@ -1165,9 +1412,12 @@ async fn run_job(
         }
     }
 
-    let timeout = match plan.kind {
-        JobKind::Export => state.limits.export_timeout,
-        _ => state.limits.read_timeout,
+    let timeout = match (plan.write, plan.kind) {
+        // A write may take longer than a read: the plugin applies the whole
+        // plan and commits it as one undo step.
+        (true, _) => state.limits.export_timeout,
+        (false, JobKind::Export) => state.limits.export_timeout,
+        (false, _) => state.limits.read_timeout,
     };
     let deadline = Instant::now() + timeout;
 
@@ -1294,21 +1544,24 @@ async fn run_job(
     );
 
     // The read fills the cache under a key that binds the authorization and
-    // the shape of the request.
-    let cached = serde_json::json!({
-        "data": envelope.data,
-        "coverage": coverage,
-    });
-    let ttl = state.limits.live_cache_ttl;
-    let stored = crate::guarded(
-        Err(FigError::new(
-            ErrorCode::InternalError,
-            "the cache refused the entry",
-        )),
-        || state.cache.put(cache_key, cached, ttl, Instant::now()),
-    );
-    if let Err(err) = stored {
-        tracing::warn!(code = err.code.as_str(), "the read was not cached");
+    // the shape of the request. A write never fills the cache: its answer
+    // describes a change, not a state of the document.
+    if plan.cacheable {
+        let cached = serde_json::json!({
+            "data": envelope.data,
+            "coverage": coverage,
+        });
+        let ttl = state.limits.live_cache_ttl;
+        let stored = crate::guarded(
+            Err(FigError::new(
+                ErrorCode::InternalError,
+                "the cache refused the entry",
+            )),
+            || state.cache.put(cache_key, cached, ttl, Instant::now()),
+        );
+        if let Err(err) = stored {
+            tracing::warn!(code = err.code.as_str(), "the read was not cached");
+        }
     }
 
     Ok(envelope)
@@ -1526,7 +1779,9 @@ fn fit_to_budget(nodes: Vec<NormalizedNode>, budget: usize) -> (Vec<NormalizedNo
     let mut used: usize = sizes.iter().sum();
     let mut trimmed = false;
     while used > room && sizes.len() > 1 {
-        let last = sizes.pop().expect("the page holds a node");
+        let Some(last) = sizes.pop() else {
+            break;
+        };
         used = used.saturating_sub(last);
         trimmed = true;
     }
@@ -2048,6 +2303,14 @@ mod tests {
 
     /// A state with one session that serves reads.
     fn ready_state(read_timeout: Duration) -> (Arc<DaemonState>, SessionId) {
+        ready_state_with(read_timeout, figtether_model::write::GrantMode::Read)
+    }
+
+    /// A state with one session that holds a grant of the given mode.
+    fn ready_state_with(
+        read_timeout: Duration,
+        mode: figtether_model::write::GrantMode,
+    ) -> (Arc<DaemonState>, SessionId) {
         let limits = figtether_core::ResourceLimits {
             read_timeout,
             ..figtether_core::ResourceLimits::default()
@@ -2074,7 +2337,7 @@ mod tests {
             .expect("pairs");
         state
             .registry
-            .grant(&session_id, vec!["1:2".to_string()])
+            .grant(&session_id, vec!["1:2".to_string()], mode)
             .expect("grants");
         state
             .registry
@@ -2165,6 +2428,616 @@ mod tests {
             .expect_err("the read is refused");
         assert_eq!(error.code, ErrorCode::Revoked);
         assert_eq!(state.scheduler.stats().running, 0);
+
+        worker.abort();
+    }
+
+    /// The identity of the client that asks for the writes.
+    fn identity() -> ClientIdentity {
+        ClientIdentity {
+            owner: "installation-1".to_string(),
+            label: "client-a".to_string(),
+        }
+    }
+
+    /// The identity of another client of the same installation.
+    fn other_identity() -> ClientIdentity {
+        ClientIdentity {
+            owner: "installation-1".to_string(),
+            label: "client-b".to_string(),
+        }
+    }
+
+    /// The parameters of a write request.
+    fn write_params(session_id: SessionId, node_id: &str) -> serde_json::Value {
+        serde_json::json!({
+            "plan": {
+                "plan_id": "plan_1",
+                "session_id": session_id.to_string(),
+                "operations": [
+                    { "kind": "set_text", "node_id": node_id, "text": "hello" }
+                ],
+            }
+        })
+    }
+
+    /// The parameters of an apply request.
+    fn apply_params(session_id: SessionId, node_id: &str, token: &str) -> serde_json::Value {
+        let mut params = write_params(session_id, node_id);
+        params["approval_token"] = serde_json::Value::String(token.to_string());
+        params
+    }
+
+    /// The payload of a successful answer.
+    fn data_of(response: &ClientResponse) -> serde_json::Value {
+        match response {
+            ClientResponse::Ok { envelope, .. } => envelope.data.clone(),
+            ClientResponse::Error { error, .. } => panic!("the request failed: {error:?}"),
+            ClientResponse::Accepted { .. } => panic!("the request was accepted"),
+        }
+    }
+
+    /// The error of a refused answer.
+    fn error_of(response: &ClientResponse) -> figtether_model::errors::FigError {
+        match response {
+            ClientResponse::Error { error, .. } => error.clone(),
+            other => panic!("the request was refused: {other:?}"),
+        }
+    }
+
+    /// Attach a plugin that answers every request with the given payload.
+    ///
+    /// The frames the plugin received are collected, so a test can prove
+    /// which operation reached the plugin.
+    fn attach_answering_plugin(
+        state: &Arc<DaemonState>,
+        session_id: SessionId,
+        answer: serde_json::Value,
+    ) -> Arc<Mutex<Vec<figtether_protocol::BridgeFrame>>> {
+        let (tx, mut rx) = tokio::sync::mpsc::channel(8);
+        state.hub.attach(
+            session_id,
+            crate::bridge::SessionLink {
+                epoch: 1,
+                client_id: "plugin".to_string(),
+                credential: crate::secrets::Secret::generate(),
+                tx,
+                capabilities: Default::default(),
+            },
+        );
+        let received: Arc<Mutex<Vec<figtether_protocol::BridgeFrame>>> =
+            Arc::new(Mutex::new(Vec::new()));
+        let seen = received.clone();
+        // The plugin answers every request the daemon sends.
+        let hub_state = state.clone();
+        tokio::spawn(async move {
+            while let Some(frame) = rx.recv().await {
+                if frame.message_type != figtether_protocol::MessageType::Request {
+                    continue;
+                }
+                seen.lock().expect("lock").push(frame.clone());
+                hub_state
+                    .hub
+                    .complete(&frame.request_id, BridgeOutcome::Result(answer.clone()));
+            }
+        });
+        received
+    }
+
+    #[tokio::test]
+    async fn a_write_without_a_write_grant_is_refused() {
+        let (state, session_id) = ready_state(Duration::from_secs(2));
+        let response = dispatch(
+            &state,
+            &identity(),
+            ClientRequest::PreviewWrite {
+                request_id: "req_preview".to_string(),
+                params: write_params(session_id, "1:2"),
+            },
+        )
+        .await;
+        let error = error_of(&response);
+        assert_eq!(error.code, ErrorCode::WriteNotGranted);
+        assert!(
+            state.writes.audit_records().is_empty(),
+            "a refused write leaves no trace"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_write_without_an_approval_token_is_refused() {
+        let (state, session_id) = ready_state_with(
+            Duration::from_secs(2),
+            figtether_model::write::GrantMode::Write,
+        );
+        let _plugin = attach_answering_plugin(
+            &state,
+            session_id,
+            serde_json::json!({ "preview": { "plan_hash": "hash" } }),
+        );
+        let worker = tokio::spawn(run_worker(state.clone()));
+
+        let response = dispatch(
+            &state,
+            &identity(),
+            ClientRequest::ApplyWrite {
+                request_id: "req_apply".to_string(),
+                params: apply_params(session_id, "1:2", "not-a-token"),
+            },
+        )
+        .await;
+        let error = error_of(&response);
+        assert_eq!(error.code, ErrorCode::ApprovalRequired);
+
+        worker.abort();
+    }
+
+    #[tokio::test]
+    async fn a_plan_hash_mismatch_is_refused() {
+        let (state, session_id) = ready_state_with(
+            Duration::from_secs(2),
+            figtether_model::write::GrantMode::Write,
+        );
+        let _plugin = attach_answering_plugin(
+            &state,
+            session_id,
+            serde_json::json!({ "preview": { "plan_hash": "hash" } }),
+        );
+        let worker = tokio::spawn(run_worker(state.clone()));
+
+        let preview = dispatch(
+            &state,
+            &identity(),
+            ClientRequest::PreviewWrite {
+                request_id: "req_preview".to_string(),
+                params: write_params(session_id, "1:2"),
+            },
+        )
+        .await;
+        let preview = data_of(&preview);
+        let approval_id = preview["approval_id"]
+            .as_str()
+            .expect("an approval id")
+            .to_string();
+        let plan_hash = preview["plan_hash"]
+            .as_str()
+            .expect("a plan hash")
+            .to_string();
+        state
+            .writes
+            .decide(&figtether_protocol::write::ApprovalDecisionPayload {
+                approval_id: approval_id.clone(),
+                plan_hash: plan_hash.clone(),
+                approved: true,
+                reason: None,
+            })
+            .expect("decided");
+
+        // The plan that is applied differs from the plan that was approved.
+        let mut params = write_params(session_id, "1:2");
+        params["plan"]["operations"][0]["text"] = serde_json::Value::String("other".to_string());
+        let token = state
+            .writes
+            .status(&approval_id, "client-a", "installation-1")
+            .expect("the status is known");
+        let token = match token {
+            write_path::ApprovalStatus::Approved { token } => token,
+            other => panic!("the plan was approved: {other:?}"),
+        };
+        params["approval_token"] = serde_json::Value::String(token);
+
+        let response = dispatch(
+            &state,
+            &identity(),
+            ClientRequest::ApplyWrite {
+                request_id: "req_apply".to_string(),
+                params,
+            },
+        )
+        .await;
+        let error = error_of(&response);
+        assert_eq!(error.code, ErrorCode::PlanHashMismatch);
+        assert!(state.writes.audit_records().is_empty());
+
+        worker.abort();
+    }
+
+    #[tokio::test]
+    async fn an_expired_approval_is_refused() {
+        let (state, session_id) = ready_state_with(
+            Duration::from_secs(2),
+            figtether_model::write::GrantMode::Write,
+        );
+        let _plugin = attach_answering_plugin(
+            &state,
+            session_id,
+            serde_json::json!({ "preview": { "plan_hash": "hash" } }),
+        );
+        let worker = tokio::spawn(run_worker(state.clone()));
+
+        let preview = dispatch(
+            &state,
+            &identity(),
+            ClientRequest::PreviewWrite {
+                request_id: "req_preview".to_string(),
+                params: write_params(session_id, "1:2"),
+            },
+        )
+        .await;
+        let preview = data_of(&preview);
+        let approval_id = preview["approval_id"]
+            .as_str()
+            .expect("an approval id")
+            .to_string();
+        let plan_hash = preview["plan_hash"]
+            .as_str()
+            .expect("a plan hash")
+            .to_string();
+
+        // The token was issued long ago, so the approval outlived its life.
+        let token = figtether_protocol::write::approval_token(
+            &approval_id,
+            &plan_hash,
+            &session_id,
+            1,
+            Utc::now() - chrono::Duration::minutes(11),
+        );
+
+        let response = dispatch(
+            &state,
+            &identity(),
+            ClientRequest::ApplyWrite {
+                request_id: "req_apply".to_string(),
+                params: apply_params(session_id, "1:2", &token),
+            },
+        )
+        .await;
+        let error = error_of(&response);
+        assert_eq!(error.code, ErrorCode::ApprovalExpired);
+
+        worker.abort();
+    }
+
+    #[tokio::test]
+    async fn the_budget_refuses_an_oversized_plan() {
+        let (state, session_id) = ready_state_with(
+            Duration::from_secs(2),
+            figtether_model::write::GrantMode::Write,
+        );
+        let operations: Vec<serde_json::Value> = (0..60)
+            .map(|index| {
+                serde_json::json!({
+                    "kind": "set_text",
+                    "node_id": format!("1:{index}"),
+                    "text": "hi",
+                })
+            })
+            .collect();
+        let response = dispatch(
+            &state,
+            &identity(),
+            ClientRequest::PreviewWrite {
+                request_id: "req_preview".to_string(),
+                params: serde_json::json!({
+                    "plan": {
+                        "plan_id": "plan_1",
+                        "session_id": session_id.to_string(),
+                        "operations": operations,
+                    }
+                }),
+            },
+        )
+        .await;
+        let error = error_of(&response);
+        assert_eq!(error.code, ErrorCode::BudgetExceeded);
+        assert!(
+            error.message.contains('5'),
+            "the limit is in the message: {}",
+            error.message
+        );
+    }
+
+    #[tokio::test]
+    async fn an_out_of_scope_node_is_refused() {
+        let (state, session_id) = ready_state_with(
+            Duration::from_secs(2),
+            figtether_model::write::GrantMode::Write,
+        );
+        let response = dispatch(
+            &state,
+            &identity(),
+            ClientRequest::PreviewWrite {
+                request_id: "req_preview".to_string(),
+                params: write_params(session_id, "9:9"),
+            },
+        )
+        .await;
+        let error = error_of(&response);
+        assert_eq!(error.code, ErrorCode::OutOfScope);
+    }
+
+    #[tokio::test]
+    async fn an_approved_apply_reaches_the_plugin_and_leaves_an_audit_record() {
+        let (state, session_id) = ready_state_with(
+            Duration::from_secs(2),
+            figtether_model::write::GrantMode::Write,
+        );
+        let plugin = attach_answering_plugin(
+            &state,
+            session_id,
+            serde_json::json!({
+                "preview": { "plan_hash": "hash", "operations_count": 1 },
+                "result": { "created": ["1:9"], "changed": ["1:2"], "undo_committed": true },
+            }),
+        );
+        let worker = tokio::spawn(run_worker(state.clone()));
+
+        let preview = dispatch(
+            &state,
+            &identity(),
+            ClientRequest::PreviewWrite {
+                request_id: "req_preview".to_string(),
+                params: write_params(session_id, "1:2"),
+            },
+        )
+        .await;
+        let preview = data_of(&preview);
+        let approval_id = preview["approval_id"]
+            .as_str()
+            .expect("an approval id")
+            .to_string();
+        let plan_hash = preview["plan_hash"]
+            .as_str()
+            .expect("a plan hash")
+            .to_string();
+        assert_eq!(preview["preview"]["operations_count"], 1);
+
+        // The user approves the preview in the plugin UI.
+        let token = state
+            .writes
+            .decide(&figtether_protocol::write::ApprovalDecisionPayload {
+                approval_id: approval_id.clone(),
+                plan_hash: plan_hash.clone(),
+                approved: true,
+                reason: None,
+            })
+            .expect("decided")
+            .expect("a token");
+
+        let response = dispatch(
+            &state,
+            &identity(),
+            ClientRequest::ApplyWrite {
+                request_id: "req_apply".to_string(),
+                params: apply_params(session_id, "1:2", &token),
+            },
+        )
+        .await;
+        let data = data_of(&response);
+        assert_eq!(data["result"]["undo_committed"], true);
+        assert_eq!(data["approval_id"], approval_id);
+
+        // The plugin received the apply operation.
+        let operations: Vec<String> = plugin
+            .lock()
+            .expect("lock")
+            .iter()
+            .map(|frame| {
+                let payload: figtether_protocol::RequestPayload =
+                    frame.payload_of().expect("the request payload");
+                payload.op.as_str().to_string()
+            })
+            .collect();
+        assert_eq!(
+            operations,
+            vec!["preview_write".to_string(), "apply_write".to_string()]
+        );
+
+        // The audit trail holds the record of the applied plan.
+        let records = state.writes.audit_records();
+        assert_eq!(records.len(), 1);
+        let record = &records[0];
+        assert_eq!(record.plan_id, "plan_1");
+        assert_eq!(record.plan_hash, plan_hash);
+        assert_eq!(record.approval_id, approval_id);
+        assert_eq!(record.operations_count, 1);
+        assert_eq!(record.created, 1);
+        assert_eq!(record.changed, 1);
+        assert_eq!(record.removed, 0);
+        assert_eq!(record.moved, 0);
+
+        worker.abort();
+    }
+
+    #[tokio::test]
+    async fn the_audit_record_holds_no_design_content() {
+        let (state, session_id) = ready_state_with(
+            Duration::from_secs(2),
+            figtether_model::write::GrantMode::Write,
+        );
+        let _plugin = attach_answering_plugin(
+            &state,
+            session_id,
+            serde_json::json!({
+                "preview": { "plan_hash": "hash" },
+                "result": { "created": ["1:9"] },
+            }),
+        );
+        let worker = tokio::spawn(run_worker(state.clone()));
+
+        let preview = dispatch(
+            &state,
+            &identity(),
+            ClientRequest::PreviewWrite {
+                request_id: "req_preview".to_string(),
+                params: write_params(session_id, "1:2"),
+            },
+        )
+        .await;
+        let preview = data_of(&preview);
+        let approval_id = preview["approval_id"]
+            .as_str()
+            .expect("an approval id")
+            .to_string();
+        let plan_hash = preview["plan_hash"]
+            .as_str()
+            .expect("a plan hash")
+            .to_string();
+        let token = state
+            .writes
+            .decide(&figtether_protocol::write::ApprovalDecisionPayload {
+                approval_id,
+                plan_hash,
+                approved: true,
+                reason: None,
+            })
+            .expect("decided")
+            .expect("a token");
+
+        dispatch(
+            &state,
+            &identity(),
+            ClientRequest::ApplyWrite {
+                request_id: "req_apply".to_string(),
+                params: apply_params(session_id, "1:2", &token),
+            },
+        )
+        .await;
+
+        let records = state.writes.audit_records();
+        assert_eq!(records.len(), 1);
+        let rendered = format!("{:?}", records[0]);
+        assert!(!rendered.contains("hello"), "{rendered}");
+        assert!(rendered.contains("plan_1"), "{rendered}");
+        assert!(rendered.contains("operations_count: 1"), "{rendered}");
+        // The record holds identifiers, counts, hashes, and timestamps only.
+        let record = &records[0];
+        assert_eq!(record.plan_id, "plan_1");
+        assert_eq!(record.created, 1);
+        assert_eq!(record.changed, 0);
+        assert_eq!(record.removed, 0);
+        assert_eq!(record.moved, 0);
+
+        worker.abort();
+    }
+
+    #[tokio::test]
+    async fn the_approval_answer_goes_only_to_the_requesting_client() {
+        let (state, session_id) = ready_state_with(
+            Duration::from_secs(2),
+            figtether_model::write::GrantMode::Write,
+        );
+        let _plugin = attach_answering_plugin(
+            &state,
+            session_id,
+            serde_json::json!({ "preview": { "plan_hash": "hash" } }),
+        );
+        let worker = tokio::spawn(run_worker(state.clone()));
+
+        let preview = dispatch(
+            &state,
+            &identity(),
+            ClientRequest::PreviewWrite {
+                request_id: "req_preview".to_string(),
+                params: write_params(session_id, "1:2"),
+            },
+        )
+        .await;
+        let preview = data_of(&preview);
+        let approval_id = preview["approval_id"]
+            .as_str()
+            .expect("an approval id")
+            .to_string();
+
+        // The client that asked for the preview reads the status.
+        let response = dispatch(
+            &state,
+            &identity(),
+            ClientRequest::GetWriteApproval {
+                request_id: "req_status".to_string(),
+                params: serde_json::json!({ "approval_id": approval_id.clone() }),
+            },
+        )
+        .await;
+        let data = data_of(&response);
+        assert_eq!(data["status"], "pending");
+        assert!(data.get("approval_token").is_none());
+
+        // Another client learns nothing.
+        let response = dispatch(
+            &state,
+            &other_identity(),
+            ClientRequest::GetWriteApproval {
+                request_id: "req_status".to_string(),
+                params: serde_json::json!({ "approval_id": approval_id.clone() }),
+            },
+        )
+        .await;
+        let error = error_of(&response);
+        assert_eq!(error.code, ErrorCode::PermissionDenied);
+
+        worker.abort();
+    }
+
+    #[tokio::test]
+    async fn an_approved_plan_yields_a_token_the_client_can_read() {
+        let (state, session_id) = ready_state_with(
+            Duration::from_secs(2),
+            figtether_model::write::GrantMode::Write,
+        );
+        let _plugin = attach_answering_plugin(
+            &state,
+            session_id,
+            serde_json::json!({ "preview": { "plan_hash": "hash" } }),
+        );
+        let worker = tokio::spawn(run_worker(state.clone()));
+
+        let preview = dispatch(
+            &state,
+            &identity(),
+            ClientRequest::PreviewWrite {
+                request_id: "req_preview".to_string(),
+                params: write_params(session_id, "1:2"),
+            },
+        )
+        .await;
+        let preview = data_of(&preview);
+        let approval_id = preview["approval_id"]
+            .as_str()
+            .expect("an approval id")
+            .to_string();
+        let plan_hash = preview["plan_hash"]
+            .as_str()
+            .expect("a plan hash")
+            .to_string();
+
+        state
+            .writes
+            .decide(&figtether_protocol::write::ApprovalDecisionPayload {
+                approval_id: approval_id.clone(),
+                plan_hash,
+                approved: true,
+                reason: None,
+            })
+            .expect("decided");
+
+        let response = dispatch(
+            &state,
+            &identity(),
+            ClientRequest::GetWriteApproval {
+                request_id: "req_status".to_string(),
+                params: serde_json::json!({ "approval_id": approval_id }),
+            },
+        )
+        .await;
+        let data = data_of(&response);
+        assert_eq!(data["status"], "approved");
+        assert!(
+            data["approval_token"]
+                .as_str()
+                .is_some_and(|token| token.starts_with("w:")),
+            "{data}"
+        );
 
         worker.abort();
     }

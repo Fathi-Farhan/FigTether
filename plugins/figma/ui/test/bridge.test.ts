@@ -373,18 +373,19 @@ describe("BridgeClient", () => {
     expect(record.states[record.states.length - 1]).toBe("revoked");
   });
 
-  it("sends the grant update with the roots, the epoch and the mode", () => {
+  it("sends the grant update with the roots, the epoch and the two modes", () => {
     const socket = new FakeSocket("ws://127.0.0.1:38947/bridge");
     const { bridge } = build([socket]);
     bridge.pair("pairing-secret");
     socket.open();
     socket.deliver(authAnswer());
-    expect(bridge.sendGrantUpdate(["1:2"], 1, "paused")).toBe(true);
+    expect(bridge.sendGrantUpdate(["1:2"], 1, "paused", "write")).toBe(true);
     const frames = socket.frames();
     const update = frames[frames.length - 1];
     expect(update?.message_type).toBe("grant_update");
     expect(update?.payload["root_ids"]).toEqual(["1:2"]);
     expect(update?.payload["grant_epoch"]).toBe(1);
-    expect(update?.payload["mode"]).toBe("paused");
+    expect(update?.payload["mode"]).toBe("write");
+    expect(update?.payload["session_mode"]).toBe("paused");
   });
 });

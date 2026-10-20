@@ -21,8 +21,8 @@ use std::time::Duration;
 use figtether_daemon::{run, DaemonConfig, DaemonHandle};
 use figtether_protocol::client::{ClientAuth, ClientRequest};
 use figtether_protocol::{
-    AuthAccepted, AuthRequest, BridgeFrame, BridgeOp, GrantUpdatePayload, MessageType,
-    RequestPayload, ResultPayload, PROTOCOL_VERSION,
+    AuthAccepted, AuthRequest, BridgeFrame, BridgeOp, MessageType, RequestPayload, ResultPayload,
+    PROTOCOL_VERSION,
 };
 use futures_util::{SinkExt, StreamExt};
 use serde_json::{json, Value};
@@ -340,16 +340,22 @@ impl FakePlugin {
     }
 
     /// Grant a scope to the session.
+    ///
+    /// The payload is built by hand, so the test does not depend on the
+    /// shape of the protocol struct: the daemon reads the roots and the
+    /// mode out of the payload.
     async fn grant(&self, roots: &[&str]) {
-        let payload = GrantUpdatePayload {
-            root_ids: roots.iter().map(|root| root.to_string()).collect(),
-            grant_epoch: 0,
-        };
-        let frame = BridgeFrame::new(
-            MessageType::GrantUpdate,
-            "grant",
-            serde_json::to_value(payload).expect("encodes"),
-        );
+        self.grant_with_mode(roots, "read").await;
+    }
+
+    /// Grant a scope to the session with a mode.
+    async fn grant_with_mode(&self, roots: &[&str], mode: &str) {
+        let payload = json!({
+            "root_ids": roots.iter().map(|root| root.to_string()).collect::<Vec<_>>(),
+            "grant_epoch": 0,
+            "mode": mode,
+        });
+        let frame = BridgeFrame::new(MessageType::GrantUpdate, "grant", payload);
         let text = serde_json::to_string(&frame).expect("encodes");
         self.outbox.send(text).await.expect("the frame is written");
     }

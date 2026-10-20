@@ -18,7 +18,7 @@
 
 import { assertJsonValue, sha256Hex } from "@figtether/shared";
 import { BRIDGE_CHANNEL, MESSAGE_TYPES, OUTBOUND_MESSAGE_KINDS } from "@figtether/shared";
-import type { BridgeEnvelope } from "@figtether/shared";
+import type { BridgeEnvelope, GrantMode, SessionMode } from "@figtether/shared";
 import { base64Encode, utf8ByteLength, utf8Encode } from "./encoding.js";
 import {
   MAX_FRAME_BYTES,
@@ -73,7 +73,15 @@ export type { BridgeEnvelope as RelayEnvelope };
 /** A validated inbound message. */
 export type InboundMessage =
   | { kind: "frame"; frame: BridgeFrame }
-  | { kind: "grant_update"; rootIds: string[]; grantEpoch: number; mode: string }
+  | {
+      kind: "grant_update";
+      rootIds: string[];
+      grantEpoch: number;
+      /** Mode of the grant: read or write. */
+      writeMode: GrantMode;
+      /** Session mode of the grant: live or paused. */
+      sessionMode: SessionMode;
+    }
   | { kind: "grant_request"; rootIds: string[] }
   | { kind: "cancel"; requestId: string }
   | { kind: "revoke"; reason: string }
@@ -314,6 +322,13 @@ function validateFramePayload(payload: Record<string, unknown>): ValidationResul
   return { ok: true, message: { kind: "frame", frame: validated } };
 }
 
+/**
+ * Read the modes of a grant update.
+ *
+ * The mode of the grant says whether the session may write, the session mode
+ * says whether the session is live or paused. A payload that names neither
+ * keeps the safe behaviour: the read mode and the live session.
+ */
 function validateGrantPayload(payload: Record<string, unknown>): ValidationResult {
   const rootIds = readRootIds(payload["root_ids"]);
   if (rootIds === null) {
@@ -331,11 +346,22 @@ function validateGrantPayload(payload: Record<string, unknown>): ValidationResul
       detail: "the grant payload carries an invalid epoch",
     };
   }
-  const mode = typeof payload["mode"] === "string" ? payload["mode"] : "live";
+  const writeMode = readGrantMode(payload["mode"]);
+  const sessionMode = readSessionMode(payload["session_mode"]);
   return {
     ok: true,
-    message: { kind: "grant_update", rootIds, grantEpoch, mode },
+    message: { kind: "grant_update", rootIds, grantEpoch, writeMode, sessionMode },
   };
+}
+
+/** Read the mode of a grant, where a missing mode means the read mode. */
+function readGrantMode(value: unknown): GrantMode {
+  return value === "write" ? "write" : "read";
+}
+
+/** Read the session mode of a grant, where a missing mode means live. */
+function readSessionMode(value: unknown): SessionMode {
+  return value === "paused" ? "paused" : "live";
 }
 
 function validateGrantRequestPayload(payload: Record<string, unknown>): ValidationResult {

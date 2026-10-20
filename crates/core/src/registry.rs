@@ -20,6 +20,8 @@ use crate::limits::ResourceLimits;
 use crate::scope::NodeIndex;
 use crate::state::{transition, SessionEvent, SessionState};
 
+pub use figtether_model::write::GrantMode;
+
 /// State of a grant.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GrantState {
@@ -38,6 +40,8 @@ pub struct Grant {
     pub grant_id: GrantId,
     /// Root node ids the user granted.
     pub root_ids: Vec<String>,
+    /// Mode of the grant: read only, or read and write.
+    pub mode: GrantMode,
     /// Epoch of the grant. Incremented on every scope change and on revoke.
     pub grant_epoch: u64,
     /// State of the grant.
@@ -83,6 +87,11 @@ impl Session {
             .as_ref()
             .map(|grant| grant.root_ids.clone())
             .unwrap_or_default()
+    }
+
+    /// Mode of the current grant, when one exists.
+    pub fn grant_mode(&self) -> Option<GrantMode> {
+        self.grant.as_ref().map(|grant| grant.mode)
     }
 }
 
@@ -259,7 +268,17 @@ impl SessionRegistry {
     ///
     /// The grant epoch is incremented, the session moves to `AWAITING_GRANT`,
     /// and the previous scope stops being readable immediately.
-    pub fn grant(&self, session_id: &SessionId, root_ids: Vec<String>) -> Result<Grant, FigError> {
+    ///
+    /// The mode is part of the grant. A read grant never authorizes a
+    /// mutation, a write grant authorizes one inside the roots after an
+    /// approval. Changing the mode is a grant change, so the epoch moves and
+    /// every outstanding cursor, asset, and approval of the old grant dies.
+    pub fn grant(
+        &self,
+        session_id: &SessionId,
+        root_ids: Vec<String>,
+        mode: GrantMode,
+    ) -> Result<Grant, FigError> {
         let mut sessions = self.write_sessions();
         let session = sessions
             .get_mut(session_id)
@@ -294,12 +313,35 @@ impl SessionRegistry {
         let grant = Grant {
             grant_id: GrantId::new(),
             root_ids,
+            mode,
             grant_epoch,
             state: GrantState::Active,
             created_at: Utc::now(),
         };
         session.grant = Some(grant.clone());
         Ok(grant)
+    }
+
+    /// The mode of the active grant of a session.
+    ///
+    /// `None` when the session holds no grant, or when the grant is paused
+    /// or revoked: an inactive grant authorizes nothing.
+    pub fn grant_mode(&self, session_id: &SessionId) -> Option<GrantMode> {
+        let sessions = self.read_sessions();
+        let session = sessions.get(session_id)?;
+        let grant = session.grant.as_ref()?;
+        if grant.state != GrantState::Active {
+            return None;
+        }
+        Some(grant.mode)
+    }
+
+    /// Whether the session may mutate the document.
+    ///
+    /// Only an active write grant authorizes a mutation. A read grant never
+    /// does, and a paused or revoked grant authorizes nothing at all.
+    pub fn may_write(&self, session_id: &SessionId) -> bool {
+        self.grant_mode(session_id) == Some(GrantMode::Write)
     }
 
     /// Pause the session. New live and snapshot reads are refused.
@@ -645,12 +687,12 @@ mod tests {
         let registry = registry();
         let id = paired_session(&registry);
         let first = registry
-            .grant(&id, vec!["1:2".to_string()])
+            .grant(&id, vec!["1:2".to_string()], GrantMode::Read)
             .expect("grants");
         assert_eq!(first.grant_epoch, 1);
         assert_eq!(first.state, GrantState::Active);
         let second = registry
-            .grant(&id, vec!["9:9".to_string()])
+            .grant(&id, vec!["9:9".to_string()], GrantMode::Read)
             .expect("grants again");
         assert_eq!(second.grant_epoch, 2);
         assert_eq!(second.root_ids, vec!["9:9".to_string()]);
@@ -664,7 +706,7 @@ mod tests {
         let registry = registry();
         let id = paired_session(&registry);
         registry
-            .grant(&id, vec!["1:2".to_string()])
+            .grant(&id, vec!["1:2".to_string()], GrantMode::Read)
             .expect("grants");
         registry
             .record_nodes(
@@ -677,7 +719,7 @@ mod tests {
             .expect("records");
         assert!(registry.is_in_scope(&id, "1:3"));
         registry
-            .grant(&id, vec!["9:9".to_string()])
+            .grant(&id, vec!["9:9".to_string()], GrantMode::Read)
             .expect("grants again");
         assert!(!registry.is_in_scope(&id, "1:2"));
         assert!(!registry.is_in_scope(&id, "1:3"));
@@ -689,7 +731,7 @@ mod tests {
         let registry = registry();
         let id = paired_session(&registry);
         registry
-            .grant(&id, vec!["1:2".to_string()])
+            .grant(&id, vec!["1:2".to_string()], GrantMode::Read)
             .expect("grants");
         registry
             .record_nodes(
@@ -716,7 +758,7 @@ mod tests {
         let registry = registry();
         let id = paired_session(&registry);
         registry
-            .grant(&id, vec!["1:2".to_string()])
+            .grant(&id, vec!["1:2".to_string()], GrantMode::Read)
             .expect("grants");
         assert!(registry.require_in_scope(&id, "1:2").is_ok());
         let error = registry
@@ -730,7 +772,7 @@ mod tests {
         let registry = registry();
         let id = paired_session(&registry);
         let grant = registry
-            .grant(&id, vec!["1:2".to_string()])
+            .grant(&id, vec!["1:2".to_string()], GrantMode::Read)
             .expect("grants");
         registry
             .record_nodes(&id, &[("1:3".to_string(), Some("1:2".to_string()))])
@@ -755,11 +797,11 @@ mod tests {
         let registry = registry();
         let id = paired_session(&registry);
         registry
-            .grant(&id, vec!["1:2".to_string()])
+            .grant(&id, vec!["1:2".to_string()], GrantMode::Read)
             .expect("grants");
         registry.revoke(&id).expect("revokes");
         let error = registry
-            .grant(&id, vec!["1:2".to_string()])
+            .grant(&id, vec!["1:2".to_string()], GrantMode::Read)
             .expect_err("no new grant");
         assert_eq!(error.code, ErrorCode::Revoked);
     }
@@ -769,7 +811,7 @@ mod tests {
         let registry = registry();
         let id = paired_session(&registry);
         let grant = registry
-            .grant(&id, vec!["1:2".to_string()])
+            .grant(&id, vec!["1:2".to_string()], GrantMode::Read)
             .expect("grants");
         registry.pause(&id).expect("pauses");
         let paused = registry.get(&id).expect("known session");
@@ -801,11 +843,11 @@ mod tests {
         let registry = registry();
         let id = paired_session(&registry);
         registry
-            .grant(&id, vec!["1:2".to_string()])
+            .grant(&id, vec!["1:2".to_string()], GrantMode::Read)
             .expect("grants");
         registry.pause(&id).expect("pauses");
         let error = registry
-            .grant(&id, vec!["1:2".to_string()])
+            .grant(&id, vec!["1:2".to_string()], GrantMode::Read)
             .expect_err("refused while paused");
         assert_eq!(error.code, ErrorCode::InvalidLimit);
     }
@@ -854,7 +896,7 @@ mod tests {
         let registry = registry();
         let id = paired_session(&registry);
         registry
-            .grant(&id, vec!["1:2".to_string()])
+            .grant(&id, vec!["1:2".to_string()], GrantMode::Read)
             .expect("grants");
         registry
             .record_nodes(&id, &[("1:3".to_string(), Some("1:2".to_string()))])
@@ -905,7 +947,7 @@ mod tests {
         let registry = registry();
         let id = paired_session(&registry);
         registry
-            .grant(&id, vec!["1:2".to_string()])
+            .grant(&id, vec!["1:2".to_string()], GrantMode::Read)
             .expect("grants");
         registry
             .set_state(&id, SessionState::Ready)
@@ -913,5 +955,93 @@ mod tests {
         let session = registry.get(&id).expect("known session");
         assert_eq!(session.state, SessionState::Ready);
         assert!(session.state.serves_reads());
+    }
+
+    #[test]
+    fn a_read_grant_never_authorizes_a_write() {
+        let registry = registry();
+        let id = paired_session(&registry);
+        let grant = registry
+            .grant(&id, vec!["1:2".to_string()], GrantMode::Read)
+            .expect("grants");
+        assert_eq!(grant.mode, GrantMode::Read);
+        assert_eq!(grant.mode.as_str(), "read");
+        assert_eq!(registry.grant_mode(&id), Some(GrantMode::Read));
+        assert!(!registry.may_write(&id));
+        assert!(!GrantMode::Read.allows_writes());
+    }
+
+    #[test]
+    fn a_write_grant_authorizes_a_write_inside_the_roots() {
+        let registry = registry();
+        let id = paired_session(&registry);
+        let grant = registry
+            .grant(&id, vec!["1:2".to_string()], GrantMode::Write)
+            .expect("grants");
+        assert_eq!(grant.mode, GrantMode::Write);
+        assert_eq!(grant.mode.as_str(), "write");
+        assert_eq!(registry.grant_mode(&id), Some(GrantMode::Write));
+        assert!(registry.may_write(&id));
+        assert!(GrantMode::Write.allows_writes());
+        // The write grant reads like every other grant.
+        registry
+            .record_nodes(&id, &[("1:3".to_string(), Some("1:2".to_string()))])
+            .expect("records");
+        assert!(registry.is_in_scope(&id, "1:3"));
+    }
+
+    #[test]
+    fn the_mode_change_bumps_the_grant_epoch() {
+        let registry = registry();
+        let id = paired_session(&registry);
+        let read = registry
+            .grant(&id, vec!["1:2".to_string()], GrantMode::Read)
+            .expect("grants");
+        let write = registry
+            .grant(&id, vec!["1:2".to_string()], GrantMode::Write)
+            .expect("grants again");
+        assert_eq!(
+            write.grant_epoch,
+            read.grant_epoch + 1,
+            "a mode change is a grant change"
+        );
+        assert!(registry.may_write(&id));
+        // And back to a read grant, which dies with a new epoch as well.
+        let back = registry
+            .grant(&id, vec!["1:2".to_string()], GrantMode::Read)
+            .expect("grants a third time");
+        assert_eq!(back.grant_epoch, write.grant_epoch + 1);
+        assert!(!registry.may_write(&id));
+    }
+
+    #[test]
+    fn an_inactive_grant_authorizes_nothing() {
+        let registry = registry();
+        let id = paired_session(&registry);
+        registry
+            .grant(&id, vec!["1:2".to_string()], GrantMode::Write)
+            .expect("grants");
+        assert!(registry.may_write(&id));
+        registry.pause(&id).expect("pauses");
+        assert_eq!(registry.grant_mode(&id), None);
+        assert!(!registry.may_write(&id));
+        registry.resume(&id).expect("resumes");
+        assert_eq!(
+            registry.grant_mode(&id),
+            Some(GrantMode::Write),
+            "a resumed grant is active again"
+        );
+        assert!(registry.may_write(&id));
+        registry.revoke(&id).expect("revokes");
+        assert_eq!(registry.grant_mode(&id), None);
+        assert!(!registry.may_write(&id));
+    }
+
+    #[test]
+    fn an_unknown_session_holds_no_grant() {
+        let registry = registry();
+        let id = SessionId::new();
+        assert_eq!(registry.grant_mode(&id), None);
+        assert!(!registry.may_write(&id));
     }
 }

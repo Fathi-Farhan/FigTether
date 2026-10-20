@@ -41,6 +41,9 @@ pub fn request_id(request: &ClientRequest) -> &str {
         | ClientRequest::WatchScope { request_id, .. }
         | ClientRequest::GetChanges { request_id, .. }
         | ClientRequest::GetJobStatus { request_id, .. }
+        | ClientRequest::PreviewWrite { request_id, .. }
+        | ClientRequest::ApplyWrite { request_id, .. }
+        | ClientRequest::GetWriteApproval { request_id, .. }
         | ClientRequest::Cancel { request_id, .. }
         | ClientRequest::Revoke { request_id, .. } => request_id,
     }

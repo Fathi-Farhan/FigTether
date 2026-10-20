@@ -29,9 +29,7 @@
 //!    the depth, the batch size or the membership of the root, so the
 //!    `INVALID_LIMIT` and `OUT_OF_SCOPE` answers have no other place to be
 //!    proven.
-//! 6. **The pause and resume edges.** The shipped daemon drives neither the
-//!    pause nor the resume of a session.
-//! 7. **The chunked transfer.** The shipped daemon logs an incoming chunk
+//! 6. **The chunked transfer.** The shipped daemon logs an incoming chunk
 //!    and never assembles the chunks of a transfer.
 //!
 //! Everything else the acceptance flows need, the loopback binding, the
@@ -79,6 +77,7 @@ use futures_util::{SinkExt, StreamExt};
 use serde_json::{json, Value};
 use tokio::sync::{mpsc, oneshot};
 
+use crate::fake_plugin::{SESSION_MODE_LIVE, SESSION_MODE_PAUSED};
 use crate::harness::HarnessError;
 
 /// Path of the bridge endpoint.
@@ -438,15 +437,30 @@ impl DaemonState {
     }
 
     /// Create or replace the grant of a session.
+    ///
+    /// The function answers the effective session mode, so the plugin
+    /// follows the daemon: the daemon is the authority on the pause.
     fn apply_grant(
         &self,
         session_id: &SessionId,
         payload: GrantUpdatePayload,
-    ) -> Result<(), FigError> {
+    ) -> Result<String, FigError> {
+        let session_mode = payload.session_mode.clone();
         let mut sessions = self.sessions.lock().expect("session lock");
         let session = sessions.get_mut(session_id).ok_or_else(|| {
             FigError::new(ErrorCode::SessionNotFound, "the session does not exist")
         })?;
+        // A session that comes back to life is resumed before the grant is
+        // applied: a paused session refuses a new grant.
+        if session_mode.as_deref() == Some(SESSION_MODE_LIVE)
+            && session.state == SessionState::Paused
+        {
+            let result = transition(session.state, SessionEvent::Resumed)?;
+            session.state = result.to;
+            if result.bump_grant_epoch {
+                session.grant_epoch += 1;
+            }
+        }
         match session.state {
             SessionState::Paired => {
                 let result = transition(session.state, SessionEvent::GrantCreated)?;
@@ -475,7 +489,18 @@ impl DaemonState {
         // owns that edge, so the state is set here. The gap is reported to
         // the core owner.
         session.state = SessionState::Ready;
-        Ok(())
+        // The user may pause the session in the same frame.
+        if session_mode.as_deref() == Some(SESSION_MODE_PAUSED) {
+            let result = transition(session.state, SessionEvent::Paused)?;
+            session.state = result.to;
+            if result.bump_grant_epoch {
+                session.grant_epoch += 1;
+            }
+        }
+        Ok(match session.state {
+            SessionState::Paused => SESSION_MODE_PAUSED.to_string(),
+            _ => SESSION_MODE_LIVE.to_string(),
+        })
     }
 
     fn mark_offline(&self, session_id: &SessionId) {
@@ -737,7 +762,7 @@ impl DaemonState {
                     Ok(payload) => payload,
                     Err(_) => return,
                 };
-                if self.apply_grant(session_id, payload.clone()).is_ok() {
+                if let Ok(session_mode) = self.apply_grant(session_id, payload.clone()) {
                     let grant_epoch = {
                         let sessions = self.sessions.lock().expect("session lock");
                         let Some(session) = sessions.get(session_id) else {
@@ -751,6 +776,8 @@ impl DaemonState {
                         serde_json::to_value(GrantUpdatePayload {
                             root_ids: payload.root_ids,
                             grant_epoch,
+                            mode: payload.mode,
+                            session_mode: Some(session_mode),
                         })
                         .unwrap_or(Value::Null),
                     );
@@ -776,6 +803,7 @@ impl DaemonState {
                 let _ = outbound.send(frame.clone()).await;
             }
             MessageType::Cancel | MessageType::Progress | MessageType::HelloAuth => {}
+            MessageType::Approval => {}
         }
     }
 
@@ -865,6 +893,15 @@ impl DaemonState {
                 FigError::new(
                     ErrorCode::CapabilityUnavailable,
                     "the phase P1 tools are not enabled in this build",
+                ),
+            ),
+            ClientRequest::PreviewWrite { request_id, .. }
+            | ClientRequest::ApplyWrite { request_id, .. }
+            | ClientRequest::GetWriteApproval { request_id, .. } => error_response(
+                request_id,
+                FigError::new(
+                    ErrorCode::CapabilityUnavailable,
+                    "the write path is not enabled in this build",
                 ),
             ),
             ClientRequest::Cancel { request_id, .. } => error_response(
@@ -1997,6 +2034,14 @@ pub fn error_code_from_str(code: &str) -> ErrorCode {
         "FONT_UNAVAILABLE" => ErrorCode::FontUnavailable,
         "SESSION_LIMIT" => ErrorCode::SessionLimit,
         "INVALID_LIMIT" => ErrorCode::InvalidLimit,
+        "WRITE_NOT_GRANTED" => ErrorCode::WriteNotGranted,
+        "APPROVAL_REQUIRED" => ErrorCode::ApprovalRequired,
+        "APPROVAL_EXPIRED" => ErrorCode::ApprovalExpired,
+        "PLAN_HASH_MISMATCH" => ErrorCode::PlanHashMismatch,
+        "PLAN_INVALID" => ErrorCode::PlanInvalid,
+        "BUDGET_EXCEEDED" => ErrorCode::BudgetExceeded,
+        "DESTRUCTIVE_NOT_ALLOWED" => ErrorCode::DestructiveNotAllowed,
+        "MUTATION_REFUSED" => ErrorCode::MutationRefused,
         _ => ErrorCode::InternalError,
     }
 }

@@ -24,10 +24,12 @@ use axum::extract::ws::Message;
 use figtether_model::capabilities::CapabilityState;
 use figtether_model::errors::{ErrorCode, FigError};
 use figtether_model::ids::SessionId;
+use figtether_model::write::GrantMode;
 use figtether_protocol::{
     AuthAccepted, AuthRejected, AuthRequest, BridgeFrame, BridgeOp, CapabilitiesPayload,
-    ChunkPayload, ErrorPayload, HeartbeatPayload, MessageType, ProtocolError, ResultPayload,
-    AUTH_WINDOW, HEARTBEAT_INTERVAL, MISSED_HEARTBEATS_BEFORE_OFFLINE, PROTOCOL_VERSION,
+    ChunkPayload, ErrorPayload, GrantUpdatePayload, HeartbeatPayload, MessageType, ProtocolError,
+    ResultPayload, AUTH_WINDOW, HEARTBEAT_INTERVAL, MISSED_HEARTBEATS_BEFORE_OFFLINE,
+    PROTOCOL_VERSION,
 };
 use futures_util::{SinkExt, Stream, StreamExt};
 use tokio::sync::{mpsc, oneshot};
@@ -742,51 +744,128 @@ async fn handle_incoming(
             }
         }
         MessageType::GrantUpdate => {
-            if let Ok(payload) = frame.payload_of::<figtether_protocol::GrantUpdatePayload>() {
-                let granted = crate::domain_call(ErrorCode::PermissionDenied, || {
-                    state.registry.grant(&session_id, payload.root_ids.clone())
-                });
-                match granted {
-                    Ok(grant) => {
-                        // The grant is bound, so the session serves reads from
-                        // now on. A session that is paused or revoked keeps
-                        // refusing reads: the registry refuses the grant.
-                        let ready = crate::domain_call(ErrorCode::InternalError, || {
-                            state
-                                .registry
-                                .set_state(&session_id, figtether_core::SessionState::Ready)
-                        });
-                        if let Err(err) = ready {
-                            tracing::warn!(
-                                code = err.code.as_str(),
-                                "the session did not become ready"
-                            );
-                        }
-                        // The scope moved, so a queued read of the old scope
-                        // never runs.
-                        crate::client_api::supersede_queued_jobs(state, &session_id);
-                        // The daemon remembers the grant, so a revocation
-                        // drops the assets of every grant of the session.
-                        state.grants.remember(&session_id, grant.grant_id);
-                        // The plugin learns the epoch of the grant it holds,
-                        // so both sides agree on the authorization.
-                        let reply = BridgeFrame::new(
-                            MessageType::GrantUpdate,
-                            frame.request_id.clone(),
-                            serde_json::to_value(figtether_protocol::GrantUpdatePayload {
-                                root_ids: payload.root_ids.clone(),
-                                grant_epoch: grant.grant_epoch,
-                            })
-                            .unwrap_or_default(),
-                        )
-                        .with_session(session_id)
-                        .with_connection_epoch(epoch);
-                        let _ = state.hub.try_send(&session_id, reply);
-                        tracing::info!(code = "GRANT_UPDATED", "grant scope changed");
+            // The mode of the grant and the mode of the session travel in
+            // the payload. A frame without a grant mode is a read grant: a
+            // write grant is always an explicit decision of the user. A
+            // frame without a session mode is a live session: the pause is
+            // an explicit decision as well.
+            let Ok(payload) = frame.payload_of::<GrantUpdatePayload>() else {
+                tracing::warn!(code = "PROTOCOL_MISMATCH", "grant update refused");
+                return;
+            };
+            let mode = grant_mode_of(payload.mode.as_deref());
+            let session_mode = session_mode_of(payload.session_mode.as_deref());
+            // The approvals of the old grant die with it: a grant change
+            // moves the scope and the authority of the session.
+            let previous_epoch = crate::guarded(None, || {
+                state
+                    .registry
+                    .get(&session_id)
+                    .and_then(|session| session.grant_epoch())
+            });
+            // A session that comes back to life is resumed before the grant
+            // is applied: a paused session refuses a new grant, so the
+            // resume has to come first.
+            if session_mode == SessionMode::Live {
+                resume_session(state, &session_id);
+            }
+            let granted = crate::domain_call(ErrorCode::PermissionDenied, || {
+                state
+                    .registry
+                    .grant(&session_id, payload.root_ids.clone(), mode)
+            });
+            match granted {
+                Ok(grant) => {
+                    // The grant is bound, so the session serves reads from
+                    // now on. A session that is paused or revoked keeps
+                    // refusing reads: the registry refuses the grant.
+                    let ready = crate::domain_call(ErrorCode::InternalError, || {
+                        state
+                            .registry
+                            .set_state(&session_id, figtether_core::SessionState::Ready)
+                    });
+                    if let Err(err) = ready {
+                        tracing::warn!(
+                            code = err.code.as_str(),
+                            "the session did not become ready"
+                        );
+                    }
+                    // The scope moved, so a queued read of the old scope
+                    // never runs.
+                    crate::client_api::supersede_queued_jobs(state, &session_id);
+                    // The approvals of the old epoch never apply a plan
+                    // under the new grant.
+                    if let Some(epoch) = previous_epoch {
+                        state.writes.invalidate_grant(epoch);
+                    }
+                    // The daemon remembers the grant, so a revocation
+                    // drops the assets of every grant of the session.
+                    state.grants.remember(&session_id, grant.grant_id);
+                    // The user may pause the session in the same frame. The
+                    // pause moves the grant epoch, so the approvals of the
+                    // grant die with it.
+                    if session_mode == SessionMode::Paused {
+                        pause_session(state, &session_id);
+                        state.writes.invalidate_grant(grant.grant_epoch);
+                    }
+                    // The plugin learns the epoch of the grant it holds and
+                    // the mode of the session, so both sides agree on the
+                    // authorization.
+                    let grant_epoch = crate::guarded(Some(grant.grant_epoch), || {
+                        state
+                            .registry
+                            .get(&session_id)
+                            .and_then(|session| session.grant_epoch())
+                    })
+                    .unwrap_or(grant.grant_epoch);
+                    let reply = BridgeFrame::new(
+                        MessageType::GrantUpdate,
+                        frame.request_id.clone(),
+                        serde_json::to_value(GrantUpdatePayload {
+                            root_ids: payload.root_ids,
+                            grant_epoch,
+                            mode: Some(mode_wire(mode).to_string()),
+                            session_mode: Some(
+                                session_mode_of_state(state, &session_id)
+                                    .as_str()
+                                    .to_string(),
+                            ),
+                        })
+                        .unwrap_or_default(),
+                    )
+                    .with_session(session_id)
+                    .with_connection_epoch(epoch);
+                    let _ = state.hub.try_send(&session_id, reply);
+                    tracing::info!(code = "GRANT_UPDATED", "grant scope changed");
+                }
+                Err(err) => {
+                    tracing::warn!(code = err.code.as_str(), "grant update refused");
+                }
+            }
+        }
+        MessageType::Approval => {
+            // The user approved or rejected a previewed plan. The daemon
+            // records the decision and mints the token of an approved plan.
+            match frame.payload_of::<figtether_protocol::write::ApprovalDecisionPayload>() {
+                Ok(payload) => match state.writes.decide(&payload) {
+                    Ok(Some(_token)) => {
+                        tracing::info!(code = "WRITE_APPROVED", "the user approved a write plan");
+                    }
+                    Ok(None) => {
+                        tracing::info!(code = "WRITE_REJECTED", "the user rejected a write plan");
                     }
                     Err(err) => {
-                        tracing::warn!(code = err.code.as_str(), "grant update refused");
+                        tracing::warn!(
+                            code = err.code.as_str(),
+                            "the approval decision was refused"
+                        );
                     }
+                },
+                Err(_err) => {
+                    tracing::warn!(
+                        code = "PROTOCOL_MISMATCH",
+                        "the approval decision is malformed"
+                    );
                 }
             }
         }
@@ -900,6 +979,14 @@ pub fn plugin_error_code(code: &str) -> ErrorCode {
         "FONT_UNAVAILABLE" => ErrorCode::FontUnavailable,
         "SESSION_LIMIT" => ErrorCode::SessionLimit,
         "INVALID_LIMIT" => ErrorCode::InvalidLimit,
+        "WRITE_NOT_GRANTED" => ErrorCode::WriteNotGranted,
+        "APPROVAL_REQUIRED" => ErrorCode::ApprovalRequired,
+        "APPROVAL_EXPIRED" => ErrorCode::ApprovalExpired,
+        "PLAN_HASH_MISMATCH" => ErrorCode::PlanHashMismatch,
+        "PLAN_INVALID" => ErrorCode::PlanInvalid,
+        "BUDGET_EXCEEDED" => ErrorCode::BudgetExceeded,
+        "DESTRUCTIVE_NOT_ALLOWED" => ErrorCode::DestructiveNotAllowed,
+        "MUTATION_REFUSED" => ErrorCode::MutationRefused,
         _ => ErrorCode::InternalError,
     }
 }
@@ -946,10 +1033,141 @@ pub fn daemon_capabilities() -> BTreeMap<String, CapabilityState> {
         BridgeOp::ListSessions,
         BridgeOp::WatchScope,
         BridgeOp::GetChanges,
+        BridgeOp::PreviewWrite,
+        BridgeOp::ApplyWrite,
     ] {
         capabilities.insert(op.as_str().to_string(), CapabilityState::Available);
     }
     capabilities
+}
+
+/// The mode of a session, as the plugin reported it.
+///
+/// The session mode says whether the session serves anything at all. It is
+/// separate from the grant mode, which says what the session may do inside
+/// its scope, so the two meanings never collide.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SessionMode {
+    /// The session serves reads and writes.
+    Live,
+    /// The user paused the session; it serves nothing.
+    Paused,
+}
+
+impl SessionMode {
+    /// Stable wire string.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Live => "live",
+            Self::Paused => "paused",
+        }
+    }
+}
+
+/// The mode of a grant, as the plugin reported it.
+///
+/// A frame without a mode is a read grant: a write grant is always an
+/// explicit decision of the user, so the daemon never infers one.
+fn grant_mode_of(mode: Option<&str>) -> GrantMode {
+    match mode {
+        Some("write") => GrantMode::Write,
+        Some("read") => GrantMode::Read,
+        Some(other) => {
+            tracing::warn!(code = "PROTOCOL_MISMATCH", "the grant mode is unknown");
+            let _ = other;
+            GrantMode::Read
+        }
+        None => GrantMode::Read,
+    }
+}
+
+/// The session mode of a grant update.
+///
+/// A frame without a session mode is a live session: the pause is an
+/// explicit decision of the user, so the daemon never infers one.
+fn session_mode_of(mode: Option<&str>) -> SessionMode {
+    match mode {
+        Some("paused") => SessionMode::Paused,
+        Some("live") => SessionMode::Live,
+        Some(other) => {
+            tracing::warn!(code = "PROTOCOL_MISMATCH", "the session mode is unknown");
+            let _ = other;
+            SessionMode::Live
+        }
+        None => SessionMode::Live,
+    }
+}
+
+/// The session mode the daemon holds for a session.
+///
+/// The daemon is the authority on the mode of a session, so the plugin
+/// learns it from the answer of the grant update.
+fn session_mode_of_state(state: &Arc<DaemonState>, session_id: &SessionId) -> SessionMode {
+    crate::guarded(SessionMode::Live, || {
+        state
+            .registry
+            .get(session_id)
+            .map(|session| {
+                if session.state == figtether_core::SessionState::Paused {
+                    SessionMode::Paused
+                } else {
+                    SessionMode::Live
+                }
+            })
+            .unwrap_or(SessionMode::Live)
+    })
+}
+
+/// Resume a session that the user paused.
+///
+/// The resume moves the grant epoch, so the approvals of the paused grant
+/// die with it. A session that is not paused keeps its state.
+fn resume_session(state: &Arc<DaemonState>, session_id: &SessionId) {
+    let paused = crate::guarded(false, || {
+        state
+            .registry
+            .get(session_id)
+            .is_some_and(|session| session.state == figtether_core::SessionState::Paused)
+    });
+    if !paused {
+        return;
+    }
+    match crate::domain_call(ErrorCode::InternalError, || {
+        state.registry.resume(session_id)
+    }) {
+        Ok(()) => tracing::info!(code = "SESSION_RESUMED", "the session serves reads again"),
+        Err(err) => tracing::warn!(code = err.code.as_str(), "the session stayed paused"),
+    }
+}
+
+/// Pause a session.
+///
+/// The pause is the decision of the user, so the daemon applies it and the
+/// plugin follows. A session that is already paused keeps its state.
+fn pause_session(state: &Arc<DaemonState>, session_id: &SessionId) {
+    let paused = crate::guarded(false, || {
+        state
+            .registry
+            .get(session_id)
+            .is_some_and(|session| session.state == figtether_core::SessionState::Paused)
+    });
+    if paused {
+        return;
+    }
+    match crate::domain_call(ErrorCode::InternalError, || {
+        state.registry.pause(session_id)
+    }) {
+        Ok(()) => tracing::info!(code = "SESSION_PAUSED", "the user paused the session"),
+        Err(err) => tracing::warn!(code = err.code.as_str(), "the session stayed live"),
+    }
+}
+
+/// The wire name of a grant mode.
+fn mode_wire(mode: GrantMode) -> &'static str {
+    match mode {
+        GrantMode::Read => "read",
+        GrantMode::Write => "write",
+    }
 }
 
 #[cfg(test)]
@@ -1059,10 +1277,182 @@ mod tests {
     #[test]
     fn daemon_capabilities_cover_every_operation() {
         let capabilities = daemon_capabilities();
-        assert_eq!(capabilities.len(), 10);
+        assert_eq!(capabilities.len(), 12);
         assert!(capabilities
             .get(BridgeOp::ExportAssets.as_str())
             .is_some_and(CapabilityState::is_available));
+        assert!(capabilities
+            .get(BridgeOp::PreviewWrite.as_str())
+            .is_some_and(CapabilityState::is_available));
+        assert!(capabilities
+            .get(BridgeOp::ApplyWrite.as_str())
+            .is_some_and(CapabilityState::is_available));
+    }
+
+    #[test]
+    fn a_grant_without_a_mode_is_a_read_grant() {
+        assert_eq!(grant_mode_of(None), GrantMode::Read);
+    }
+
+    #[test]
+    fn a_grant_with_a_write_mode_is_a_write_grant() {
+        assert_eq!(grant_mode_of(Some("write")), GrantMode::Write);
+        assert_eq!(grant_mode_of(Some("read")), GrantMode::Read);
+    }
+
+    #[test]
+    fn an_unknown_grant_mode_is_a_read_grant() {
+        assert_eq!(grant_mode_of(Some("admin")), GrantMode::Read);
+    }
+
+    #[test]
+    fn a_session_without_a_mode_is_live() {
+        assert_eq!(session_mode_of(None), SessionMode::Live);
+    }
+
+    #[test]
+    fn the_session_mode_carries_the_pause() {
+        assert_eq!(session_mode_of(Some("paused")), SessionMode::Paused);
+        assert_eq!(session_mode_of(Some("live")), SessionMode::Live);
+        assert_eq!(session_mode_of(Some("sleeping")), SessionMode::Live);
+    }
+
+    #[test]
+    fn the_session_modes_keep_their_wire_strings() {
+        assert_eq!(SessionMode::Live.as_str(), "live");
+        assert_eq!(SessionMode::Paused.as_str(), "paused");
+    }
+
+    #[test]
+    fn the_write_codes_reach_the_client_with_their_own_name() {
+        // The plugin enforces the scope and the budget again on its side, so
+        // its refusal has to reach the client with the code of the write
+        // path and never as an internal error.
+        let codes = [
+            ("WRITE_NOT_GRANTED", ErrorCode::WriteNotGranted),
+            ("APPROVAL_REQUIRED", ErrorCode::ApprovalRequired),
+            ("APPROVAL_EXPIRED", ErrorCode::ApprovalExpired),
+            ("PLAN_HASH_MISMATCH", ErrorCode::PlanHashMismatch),
+            ("PLAN_INVALID", ErrorCode::PlanInvalid),
+            ("BUDGET_EXCEEDED", ErrorCode::BudgetExceeded),
+            ("DESTRUCTIVE_NOT_ALLOWED", ErrorCode::DestructiveNotAllowed),
+            ("MUTATION_REFUSED", ErrorCode::MutationRefused),
+        ];
+        for (wire, expected) in codes {
+            assert_eq!(plugin_error_code(wire), expected, "{wire}");
+            assert_eq!(expected.as_str(), wire);
+        }
+    }
+
+    #[test]
+    fn an_unknown_code_stays_an_internal_error() {
+        assert_eq!(plugin_error_code("NOPE"), ErrorCode::InternalError);
+    }
+
+    /// A state with one paired session.
+    fn state_with_session() -> (Arc<DaemonState>, SessionId) {
+        let state = Arc::new(DaemonState::new(
+            uuid::Uuid::new_v4(),
+            uuid::Uuid::new_v4(),
+            38947,
+            figtether_core::ResourceLimits::default(),
+            crate::secrets::Secret::generate(),
+        ));
+        let session_id = SessionId::new();
+        state
+            .registry
+            .register(
+                session_id,
+                "installation-1".to_string(),
+                figtether_model::capabilities::Capabilities::new(),
+            )
+            .expect("registers");
+        state
+            .registry
+            .set_state(&session_id, figtether_core::SessionState::Paired)
+            .expect("pairs");
+        (state, session_id)
+    }
+
+    /// The bytes of a grant update frame.
+    fn grant_update(session_mode: &str) -> Vec<u8> {
+        let payload = GrantUpdatePayload {
+            root_ids: vec!["1:2".to_string()],
+            grant_epoch: 0,
+            mode: Some("write".to_string()),
+            session_mode: Some(session_mode.to_string()),
+        };
+        BridgeFrame::new(
+            MessageType::GrantUpdate,
+            "grant",
+            serde_json::to_value(payload).expect("serializes"),
+        )
+        .to_bytes()
+        .expect("encodes")
+    }
+
+    #[tokio::test]
+    async fn the_session_mode_pauses_and_resumes_the_session() {
+        let (state, session_id) = state_with_session();
+        let mut heartbeat = HeartbeatTracker::new(Instant::now());
+
+        // The user pauses the session.
+        handle_incoming(
+            &state,
+            session_id,
+            1,
+            &grant_update("paused"),
+            &mut heartbeat,
+        )
+        .await;
+        let session = state.registry.get(&session_id).expect("known session");
+        assert_eq!(session.state, figtether_core::SessionState::Paused);
+        assert!(
+            !state.registry.may_write(&session_id),
+            "a paused session writes nothing"
+        );
+        assert!(
+            !state.registry.is_in_scope(&session_id, "1:2"),
+            "a paused session reads nothing"
+        );
+
+        // The user resumes the session.
+        handle_incoming(&state, session_id, 1, &grant_update("live"), &mut heartbeat).await;
+        let session = state.registry.get(&session_id).expect("known session");
+        assert_eq!(session.state, figtether_core::SessionState::Ready);
+        assert!(
+            state.registry.may_write(&session_id),
+            "a resumed session writes again"
+        );
+        assert!(
+            state.registry.is_in_scope(&session_id, "1:2"),
+            "a resumed session reads again"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_grant_without_a_session_mode_keeps_the_session_live() {
+        let (state, session_id) = state_with_session();
+        let mut heartbeat = HeartbeatTracker::new(Instant::now());
+        let payload = GrantUpdatePayload {
+            root_ids: vec!["1:2".to_string()],
+            grant_epoch: 0,
+            mode: Some("write".to_string()),
+            session_mode: None,
+        };
+        let bytes = BridgeFrame::new(
+            MessageType::GrantUpdate,
+            "grant",
+            serde_json::to_value(payload).expect("serializes"),
+        )
+        .to_bytes()
+        .expect("encodes");
+
+        handle_incoming(&state, session_id, 1, &bytes, &mut heartbeat).await;
+
+        let session = state.registry.get(&session_id).expect("known session");
+        assert_eq!(session.state, figtether_core::SessionState::Ready);
+        assert!(state.registry.may_write(&session_id));
     }
 
     fn hub_with_pending(

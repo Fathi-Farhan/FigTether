@@ -13,6 +13,10 @@
 //!    traversal depth, and export sizes all have explicit limits, and exceeding
 //!    a limit is a structured error, never a silent truncation
 //!    (`docs/04-data-contracts/06-resource-limits.md`).
+//!
+//! The write path follows the same rules: a plan is budgeted, approved by
+//! the user, and audited without any design content
+//! (`docs/11-write-path/01-write-path-design.md`).
 
 pub mod assets;
 pub mod cache;
@@ -23,16 +27,20 @@ pub mod registry;
 pub mod scheduler;
 pub mod scope;
 pub mod state;
+pub mod write;
 
 pub use assets::{AssetEntry, AssetStore, InMemoryAssetStore};
 pub use cache::{Cache, CacheEntry, CacheKey, CacheStats, SourceKey};
 pub use limits::ResourceLimits;
 pub use metrics::{Metrics, MetricsSnapshot};
 pub use normalize::normalize_document;
-pub use registry::{Grant, GrantState, Session, SessionRegistry, SessionSnapshot};
+pub use registry::{Grant, GrantMode, GrantState, Session, SessionRegistry, SessionSnapshot};
 pub use scheduler::{Job, JobKind, JobStatus, Priority, Scheduler, SchedulerStats};
 pub use scope::NodeIndex;
 pub use state::{SessionEvent, SessionState, Transition};
+pub use write::{
+    ApprovalRecord, ApprovalRegistry, AuditRecord, PlanCounts, WriteAudit, WritePolicy,
+};
 
 /// Default TCP port of the local bridge.
 ///

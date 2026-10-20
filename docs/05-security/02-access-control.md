@@ -16,14 +16,14 @@ describes running code; all items are obligations on the G0, G1, and G2 gates.
 
 FigTether has no user accounts and no human identity provider. Identity is local and technical:
 
-| Principal                 | Identity presented                                                                   | Trust level                              | Can do                                                                           | Cannot do                                                                             |
-| ------------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| Agent / AI client         | The MCP client process; identified technically by its local installation `client_id` | Untrusted caller                         | Call the frozen read tools of PRD 8.5.1 with `session_id` or `snapshot_id`       | Pair, extend scope, revoke, capture snapshots, or write to the filesystem (PRD 8.5.1) |
-| `figtether mcp` (Rust)    | Loops credentials from the owner only runtime directory                              | Trusted core component                   | Validate tool parameters, check session and epoch before dispatch, forward reads | Serve stale epoch answers (`FR16`)                                                    |
-| User via CLI              | The operator of the machine                                                          | Authoritative human                      | Pair, revoke, run `figtether doctor`, print config                               | No role beyond local operation                                                        |
-| `figtether daemon` (Rust) | `daemon_instance_id`, random UUID per start (PRD 8.4)                                | Trusted core component                   | Hold secrets and grants, schedule, cache, revoke                                 | Claim recall of delivered data                                                        |
-| Plugin UI iframe          | Temporary session credential after pairing, held in memory only                      | Semi trusted (needs daemon verification) | Perform pairing, show grant UI, transport frames                                 | Enforce scope alone; the daemon rechecks everything (`FR03`)                          |
-| Plugin main sandbox       | Reachable only through validated postMessage (T4)                                    | Semi trusted                             | Execute allowlisted read handlers after membership checks                        | Mutate the document (`FR24`, `D03`)                                                   |
+| Principal                 | Identity presented                                                                   | Trust level                              | Can do                                                                           | Cannot do                                                                                                                                        |
+| ------------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Agent / AI client         | The MCP client process; identified technically by its local installation `client_id` | Untrusted caller                         | Call the frozen read tools of PRD 8.5.1 with `session_id` or `snapshot_id`       | Pair, extend scope, revoke, capture snapshots, or write to the filesystem (PRD 8.5.1)                                                            |
+| `figtether mcp` (Rust)    | Loops credentials from the owner only runtime directory                              | Trusted core component                   | Validate tool parameters, check session and epoch before dispatch, forward reads | Serve stale epoch answers (`FR16`)                                                                                                               |
+| User via CLI              | The operator of the machine                                                          | Authoritative human                      | Pair, revoke, run `figtether doctor`, print config                               | No role beyond local operation                                                                                                                   |
+| `figtether daemon` (Rust) | `daemon_instance_id`, random UUID per start (PRD 8.4)                                | Trusted core component                   | Hold secrets and grants, schedule, cache, revoke                                 | Claim recall of delivered data                                                                                                                   |
+| Plugin UI iframe          | Temporary session credential after pairing, held in memory only                      | Semi trusted (needs daemon verification) | Perform pairing, show grant UI, transport frames                                 | Enforce scope alone; the daemon rechecks everything (`FR03`)                                                                                     |
+| Plugin main sandbox       | Reachable only through validated postMessage (T4)                                    | Semi trusted                             | Execute allowlisted read handlers after membership checks                        | Mutate the document (`FR24`, `D03`); the write path proposed by `ADR-013` would allow it only inside a write grant and only for an approved plan |
 
 Fixed interpretation rules (PRD 8.4 entity table):
 
@@ -104,20 +104,77 @@ Epoch rules (`FR03`, `FR16`, threat rows TH05 and TH11 in `01-threat-model.md`):
   included (PRD 8.4).
 - CLI revoke remains available when the plugin is unresponsive (PRD 8.5.1, `AT15`).
 
+## 3.1 Write grant mode
+
+Proposed by `ADR-013` and pending product approval (`docs/00-overview/01-prd-analysis.md`
+section 12). The section describes the model as specified in
+`docs/11-write-path/01-write-path-design.md` section 4; it is not a statement about the shipped
+build, and no write has run in a Figma Desktop session.
+
+The grant gains a mode. The read path of v0.1 and v0.2 is unchanged.
+
+| Mode    | Reads inside the granted roots | Writes inside the granted roots                          |
+| ------- | ------------------------------ | -------------------------------------------------------- |
+| `read`  | allowed                        | refused with `WRITE_NOT_GRANTED`                         |
+| `write` | allowed                        | allowed after a per plan approval, inside the same roots |
+
+The grant update on the bridge carries two fields, and they never mean the same thing: `mode` is
+the mode of the write grant (`read` or `write`), and `session_mode` is the pause extension of the
+session (`live` or `paused`). A missing field is the conservative value, so a peer that does not
+know a field keeps the read only behaviour.
+
+How the write grant differs from the read grant:
+
+- It is a separate user action in the plugin UI, not an extension of the read grant. A user who
+  allowed read access does not silently gain write access.
+- It can be narrowed to fewer roots than the read grant; a write grant never widens the read
+  scope of a session.
+- A mode change increments the `grant_epoch`, exactly like a scope change. Every outstanding
+  approval, cursor, and asset bound to the old epoch stops resolving, so a mode change
+  invalidates the approvals that were issued under the previous mode.
+- No tool parameter can widen a grant, in either mode. `preview_write`, `get_write_approval`, and
+  `apply_write` carry no scope, root, or mode field that the daemon would honor.
+- A write grant is a wider grant than a read grant. The blast radius of a bad plan is a changed
+  design, not a wrong answer (residual RH07 in `01-threat-model.md`).
+
+The approval token binds an approval to three things plus an expiry:
+
+| Bound to        | Checked by the daemon                           | Effect of a mismatch             |
+| --------------- | ----------------------------------------------- | -------------------------------- |
+| the plan hash   | the hash the user saw in the preview            | `PLAN_HASH_MISMATCH`             |
+| the session     | the session that owns the approval              | `APPROVAL_REQUIRED`              |
+| the grant epoch | the current `grant_epoch` of the session        | `APPROVAL_EXPIRED` (invalidated) |
+| the expiry      | the fixed approval validity window (10 minutes) | `APPROVAL_EXPIRED`               |
+
+The approval is a user decision, taken in the plugin UI after the user has seen the preview. The
+agent cannot approve, widen, renew, or replay an approval; it can only submit a plan, read the
+approval state, and apply a plan that the user approved. `figma.triggerUndo()` is not exposed:
+reverting to the last committed state is not necessarily the agent's write, so it could destroy
+the user's own work (`ADR-013` rule 8).
+
 ## 4. Enforcement points
 
 Double enforcement exists because either side can be buggy or fed manipulated frames (PRD 8.4
 decision: enforcement on both sides against bridge input and bugs).
 
-| #   | Enforcement point      | Planned component              | Check performed                                                                                                                                        | Failure result                                    | Evidence               |
-| --- | ---------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------- | ---------------------- |
-| E1  | MCP tool invocation    | `crates/mcp`                   | Identifiers are opaque strings; `session_id` and `snapshot_id` are exclusive and mandatory for data operations; secret and endpoint are not parameters | Structured tool result error                      | PRD 8.5.1, `AT14`      |
-| E2  | Daemon pre dispatch    | `crates/daemon`                | Session valid, grant active, `grant_epoch` current, `connection_epoch` current                                                                         | `AUTH_EXPIRED`, `REVOKED`, or `SESSION_NOT_FOUND` | `FR03`, `AT06`, `AT15` |
-| E3  | Daemon membership      | `crates/core`                  | Requested node IDs belong to a granted root subtree, reverified on every fresh read                                                                    | `OUT_OF_SCOPE` per item                           | `FR03`, `AT17`         |
-| E4  | Plugin handler         | `plugins/figma/main`           | Allowlisted handler rechecks membership before touching the scene graph                                                                                | Handler refused                                   | `FR03`, `AT17`         |
-| E5  | Cursor and asset URIs  | `crates/core`, `crates/assets` | Bound to the grant epoch of issuance                                                                                                                   | `CURSOR_EXPIRED`                                  | `FR03`, `FR16`         |
-| E6  | Cache key construction | `crates/core`                  | Key includes session or snapshot, `grant_epoch`, node IDs, field projection, export settings, schema version (PRD 8.3)                                 | Stale entry never served                          | `FR12`, `AT04`         |
-| E7  | Result surface         | `crates/core`                  | No sibling, ancestor, or cross session data beyond the scope; only in scope style references, others as unresolved IDs                                 | Warning and coverage fields                       | `FR04`, `FR10`, `AT05` |
+| #   | Enforcement point      | Planned component                     | Check performed                                                                                                                                        | Failure result                                                | Evidence                              |
+| --- | ---------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------- | ------------------------------------- |
+| E1  | MCP tool invocation    | `crates/mcp`                          | Identifiers are opaque strings; `session_id` and `snapshot_id` are exclusive and mandatory for data operations; secret and endpoint are not parameters | Structured tool result error                                  | PRD 8.5.1, `AT14`                     |
+| E2  | Daemon pre dispatch    | `crates/daemon`                       | Session valid, grant active, `grant_epoch` current, `connection_epoch` current                                                                         | `AUTH_EXPIRED`, `REVOKED`, or `SESSION_NOT_FOUND`             | `FR03`, `AT06`, `AT15`                |
+| E3  | Daemon membership      | `crates/core`                         | Requested node IDs belong to a granted root subtree, reverified on every fresh read                                                                    | `OUT_OF_SCOPE` per item                                       | `FR03`, `AT17`                        |
+| E4  | Plugin handler         | `plugins/figma/main`                  | Allowlisted handler rechecks membership before touching the scene graph                                                                                | Handler refused                                               | `FR03`, `AT17`                        |
+| E5  | Cursor and asset URIs  | `crates/core`, `crates/assets`        | Bound to the grant epoch of issuance                                                                                                                   | `CURSOR_EXPIRED`                                              | `FR03`, `FR16`                        |
+| E6  | Cache key construction | `crates/core`                         | Key includes session or snapshot, `grant_epoch`, node IDs, field projection, export settings, schema version (PRD 8.3)                                 | Stale entry never served                                      | `FR12`, `AT04`                        |
+| E7  | Result surface         | `crates/core`                         | No sibling, ancestor, or cross session data beyond the scope; only in scope style references, others as unresolved IDs                                 | Warning and coverage fields                                   | `FR04`, `FR10`, `AT05`                |
+| E8  | Write grant check      | `crates/daemon`                       | The session holds a write grant; a read only session is refused before any plan is dispatched                                                          | `WRITE_NOT_GRANTED`                                           | ADR-013 rule 1, `AT21`                |
+| E9  | Plan validation        | `crates/daemon`                       | The plan is structurally valid, every operation is in the closed set, every property is allowlisted, and the plan is inside the write budgets          | `PLAN_INVALID`, `BUDGET_EXCEEDED`                             | ADR-013 rule 6, `AT25`                |
+| E10 | Approval verification  | `crates/daemon`                       | The approval token matches the plan hash, the session, the current grant epoch, and the expiry                                                         | `APPROVAL_REQUIRED`, `APPROVAL_EXPIRED`, `PLAN_HASH_MISMATCH` | ADR-013 rule 4, `AT23`, `AT24`        |
+| E11 | Write scope and policy | `crates/daemon`, `plugins/figma/main` | Every affected node and parent is inside the granted roots; a delete or an out-of-scope move carries the destructive flag and the user toggle          | `OUT_OF_SCOPE`, `DESTRUCTIVE_NOT_ALLOWED`                     | ADR-013 rules 3 and 6, `AT26`, `AT27` |
+
+Rows E8 to E11 describe the write path proposed by `ADR-013`. The daemon and the plugin implement
+these checks today, and the automated suites exercise them, but the write path itself is still
+pending product approval and no write has run in a Figma Desktop session; the implementation
+status page records the current state.
 
 ## 5. Credential storage policy
 
@@ -160,6 +217,9 @@ connection epoch (PRD 8.4 state machine, `AT09`).
   daemon side state; bytes already received remain with the client (PRD Section 5.3, PRD 8.4).
 - The agent cannot elevate privilege through read tools, and `readOnlyHint=true` on tools is not an
   authorization mechanism (PRD 8.5.1).
+- The agent cannot elevate privilege through the write tools either. `readOnlyHint=false` on
+  `apply_write` describes behavior, it does not authorize anything: a write needs a write grant, a
+  valid plan, and a user approval bound to that plan, the session, and the current grant epoch.
 - Hints, tool names, and document labels are advisory; authorization rests solely on session,
   grant, epoch, and membership checks (`FR03`).
 - Localhost reachability is not identity: Host and Origin checks reduce spoofing risk, but the
@@ -168,6 +228,8 @@ connection epoch (PRD 8.4 state machine, `AT09`).
 ## 8. Cross references
 
 - Threats and residuals: `docs/05-security/01-threat-model.md`.
+- Write path contracts, budgets, and rollout: `docs/11-write-path/01-write-path-design.md`;
+  decision: `docs/02-architecture/adr/ADR-013-bidirectional-write-path.md`.
 - Storage, deletion, logging, and export hygiene: `docs/05-security/03-privacy-data-handling.md`.
 - Tool surface, envelope, and epoch fields: `docs/04-data-contracts/02-tool-catalog.md` and
   `docs/04-data-contracts/01-mcp-envelope.md` (PRD 8.5.1 and 8.5.2).

@@ -158,7 +158,12 @@ describe("inbound envelope validation", () => {
     const result = validateInbound({
       channel: BRIDGE_CHANNEL,
       kind: "grant_update",
-      payload: { root_ids: ["1:2", "1:3"], grant_epoch: 4, mode: "live" },
+      payload: {
+        root_ids: ["1:2", "1:3"],
+        grant_epoch: 4,
+        mode: "write",
+        session_mode: "paused",
+      },
     });
     expect(result.ok).toBe(true);
     if (!result.ok || result.message.kind !== "grant_update") {
@@ -166,7 +171,22 @@ describe("inbound envelope validation", () => {
     }
     expect(result.message.rootIds).toEqual(["1:2", "1:3"]);
     expect(result.message.grantEpoch).toBe(4);
-    expect(result.message.mode).toBe("live");
+    expect(result.message.writeMode).toBe("write");
+    expect(result.message.sessionMode).toBe("paused");
+  });
+
+  it("keeps the read only behaviour of a grant that names no mode", () => {
+    const result = validateInbound({
+      channel: BRIDGE_CHANNEL,
+      kind: "grant_update",
+      payload: { root_ids: ["1:2"], grant_epoch: 4 },
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok || result.message.kind !== "grant_update") {
+      return;
+    }
+    expect(result.message.writeMode).toBe("read");
+    expect(result.message.sessionMode).toBe("live");
   });
 
   it("refuses a grant update with an invalid root", () => {

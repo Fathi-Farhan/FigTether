@@ -102,6 +102,39 @@ pub enum ClientRequest {
         /// Tool parameters.
         params: serde_json::Value,
     },
+    /// Preview a write plan without mutating the document.
+    ///
+    /// The request carries the plan under `plan`. The answer carries the
+    /// preview of the plugin together with the approval id the daemon minted
+    /// for that plan.
+    PreviewWrite {
+        /// Correlation id.
+        request_id: String,
+        /// Tool parameters.
+        params: serde_json::Value,
+    },
+    /// Apply a write plan that the user approved.
+    ///
+    /// The request carries the plan under `plan` and the approval token
+    /// under `approval_token`. The daemon refuses the request before it
+    /// reaches the plugin when the token is missing, expired, or bound to a
+    /// different plan.
+    ApplyWrite {
+        /// Correlation id.
+        request_id: String,
+        /// Tool parameters.
+        params: serde_json::Value,
+    },
+    /// Read the status of a write approval.
+    ///
+    /// The request carries the approval id under `approval_id`. Only the
+    /// client that asked for the preview may read the answer.
+    GetWriteApproval {
+        /// Correlation id.
+        request_id: String,
+        /// Tool parameters.
+        params: serde_json::Value,
+    },
     /// Describe a job.
     GetJobStatus {
         /// Correlation id.
@@ -191,5 +224,43 @@ mod tests {
         };
         let json = serde_json::to_value(&response).expect("encodes");
         assert_eq!(json["type"], "accepted");
+    }
+
+    #[test]
+    fn the_write_requests_round_trip() {
+        let requests = [
+            ClientRequest::PreviewWrite {
+                request_id: "req_preview".to_string(),
+                params: serde_json::json!({
+                    "plan": { "plan_id": "plan_1", "operations": [] }
+                }),
+            },
+            ClientRequest::ApplyWrite {
+                request_id: "req_apply".to_string(),
+                params: serde_json::json!({
+                    "plan": { "plan_id": "plan_1", "operations": [] },
+                    "approval_token": "w:apr_1:hash:session:1:2026-10-20T12:00:00+00:00",
+                }),
+            },
+            ClientRequest::GetWriteApproval {
+                request_id: "req_status".to_string(),
+                params: serde_json::json!({ "approval_id": "apr_1" }),
+            },
+        ];
+        for request in requests {
+            let json = serde_json::to_string(&request).expect("encodes");
+            let decoded: ClientRequest = serde_json::from_str(&json).expect("decodes");
+            assert_eq!(decoded, request);
+        }
+    }
+
+    #[test]
+    fn the_write_requests_carry_their_own_tag() {
+        let request = ClientRequest::ApplyWrite {
+            request_id: "req_apply".to_string(),
+            params: serde_json::json!({}),
+        };
+        let json = serde_json::to_value(&request).expect("encodes");
+        assert_eq!(json["type"], "apply_write");
     }
 }

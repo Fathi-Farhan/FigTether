@@ -14,9 +14,11 @@ designer control loop) and PRD section 5.3 (UI minimum).
 - The pairing secret and the session credential. Both live in closure variables, never in
   `localStorage`, `sessionStorage`, a cookie or a URL, and both are dropped as soon as they are
   used or the session ends.
-- The pairing panel, the grant panel, the read session status strip, the session controls and the
-  sanitized activity log.
+- The pairing panel, the grant panel, the write approval panel, the read session status strip, the
+  session controls and the sanitized activity log.
 - The strict postMessage channel to the main sandbox.
+- The decision of the user about a write plan. The decision travels to the daemon as a frame of the
+  type `approval`; the plugin never applies a plan on its own.
 
 ## What the main sandbox owns
 
@@ -72,6 +74,41 @@ new secret, then pair again.`
 A later selection change never widens the grant. The grant panel always states this, and the
 controller keeps the granted roots separate from the candidate list.
 
+### Write grant
+
+The write grant is a second, separate action next to the read grant. The read grant never implies
+it: a read grant always sends the write mode `read`, and only the **Allow write session** button
+sends the write mode `write`. The button uses the roots of the read grant, raises the grant epoch
+and states that every plan still needs an approval. The button turns into **Restrict the session to
+reading**, so the user can take the write grant back.
+
+### Write approval
+
+The agent never mutates the document. It proposes a plan, the plugin resolves the plan against the
+live document without changing it, and the user decides.
+
+1. The daemon sends a request frame with the operation `preview_write`. The request carries the plan
+   and the approval id the daemon issued for it.
+2. The sandbox resolves the plan and answers with a `preview` message. The interface shows the plan
+   in the approval panel: the nodes to create, to change, to move and to remove, the intent of the
+   agent, the warnings of the plugin and the reasons of a blocked plan. A blocked plan offers no
+   approve action.
+3. The user presses **Approve the plan** or **Reject the plan**. The interface sends an `approval`
+   frame to the daemon with `{approval_id, plan_hash, approved, reason?}`. The reason is optional
+   and it never reaches the log.
+4. The daemon applies the approved plan and the plugin answers with a `write_result` message. The
+   status area reports the counts of the nodes, the undo commit and the version id.
+
+The interface never moves the focus to the approve button, the panel holds no form and the approve
+button is a plain button, so a key press that belongs to another control cannot approve a plan.
+
+### Write result
+
+The status area reports how many nodes were created, changed, moved and removed, whether the change
+was committed to the undo history of Figma as one step and the id of the version checkpoint when one
+was written. The wording never promises a revert that FigTether does not provide: the recovery path
+is the undo command of the editor.
+
 ### Read session status
 
 The status strip shows the connection state, the number of granted roots, the mode (live, snapshot
@@ -114,14 +151,14 @@ without a reply.
 
 ### From the UI to the sandbox
 
-| Type                | Payload                   | Meaning                                                   |
-| ------------------- | ------------------------- | --------------------------------------------------------- |
-| `frame`             | a bridge frame            | A frame of the daemon that the sandbox has to execute.    |
-| `grant_update`      | `{root_ids, grant_epoch}` | The roots that the user granted.                          |
-| `cancel`            | `{request_id}`            | The user cancelled an operation.                          |
-| `revoke`            | `{reason}`                | The user revoked the grant.                               |
-| `capabilities`      | `{}`                      | Ask the sandbox for its capability report.                |
-| `selection_request` | `{}`                      | Ask the sandbox for the candidate roots of the selection. |
+| Type                | Payload                               | Meaning                                                    |
+| ------------------- | ------------------------------------- | ---------------------------------------------------------- |
+| `frame`             | a bridge frame                        | A frame of the daemon that the sandbox has to execute.     |
+| `grant_update`      | `{root_ids, grant_epoch, write_mode}` | The roots that the user granted and the mode of the grant. |
+| `cancel`            | `{request_id}`                        | The user cancelled an operation.                           |
+| `revoke`            | `{reason}`                            | The user revoked the grant.                                |
+| `capabilities`      | `{}`                                  | Ask the sandbox for its capability report.                 |
+| `selection_request` | `{}`                                  | Ask the sandbox for the candidate roots of the selection.  |
 
 ### From the sandbox to the UI
 
@@ -133,9 +170,20 @@ without a reply.
 | `chunk`        | `{transfer_id, sequence, bytes, total_bytes, checksum}` |
 | `capabilities` | `{capabilities, notes}`                                 |
 | `selection`    | `{roots: [{node_id, node_type, child_count}]}`          |
+| `preview`      | the preview of a write plan                             |
+| `write_result` | the result of an applied write plan                     |
 
 The UI forwards every frame that the daemon sent to the sandbox with the type `frame`, and it
-answers the daemon with the result of the sandbox on the request id of the daemon.
+answers the daemon with the result of the sandbox on the request id of the daemon. The preview and
+the write result travel to the daemon the same way, wrapped under `preview` and under `result`.
+
+### From the UI to the daemon
+
+| Type       | Payload                                       | Meaning                                |
+| ---------- | --------------------------------------------- | -------------------------------------- |
+| `approval` | `{approval_id, plan_hash, approved, reason?}` | The decision of the user about a plan. |
+
+The approval decision goes straight to the daemon over the socket. The sandbox never sees it.
 
 ## Integration notes
 
@@ -185,6 +233,9 @@ loading still need end-to-end validation; see the
 - Status updates are announced with `role="status"` and `aria-live="polite"`. Errors use
   `role="alert"`.
 - The tab order follows the visual order. A skip link leads to the main content.
+- The approval panel is reachable and operable with the keyboard alone. The approve button is never
+  the default focus target: the panel holds no form, the button is a plain button, no element of the
+  markup carries `autofocus` and the interface never moves the focus to it.
 - The palette is declared twice, for light and for dark, and the contrast test computes the WCAG
   contrast ratio of every text pair and of every control pair against the AA target.
 
@@ -206,7 +257,9 @@ loading still need end-to-end validation; see the
 
 A log line carries the operation, the count, the duration and the error code, nothing else. The
 operation name and the error code pass an allowlist, so a layer name, a text, a file id or a
-credential cannot reach a log line even by accident.
+credential cannot reach a log line even by accident. The write path adds the kinds of the operations
+of a plan and their counts, for example `op=create_node count=2`. The plan itself, the intent of the
+plan and the text of the document never reach a log line.
 
 ## Tests
 
@@ -235,6 +288,7 @@ the plugin package (`npm test` in `plugins/figma`).
 | `test/contrast.test.ts`   | The contrast of both palettes and the absence of external assets.          |
 | `test/markup.test.ts`     | The element identifiers, the labels and the live regions of the markup.    |
 | `test/hygiene.test.ts`    | No persistent store, no eval, no markup injection, loopback only.          |
+| `test/write.test.ts`      | The preview, the approval, the write grant, the result and the log.        |
 
 ## Layout
 
@@ -250,6 +304,7 @@ plugins/figma/ui
     sandbox.ts        the postMessage channel to the main sandbox
     envelope.ts       the strict envelope validation
     protocol.ts       the shared contract and the channel constants
+    write.ts          the write path: the preview, the counts and the decision
     secret.ts         the credential memory and the redaction
     status.ts         the connection state machine
     log.ts            the sanitized activity log

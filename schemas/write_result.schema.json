@@ -1,0 +1,78 @@
+{
+  "$id": "urn:figtether:schema:write_result",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "What an approved plan changed.\n\nThe result reports what happened, never what was intended. A plan that\nwas refused or only partly applied is reported as such.",
+  "properties": {
+    "approval_id": {
+      "description": "Approval the apply was made with.",
+      "type": "string"
+    },
+    "changed": {
+      "default": [],
+      "description": "Node ids that were changed.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "created": {
+      "default": [],
+      "description": "Node ids that exist after the apply.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "moved": {
+      "default": [],
+      "description": "Node ids that were moved.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "plan_hash": {
+      "description": "Hash of the canonical plan that was applied.",
+      "type": "string"
+    },
+    "plan_id": {
+      "description": "Plan that was applied.",
+      "type": "string"
+    },
+    "removed": {
+      "default": [],
+      "description": "Node ids that were removed.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "undo_committed": {
+      "default": false,
+      "description": "Whether the plugin committed the plan as one undo step.",
+      "type": "boolean"
+    },
+    "version_saved": {
+      "description": "Version id, when a version checkpoint was written.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "warnings": {
+      "default": [],
+      "description": "Non fatal caveats of the apply.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "plan_id",
+    "plan_hash",
+    "approval_id"
+  ],
+  "title": "WriteResult",
+  "type": "object"
+}

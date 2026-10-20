@@ -27,80 +27,91 @@ Scope note: gate exits (`G0` feasibility and beyond) are separate decisions requ
 (PRD Appendix A: `AT01`, `AT02`, `AT12`, `AT18` at `G0`; and onward). Approving documents here says the
 written design is internally consistent and PRD-faithful; it says nothing about measured results.
 
+Write path note: `ADR-013` and `docs/11-write-path/01-write-path-design.md` are registered as
+`Proposed`. They propose to change the read-only decision `D03` for a future release, which the
+PRD required to be raised as a separate RFC first. That product decision has not been made, so the
+PRD rule stands: write-back is not available, and the write path is documented as a proposal
+(`docs/00-overview/01-prd-analysis.md` section 12). The write path is implemented across the Rust
+crates and the plugin, and it is not verified in a Figma Desktop session.
+
 ## 2. Document status registry
 
 Canonical registry of every file under `docs/` at creation of this docs set. Status is `Proposed` for
 all entries; owner role is the single primary reviewer, with the co-sign requirements noted after the
 table.
 
-| Path                                                        | Status     | Owner role         | Review gate |
-| ----------------------------------------------------------- | ---------- | ------------------ | ----------- |
-| `docs/README.md`                                            | `Proposed` | Product Maintainer | G0          |
-| `docs/00-overview/01-prd-analysis.md`                       | `Proposed` | Product Maintainer | G0          |
-| `docs/00-overview/02-competitive-landscape.md`              | `Proposed` | Product Maintainer | G0          |
-| `docs/00-overview/03-personas-journeys.md`                  | `Proposed` | Product Maintainer | G0          |
-| `docs/01-agile/01-sdlc-process.md`                          | `Proposed` | Product Maintainer | G0          |
-| `docs/01-agile/02-product-backlog.md`                       | `Proposed` | Product Maintainer | G0          |
-| `docs/01-agile/03-roadmap-sprints.md`                       | `Proposed` | Product Maintainer | G0          |
-| `docs/01-agile/04-risk-register.md`                         | `Proposed` | Product Maintainer | G0          |
-| `docs/02-architecture/01-system-design.md`                  | `Proposed` | Rust/Core Owner    | G0          |
-| `docs/02-architecture/02-bridge-design.md`                  | `Proposed` | Rust/Core Owner    | G0          |
-| `docs/02-architecture/03-mcp-design.md`                     | `Proposed` | Rust/Core Owner    | G0          |
-| `docs/02-architecture/04-plugin-design.md`                  | `Proposed` | Plugin Owner       | G0          |
-| `docs/02-architecture/05-state-machines.md`                 | `Proposed` | Rust/Core Owner    | G1          |
-| `docs/02-architecture/adr/ADR-000-template.md`              | `Proposed` | Product Maintainer | G0          |
-| `docs/02-architecture/adr/ADR-001-language-boundary.md`     | `Proposed` | Rust/Core Owner    | G0          |
-| `docs/02-architecture/adr/ADR-002-transport-selection.md`   | `Proposed` | Rust/Core Owner    | G0          |
-| `docs/02-architecture/adr/ADR-003-mcp-sdk-rmcp.md`          | `Proposed` | Rust/Core Owner    | G0          |
-| `docs/02-architecture/adr/ADR-004-grant-scope-model.md`     | `Proposed` | Rust/Core Owner    | G0          |
-| `docs/02-architecture/adr/ADR-005-consistency-model.md`     | `Proposed` | Rust/Core Owner    | G0          |
-| `docs/02-architecture/adr/ADR-006-pagination-projection.md` | `Proposed` | Rust/Core Owner    | G0          |
-| `docs/02-architecture/adr/ADR-007-cache-asset-store.md`     | `Proposed` | Rust/Core Owner    | G0          |
-| `docs/02-architecture/adr/ADR-008-resource-budgets.md`      | `Proposed` | Rust/Core Owner    | G1          |
-| `docs/02-architecture/adr/ADR-009-licensing.md`             | `Proposed` | Product Maintainer | G2          |
-| `docs/02-architecture/adr/ADR-010-session-identity.md`      | `Proposed` | Rust/Core Owner    | G0          |
-| `docs/02-architecture/adr/ADR-011-error-taxonomy.md`        | `Proposed` | Rust/Core Owner    | G0          |
-| `docs/02-architecture/adr/ADR-012-harness2-integration.md`  | `Proposed` | Product Maintainer | G1          |
-| `docs/03-uml/01-use-case-diagrams.md`                       | `Proposed` | Rust/Core Owner    | G0          |
-| `docs/03-uml/02-class-diagrams.md`                          | `Proposed` | Rust/Core Owner    | G0          |
-| `docs/03-uml/03-sequence-diagrams.md`                       | `Proposed` | Rust/Core Owner    | G1          |
-| `docs/03-uml/04-state-diagrams.md`                          | `Proposed` | Rust/Core Owner    | G1          |
-| `docs/03-uml/05-activity-diagrams.md`                       | `Proposed` | Rust/Core Owner    | G1          |
-| `docs/03-uml/06-deployment.md`                              | `Proposed` | Rust/Core Owner    | G2          |
-| `docs/04-data-contracts/01-mcp-envelope.md`                 | `Proposed` | Rust/Core Owner    | G0          |
-| `docs/04-data-contracts/02-tool-catalog.md`                 | `Proposed` | Rust/Core Owner    | G0          |
-| `docs/04-data-contracts/03-bridge-protocol.md`              | `Proposed` | Rust/Core Owner    | G0          |
-| `docs/04-data-contracts/04-normalized-model.md`             | `Proposed` | Rust/Core Owner    | G0          |
-| `docs/04-data-contracts/05-error-catalog.md`                | `Proposed` | Rust/Core Owner    | G0          |
-| `docs/04-data-contracts/06-resource-limits.md`              | `Proposed` | Rust/Core Owner    | G0          |
-| `docs/05-security/01-threat-model.md`                       | `Proposed` | Security Reviewer  | G0          |
-| `docs/05-security/02-access-control.md`                     | `Proposed` | Security Reviewer  | G0          |
-| `docs/05-security/03-privacy-data-handling.md`              | `Proposed` | Security Reviewer  | G1+G2       |
-| `docs/06-testing/01-test-strategy.md`                       | `Proposed` | QA/Release Owner   | G0          |
-| `docs/06-testing/02-acceptance-catalog.md`                  | `Proposed` | QA/Release Owner   | G0..G3      |
-| `docs/06-testing/03-traceability-matrix.md`                 | `Proposed` | QA/Release Owner   | G1          |
-| `docs/06-testing/04-benchmark-plan.md`                      | `Proposed` | QA/Release Owner   | G1+G2       |
-| `docs/07-ops/01-dev-environment.md`                         | `Proposed` | Rust/Core Owner    | G0          |
-| `docs/07-ops/02-end-user-install.md`                        | `Proposed` | QA/Release Owner   | G2          |
-| `docs/07-ops/03-runbook.md`                                 | `Proposed` | QA/Release Owner   | G2          |
-| `docs/07-ops/04-release-process.md`                         | `Proposed` | QA/Release Owner   | G2          |
-| `docs/08-harness2/01-harness2-overview.md`                  | `Proposed` | Product Maintainer | G0          |
-| `docs/08-harness2/02-integration-architecture.md`           | `Proposed` | Rust/Core Owner    | G1          |
-| `docs/08-harness2/03-harness-pack-spec.md`                  | `Proposed` | Product Maintainer | G1          |
-| `docs/08-harness2/04-evaluation-protocol.md`                | `Proposed` | QA/Release Owner   | G2          |
-| `docs/08-harness2/05-runbook.md`                            | `Proposed` | Product Maintainer | G1          |
-| `docs/10-implementation/01-implementation-status.md`        | `Proposed` | Rust/Core Owner    | G0          |
-| `docs/10-implementation/02-code-map.md`                     | `Proposed` | QA/Release Owner   | G1          |
-| `docs/10-implementation/03-integration-findings.md`         | `Proposed` | Rust/Core Owner    | G1          |
-| `docs/99-appendices/01-glossary.md`                         | `Proposed` | Product Maintainer | G0          |
-| `docs/99-appendices/02-source-register.md`                  | `Proposed` | Product Maintainer | G0          |
-| `docs/99-appendices/03-approval-record.md`                  | `Proposed` | Product Maintainer | G0          |
+| Path                                                           | Status     | Owner role         | Review gate |
+| -------------------------------------------------------------- | ---------- | ------------------ | ----------- |
+| `docs/README.md`                                               | `Proposed` | Product Maintainer | G0          |
+| `docs/00-overview/01-prd-analysis.md`                          | `Proposed` | Product Maintainer | G0          |
+| `docs/00-overview/02-competitive-landscape.md`                 | `Proposed` | Product Maintainer | G0          |
+| `docs/00-overview/03-personas-journeys.md`                     | `Proposed` | Product Maintainer | G0          |
+| `docs/01-agile/01-sdlc-process.md`                             | `Proposed` | Product Maintainer | G0          |
+| `docs/01-agile/02-product-backlog.md`                          | `Proposed` | Product Maintainer | G0          |
+| `docs/01-agile/03-roadmap-sprints.md`                          | `Proposed` | Product Maintainer | G0          |
+| `docs/01-agile/04-risk-register.md`                            | `Proposed` | Product Maintainer | G0          |
+| `docs/02-architecture/01-system-design.md`                     | `Proposed` | Rust/Core Owner    | G0          |
+| `docs/02-architecture/02-bridge-design.md`                     | `Proposed` | Rust/Core Owner    | G0          |
+| `docs/02-architecture/03-mcp-design.md`                        | `Proposed` | Rust/Core Owner    | G0          |
+| `docs/02-architecture/04-plugin-design.md`                     | `Proposed` | Plugin Owner       | G0          |
+| `docs/02-architecture/05-state-machines.md`                    | `Proposed` | Rust/Core Owner    | G1          |
+| `docs/02-architecture/adr/ADR-000-template.md`                 | `Proposed` | Product Maintainer | G0          |
+| `docs/02-architecture/adr/ADR-001-language-boundary.md`        | `Proposed` | Rust/Core Owner    | G0          |
+| `docs/02-architecture/adr/ADR-002-transport-selection.md`      | `Proposed` | Rust/Core Owner    | G0          |
+| `docs/02-architecture/adr/ADR-003-mcp-sdk-rmcp.md`             | `Proposed` | Rust/Core Owner    | G0          |
+| `docs/02-architecture/adr/ADR-004-grant-scope-model.md`        | `Proposed` | Rust/Core Owner    | G0          |
+| `docs/02-architecture/adr/ADR-005-consistency-model.md`        | `Proposed` | Rust/Core Owner    | G0          |
+| `docs/02-architecture/adr/ADR-006-pagination-projection.md`    | `Proposed` | Rust/Core Owner    | G0          |
+| `docs/02-architecture/adr/ADR-007-cache-asset-store.md`        | `Proposed` | Rust/Core Owner    | G0          |
+| `docs/02-architecture/adr/ADR-008-resource-budgets.md`         | `Proposed` | Rust/Core Owner    | G1          |
+| `docs/02-architecture/adr/ADR-009-licensing.md`                | `Proposed` | Product Maintainer | G2          |
+| `docs/02-architecture/adr/ADR-010-session-identity.md`         | `Proposed` | Rust/Core Owner    | G0          |
+| `docs/02-architecture/adr/ADR-011-error-taxonomy.md`           | `Proposed` | Rust/Core Owner    | G0          |
+| `docs/02-architecture/adr/ADR-012-harness2-integration.md`     | `Proposed` | Product Maintainer | G1          |
+| `docs/02-architecture/adr/ADR-013-bidirectional-write-path.md` | `Proposed` | Product Maintainer | G0          |
+| `docs/03-uml/01-use-case-diagrams.md`                          | `Proposed` | Rust/Core Owner    | G0          |
+| `docs/03-uml/02-class-diagrams.md`                             | `Proposed` | Rust/Core Owner    | G0          |
+| `docs/03-uml/03-sequence-diagrams.md`                          | `Proposed` | Rust/Core Owner    | G1          |
+| `docs/03-uml/04-state-diagrams.md`                             | `Proposed` | Rust/Core Owner    | G1          |
+| `docs/03-uml/05-activity-diagrams.md`                          | `Proposed` | Rust/Core Owner    | G1          |
+| `docs/03-uml/06-deployment.md`                                 | `Proposed` | Rust/Core Owner    | G2          |
+| `docs/04-data-contracts/01-mcp-envelope.md`                    | `Proposed` | Rust/Core Owner    | G0          |
+| `docs/04-data-contracts/02-tool-catalog.md`                    | `Proposed` | Rust/Core Owner    | G0          |
+| `docs/04-data-contracts/03-bridge-protocol.md`                 | `Proposed` | Rust/Core Owner    | G0          |
+| `docs/04-data-contracts/04-normalized-model.md`                | `Proposed` | Rust/Core Owner    | G0          |
+| `docs/04-data-contracts/05-error-catalog.md`                   | `Proposed` | Rust/Core Owner    | G0          |
+| `docs/04-data-contracts/06-resource-limits.md`                 | `Proposed` | Rust/Core Owner    | G0          |
+| `docs/05-security/01-threat-model.md`                          | `Proposed` | Security Reviewer  | G0          |
+| `docs/05-security/02-access-control.md`                        | `Proposed` | Security Reviewer  | G0          |
+| `docs/05-security/03-privacy-data-handling.md`                 | `Proposed` | Security Reviewer  | G1+G2       |
+| `docs/06-testing/01-test-strategy.md`                          | `Proposed` | QA/Release Owner   | G0          |
+| `docs/06-testing/02-acceptance-catalog.md`                     | `Proposed` | QA/Release Owner   | G0..G3      |
+| `docs/06-testing/03-traceability-matrix.md`                    | `Proposed` | QA/Release Owner   | G1          |
+| `docs/06-testing/04-benchmark-plan.md`                         | `Proposed` | QA/Release Owner   | G1+G2       |
+| `docs/07-ops/01-dev-environment.md`                            | `Proposed` | Rust/Core Owner    | G0          |
+| `docs/07-ops/02-end-user-install.md`                           | `Proposed` | QA/Release Owner   | G2          |
+| `docs/07-ops/03-runbook.md`                                    | `Proposed` | QA/Release Owner   | G2          |
+| `docs/07-ops/04-release-process.md`                            | `Proposed` | QA/Release Owner   | G2          |
+| `docs/08-harness2/01-harness2-overview.md`                     | `Proposed` | Product Maintainer | G0          |
+| `docs/08-harness2/02-integration-architecture.md`              | `Proposed` | Rust/Core Owner    | G1          |
+| `docs/08-harness2/03-harness-pack-spec.md`                     | `Proposed` | Product Maintainer | G1          |
+| `docs/08-harness2/04-evaluation-protocol.md`                   | `Proposed` | QA/Release Owner   | G2          |
+| `docs/08-harness2/05-runbook.md`                               | `Proposed` | Product Maintainer | G1          |
+| `docs/10-implementation/01-implementation-status.md`           | `Proposed` | Rust/Core Owner    | G0          |
+| `docs/10-implementation/02-code-map.md`                        | `Proposed` | QA/Release Owner   | G1          |
+| `docs/10-implementation/03-integration-findings.md`            | `Proposed` | Rust/Core Owner    | G1          |
+| `docs/11-write-path/01-write-path-design.md`                   | `Proposed` | Product Maintainer | G0          |
+| `docs/99-appendices/01-glossary.md`                            | `Proposed` | Product Maintainer | G0          |
+| `docs/99-appendices/02-source-register.md`                     | `Proposed` | Product Maintainer | G0          |
+| `docs/99-appendices/03-approval-record.md`                     | `Proposed` | Product Maintainer | G0          |
 
 Reconciliation note: this registry was corrected by the integration pass on 2026-10-20. Every Path
 cell now points at a landed file; ADR rows were remapped to the landed series topics (pagination and
 projection, cache and asset store, resource budgets, licensing, session identity, error taxonomy,
 Harness2 integration). The intended counts match the authoring plan: 3 plus 4 plus 5 plus 13 plus 6
-plus 6 plus 4 plus 4 plus 5 plus 3 files plus the README rows.
+plus 6 plus 4 plus 4 plus 4 plus 5 plus 3 files plus the README rows. The write path adds one ADR
+row (`ADR-013`) and one design folder with one file, so the registry now holds 14 ADR rows and
+`docs/11-write-path/01-write-path-design.md`.
 
 Gate meaning for the Review gate column: it is the first gate whose exit forces this document to be
 review-complete (`G0` blocked on it means it cannot lag past feasibility). Compound values name every
@@ -109,10 +120,12 @@ gate the content is accountable to; for example ADR-008 (resource budgets) is de
 
 ## 3. Revision history
 
-| Version | Date       | Change                                                                                                                                                                                                                                                            |
-| ------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0.1     | 2026-10-20 | Docs set v0.1 created, derived from PRD v1.1 (`FGT-PRD-001`), in a parallel authoring pass; every file registered at Status `Proposed`; no approvals recorded yet; registry names still subject to the integration reconciliation pass                            |
-| 0.1.1   | 2026-10-20 | Integration reconciliation pass: cross-reference slugs aligned to the landed filenames across `05-security/`, `06-testing/`, `07-ops/`, `02-architecture/adr/ADR-012`; registry Path and gate cells corrected to the landed ADR topics; requirement IDs unchanged |
+| Version | Date       | Change                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 0.1     | 2026-10-20 | Docs set v0.1 created, derived from PRD v1.1 (`FGT-PRD-001`), in a parallel authoring pass; every file registered at Status `Proposed`; no approvals recorded yet; registry names still subject to the integration reconciliation pass                                                                                                                                                                                                                                                                       |
+| 0.1.1   | 2026-10-20 | Integration reconciliation pass: cross-reference slugs aligned to the landed filenames across `05-security/`, `06-testing/`, `07-ops/`, `02-architecture/adr/ADR-012`; registry Path and gate cells corrected to the landed ADR topics; requirement IDs unchanged                                                                                                                                                                                                                                            |
+| 0.1.2   | 2026-10-20 | Write path registration: `docs/02-architecture/adr/ADR-013-bidirectional-write-path.md` and `docs/11-write-path/01-write-path-design.md` added to the registry at Status `Proposed`; the write path is recorded as pending product approval, and no write path document moves to `Approved` until that decision is recorded in section 1                                                                                                                                                                     |
+| 0.1.3   | 2026-10-20 | Write path alignment with the implementation: the write contracts (plan, operation, preview, approval, result, grant mode, and the parameters of the three write tools) are published as JSON Schema in `schemas/`; the design document, the tool catalog, the error catalog, the acceptance catalog, the threat model, the implementation status, the root README, and the changelog now describe the implemented contract. No document changes status, and the product decision of section 1 is still open |
 
 Future changes do not rewrite history; they append rows here. Contract-affecting changes open an ADR
 first (`02-architecture/adr/`), get sign-off from the owning role, then update the contracts and the
@@ -149,3 +162,7 @@ docs-specific gates from `docs/README.md`.
       under the `docs/README.md` conventions.
 - [ ] Registry sync: added, renamed, or restatused files update section 2 in the same PR, and the
       revision history records each transition.
+- [ ] Write path identifiers stay in their own namespace: `WR01..WR09` for the write path
+      requirements, `AT21..AT29` for the write path scenarios, and `D13` for the proposed write path
+      decision; they never reuse a PRD ID, and no write path document claims `Approved` before the
+      product decision is recorded in section 1.

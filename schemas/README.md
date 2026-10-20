@@ -28,8 +28,11 @@ published files are therefore never newer than the model and never older.
 The tool parameter schemas come straight from the `schemars` implementations of the Rust parameter
 types in `crates/model/src/tools.rs`. The envelope, source, observation, coverage, error,
 capability and normalized model schemas come from the contract mirror inside the generator, which
-reproduces the Rust types field for field. The mirror is verified against the Rust model source on
-every run, so it cannot drift away from the model without the generator failing.
+reproduces the Rust types field for field. The write path schemas come from the same mirror: the
+plan, the operation, the preview, the approval, the result, the grant mode, and the parameters of
+the three write tools are contracts of the write path (`ADR-013`,
+`docs/11-write-path/01-write-path-design.md`). The mirror is verified against the Rust model source
+on every run, so it cannot drift away from the model without the generator failing.
 
 ## Rules for consumers
 
@@ -87,6 +90,15 @@ every run, so it cannot drift away from the model without the generator failing.
 | `watch_scope_params.schema.json` | `WatchScopeParams` | Parameters of the `watch_scope` tool. |
 | `get_changes_params.schema.json` | `GetChangesParams` | Parameters of the `get_changes` tool. |
 | `get_job_status_params.schema.json` | `GetJobStatusParams` | Parameters of the `get_job_status` tool. |
+| `grant_mode.schema.json` | `GrantMode` | Mode of a session grant on the write path. |
+| `write_operation.schema.json` | `WriteOperation` | One operation of a write plan. |
+| `write_plan.schema.json` | `WritePlan` | Declarative change set proposed for one session. |
+| `write_preview.schema.json` | `WritePreview` | What a write plan would change, resolved against the live document. |
+| `write_approval.schema.json` | `WriteApproval` | Approval of one write plan, bound to the plan hash and the grant. |
+| `write_result.schema.json` | `WriteResult` | What an approved write plan changed. |
+| `preview_write_params.schema.json` | `PreviewWriteParams` | Parameters of the `preview_write` tool. |
+| `get_write_approval_params.schema.json` | `GetWriteApprovalParams` | Parameters of the `get_write_approval` tool. |
+| `apply_write_params.schema.json` | `ApplyWriteParams` | Parameters of the `apply_write` tool. |
 
 ## Conventions
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as shared from "../src/index";
 import type {
+  AcceptedBridgeOp,
   AuthAccepted,
   AuthRejected,
   AuthRequest,
@@ -11,6 +12,7 @@ import type {
   ChunkPayload,
   DaemonMessageKind,
   ErrorPayload,
+  GrantMode,
   GrantUpdatePayload,
   HeartbeatPayload,
   InboundMessageKind,
@@ -33,6 +35,14 @@ import type {
   RequestPayload,
   ResultPayload,
   RevokePayload,
+  UiToDaemonMessageKind,
+  WriteApproval,
+  WriteBridgeOp,
+  WriteOperation,
+  WriteOperationKind,
+  WritePlan,
+  WritePreview,
+  WriteResult,
 } from "../src/index";
 
 /**
@@ -73,6 +83,16 @@ const REQUIRED_TYPES = [
   "PluginDocument",
   "PluginExport",
   "PluginCapabilities",
+  "GrantMode",
+  "WriteOperationKind",
+  "WriteOperation",
+  "WritePlan",
+  "WritePreview",
+  "WriteApproval",
+  "WriteResult",
+  "UiToDaemonMessageKind",
+  "WriteBridgeOp",
+  "AcceptedBridgeOp",
 ] as const;
 
 /** Compile time use of every exported type, so a rename breaks the build. */
@@ -110,6 +130,16 @@ type ExportedTypes = [
   PluginDocument,
   PluginExport,
   shared.PluginCapabilities,
+  GrantMode,
+  WriteOperationKind,
+  WriteOperation,
+  WritePlan,
+  WritePreview,
+  WriteApproval,
+  WriteResult,
+  UiToDaemonMessageKind,
+  WriteBridgeOp,
+  AcceptedBridgeOp,
 ];
 
 describe("shared package surface", () => {
@@ -135,6 +165,7 @@ describe("shared package surface", () => {
       "cancel",
       "heartbeat",
       "revoke",
+      "approval",
     ]);
     expect(shared.BRIDGE_OPS).toEqual([
       "list_nodes",
@@ -186,6 +217,12 @@ describe("shared package surface", () => {
       "createPluginVariable",
       "createPluginDocument",
       "unwrapPluginMessage",
+      "isAcceptedBridgeOp",
+      "isDestructivePlan",
+      "planOperationCount",
+      "planTextLength",
+      "validatePlanShape",
+      "canonicalPlanJson",
     ]) {
       expect(typeof shared[name as keyof typeof shared], name).toBe("function");
     }
@@ -204,7 +241,10 @@ describe("shared package surface", () => {
       "chunk",
       "capabilities",
       "selection",
+      "preview",
+      "write_result",
     ]);
+    expect(shared.UI_TO_DAEMON_MESSAGE_KINDS).toEqual(["approval"]);
     expect(shared.LOCAL_MESSAGE_KINDS).toEqual(["grant_verified", "status", "capture_chunk"]);
     expect(shared.OUTBOUND_MESSAGE_KINDS).toEqual([
       ...shared.DAEMON_MESSAGE_KINDS,
@@ -213,8 +253,20 @@ describe("shared package surface", () => {
     expect(shared.INBOUND_MESSAGE_KINDS).toEqual(shared.DAEMON_MESSAGE_KINDS);
   });
 
+  it("exports the contract of the write path", () => {
+    expect(shared.WRITE_BRIDGE_OPS).toEqual(["preview_write", "apply_write"]);
+    expect(shared.ACCEPTED_BRIDGE_OPS).toEqual([...shared.BRIDGE_OPS, ...shared.WRITE_BRIDGE_OPS]);
+    expect(shared.isAcceptedBridgeOp("preview_write")).toBe(true);
+    expect(shared.isAcceptedBridgeOp("apply_write")).toBe(true);
+    expect(shared.isAcceptedBridgeOp("read_nodes")).toBe(true);
+    expect(shared.isAcceptedBridgeOp("drop_table")).toBe(false);
+    expect(shared.WRITE_APPROVAL_TTL_MS).toBe(600_000);
+    expect(shared.WRITE_NODE_TYPES.length).toBeGreaterThan(0);
+    expect(shared.ALLOWED_WRITE_PROPERTIES.length).toBeGreaterThan(0);
+  });
+
   it("keeps the exported type names in the contract", () => {
-    expect(REQUIRED_TYPES.length).toBe(33);
+    expect(REQUIRED_TYPES.length).toBe(43);
     // The type only exists so the compiler checks the list above.
     const marker: ExportedTypes | undefined = undefined;
     expect(marker).toBeUndefined();

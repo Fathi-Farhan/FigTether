@@ -1,0 +1,87 @@
+{
+  "$id": "urn:figtether:schema:write_preview",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "What a plan would change, resolved against the live document.\n\nThe preview never mutates. A plan that cannot be applied as written\nproduces a blocked preview with the reason, never a partial apply.",
+  "properties": {
+    "approval_id": {
+      "description": "Approval the user has to grant for this plan.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "blocked": {
+      "default": false,
+      "description": "Whether the plan cannot be applied as written.",
+      "type": "boolean"
+    },
+    "changed": {
+      "default": [],
+      "description": "Node ids whose properties would change.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "created": {
+      "default": [],
+      "description": "Node ids that would be created.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "created_count": {
+      "default": 0,
+      "description": "Number of nodes the plan would create.\n\nA node that does not exist yet has no id, so the preview reports the\ncount here and the applied result reports the real ids.",
+      "format": "uint32",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "moved": {
+      "default": [],
+      "description": "Node ids that would be reparented or repositioned.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "operations_count": {
+      "default": 0,
+      "description": "Number of operations in the plan.",
+      "format": "uint32",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "plan_hash": {
+      "description": "Hash of the canonical plan. The approval is bound to this hash.",
+      "type": "string"
+    },
+    "plan_id": {
+      "description": "Plan the preview belongs to.",
+      "type": "string"
+    },
+    "removed": {
+      "default": [],
+      "description": "Node ids that would be removed.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "warnings": {
+      "default": [],
+      "description": "Reasons a part of the plan could not be resolved.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "plan_id",
+    "plan_hash"
+  ],
+  "title": "WritePreview",
+  "type": "object"
+}

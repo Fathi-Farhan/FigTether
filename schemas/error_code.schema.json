@@ -124,6 +124,46 @@
       "type": "string"
     },
     {
+      "const": "WRITE_NOT_GRANTED",
+      "description": "The session holds no write grant.",
+      "type": "string"
+    },
+    {
+      "const": "APPROVAL_REQUIRED",
+      "description": "No valid approval token for this plan.",
+      "type": "string"
+    },
+    {
+      "const": "APPROVAL_EXPIRED",
+      "description": "The approval expired or was invalidated.",
+      "type": "string"
+    },
+    {
+      "const": "PLAN_HASH_MISMATCH",
+      "description": "The plan differs from the approved plan.",
+      "type": "string"
+    },
+    {
+      "const": "PLAN_INVALID",
+      "description": "The plan is structurally invalid.",
+      "type": "string"
+    },
+    {
+      "const": "BUDGET_EXCEEDED",
+      "description": "The plan exceeds a write budget.",
+      "type": "string"
+    },
+    {
+      "const": "DESTRUCTIVE_NOT_ALLOWED",
+      "description": "A destructive operation without the required flag or user toggle.",
+      "type": "string"
+    },
+    {
+      "const": "MUTATION_REFUSED",
+      "description": "The editor refused the mutation, for example a reparenting cycle.",
+      "type": "string"
+    },
+    {
       "const": "INTERNAL_ERROR",
       "description": "An unexpected internal error.",
       "type": "string"

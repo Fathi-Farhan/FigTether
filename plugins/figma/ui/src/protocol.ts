@@ -8,7 +8,14 @@
  */
 
 import { BRIDGE_CHANNEL, INBOUND_MESSAGE_KINDS } from "@figtether/shared";
-import type { CapabilityMap, GrantUpdatePayload } from "@figtether/shared";
+import type {
+  BridgeFrame,
+  CapabilityMap,
+  GrantMode as WriteGrantMode,
+  GrantUpdatePayload,
+  MessageType,
+  SessionMode,
+} from "@figtether/shared";
 
 export {
   AUTH_WINDOW_MS,
@@ -18,8 +25,10 @@ export {
   MAX_TRANSFER_BYTES,
   MISSED_HEARTBEATS_BEFORE_OFFLINE,
   PROTOCOL_VERSION,
+  createFrame,
   isBridgeOp,
   isMessageType,
+  serializeFrame,
 } from "@figtether/shared";
 
 export type {
@@ -35,6 +44,26 @@ export type {
   ResultPayload,
   RevokePayload,
 } from "@figtether/shared";
+
+export type {
+  WriteApproval,
+  WriteOperation,
+  WriteOperationKind,
+  WritePlan,
+  WritePlanPayload,
+  WritePreview,
+  WriteResult,
+} from "@figtether/shared";
+
+/**
+ * Mode of a grant on the write path.
+ *
+ * The mode of a grant on the read path, which is `live` or `paused`, is a
+ * different thing and lives in this module under the name {@link SessionMode}.
+ * The shared contract names the mode of the write path `GrantMode` as well,
+ * so it is renamed here to keep the two apart.
+ */
+export type { GrantMode as WriteGrantMode } from "@figtether/shared";
 
 /**
  * The envelope of every message on the channel.
@@ -134,8 +163,14 @@ export interface SelectionPayload {
 /** Read mode of a session. */
 export type ReadMode = "live" | "snapshot" | "offline_bundle" | "unknown";
 
-/** Operating mode of a grant. */
-export type GrantMode = "live" | "paused";
+/**
+ * Session mode of a grant.
+ *
+ * The session mode is the pause extension of the read path: it says whether
+ * the session is live or paused. It is not the mode of the grant, which says
+ * whether the session may write.
+ */
+export type { SessionMode };
 
 /** The live status facts of a session. */
 export interface StatusPayload {
@@ -148,10 +183,37 @@ export interface StatusPayload {
 /**
  * The grant payload that the UI sends.
  *
- * The frozen contract carries the root ids and the epoch. The mode is the
- * extension of `docs/02-architecture/02-bridge-design.md` section 6, which
- * describes a grant update that carries the live or the paused mode.
+ * The frozen contract carries the root ids and the epoch. The two modes are
+ * two different fields: the mode of the grant says whether the session may
+ * write, and the session mode says whether the session is live or paused.
+ * Both fields are additive, so a peer that does not know them keeps the
+ * safe behaviour: the read mode and the live session.
  */
 export interface UiGrantUpdate extends GrantUpdatePayload {
-  readonly mode: GrantMode;
+  /** Mode of the grant: read or write. */
+  readonly mode: WriteGrantMode;
+  /** Session mode of the grant: live or paused. */
+  readonly session_mode: SessionMode;
+}
+
+/**
+ * The message types the interface may send on the socket.
+ *
+ * The list is the vocabulary of the shared contract, and it carries the
+ * approval decision of the user: the kind travels from the interface to the
+ * daemon, so the interface needs it and the sandbox does not.
+ */
+export type UiMessageType = MessageType;
+
+/** A frame the interface sends on the socket. */
+export type UiBridgeFrame = BridgeFrame;
+
+/** Options of a frame the interface sends. */
+export interface UiFrameOptions {
+  /** Session the frame belongs to. */
+  readonly session_id?: string;
+  /** Connection epoch of the sender. */
+  readonly connection_epoch?: number;
+  /** Grant epoch in force. */
+  readonly grant_epoch?: number;
 }

@@ -72,7 +72,8 @@ describe("AppController", () => {
     const updates = bridge.grantUpdates();
     expect(updates).toHaveLength(1);
     expect(updates[0]?.root_ids).toEqual(["1:2"]);
-    expect(updates[0]?.mode).toBe("live");
+    expect(updates[0]?.mode).toBe("read");
+    expect(updates[0]?.session_mode).toBe("live");
     expect((ui.model as UiModel).grantedRootCount).toBe(1);
   });
 
@@ -113,13 +114,31 @@ describe("AppController", () => {
     expect((ui.model as UiModel).canPause).toBe(true);
 
     controller.onPauseRequested();
-    expect(bridge.grantUpdates()[1]?.mode).toBe("paused");
+    expect(bridge.grantUpdates()[1]?.session_mode).toBe("paused");
     expect((ui.model as UiModel).canResume).toBe(true);
     expect((ui.model as UiModel).canPause).toBe(false);
 
     controller.onResumeRequested();
-    expect(bridge.grantUpdates()[2]?.mode).toBe("live");
+    expect(bridge.grantUpdates()[2]?.session_mode).toBe("live");
     expect((ui.model as UiModel).canPause).toBe(true);
+  });
+
+  it("keeps the write grant while the session is paused", () => {
+    const { controller, bridge } = harness();
+    controller.onPairRequested("pairing-secret-value");
+    acceptHandshake(bridge);
+    controller.onSandboxEnvelope(
+      sandboxEnvelope("selection", {
+        roots: [{ node_id: "1:2", node_type: "FRAME", child_count: 0 }],
+      }),
+    );
+    controller.onRootSelectionChanged(["1:2"]);
+    controller.onAllowRequested();
+    controller.onWriteGrantRequested();
+    expect(bridge.grantUpdates()[1]?.mode).toBe("write");
+    controller.onPauseRequested();
+    expect(bridge.grantUpdates()[2]?.mode).toBe("write");
+    expect(bridge.grantUpdates()[2]?.session_mode).toBe("paused");
   });
 
   it("raises the grant epoch on every scope change", () => {

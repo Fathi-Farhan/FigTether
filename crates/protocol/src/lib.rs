@@ -14,6 +14,7 @@
 
 pub mod client;
 pub mod plugin;
+pub mod write;
 
 use std::collections::BTreeMap;
 use std::time::{Duration, Instant};
@@ -67,6 +68,8 @@ pub enum MessageType {
     Heartbeat,
     /// Revocation of a grant.
     Revoke,
+    /// The user approved or rejected a write plan.
+    Approval,
 }
 
 impl MessageType {
@@ -84,6 +87,7 @@ impl MessageType {
             Self::Cancel => "cancel",
             Self::Heartbeat => "heartbeat",
             Self::Revoke => "revoke",
+            Self::Approval => "approval",
         }
     }
 }
@@ -112,6 +116,10 @@ pub enum BridgeOp {
     WatchScope,
     /// Read change events for a watch.
     GetChanges,
+    /// Preview a write plan without mutating the document.
+    PreviewWrite,
+    /// Apply an approved write plan.
+    ApplyWrite,
 }
 
 impl BridgeOp {
@@ -128,6 +136,8 @@ impl BridgeOp {
             Self::ListSessions => "list_sessions",
             Self::WatchScope => "watch_scope",
             Self::GetChanges => "get_changes",
+            Self::PreviewWrite => "preview_write",
+            Self::ApplyWrite => "apply_write",
         }
     }
 }
@@ -384,6 +394,18 @@ pub struct GrantUpdatePayload {
     pub root_ids: Vec<String>,
     /// Epoch of the new grant.
     pub grant_epoch: u64,
+    /// Mode of the new grant: `read` or `write`.
+    ///
+    /// The field is additive. A missing mode means the read mode, so a peer
+    /// that does not know the field keeps the read only behaviour.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mode: Option<String>,
+    /// Session mode of the new grant: `live` or `paused`.
+    ///
+    /// This is the pause extension, kept separate from `mode` so the two
+    /// meanings never collide. A missing session mode means live.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_mode: Option<String>,
 }
 
 /// Revocation of a grant.
@@ -594,5 +616,75 @@ mod tests {
         assert!(json.contains("\"bytes\""), "{json}");
         let decoded: ChunkPayload = serde_json::from_str(&json).expect("decodes");
         assert_eq!(decoded.bytes, vec![0x00, 0x01, 0xff]);
+    }
+
+    #[test]
+    fn the_approval_message_type_has_a_stable_wire_string() {
+        assert_eq!(MessageType::Approval.as_str(), "approval");
+        let json = serde_json::to_string(&MessageType::Approval).expect("encodes");
+        assert_eq!(json, "\"approval\"");
+        let decoded: MessageType = serde_json::from_str("\"approval\"").expect("decodes");
+        assert_eq!(decoded, MessageType::Approval);
+    }
+
+    #[test]
+    fn the_write_operations_have_stable_wire_strings() {
+        assert_eq!(BridgeOp::PreviewWrite.as_str(), "preview_write");
+        assert_eq!(BridgeOp::ApplyWrite.as_str(), "apply_write");
+        let json = serde_json::to_string(&BridgeOp::PreviewWrite).expect("encodes");
+        assert_eq!(json, "\"preview_write\"");
+        let json = serde_json::to_string(&BridgeOp::ApplyWrite).expect("encodes");
+        assert_eq!(json, "\"apply_write\"");
+    }
+
+    #[test]
+    fn an_approval_frame_carries_its_type_on_the_wire() {
+        let frame = BridgeFrame::new(
+            MessageType::Approval,
+            "req_1",
+            serde_json::json!({"approval_id": "apr_1", "approved": true}),
+        );
+        let bytes = frame.to_bytes().expect("encodes");
+        let text = String::from_utf8(bytes).expect("utf8");
+        assert!(text.contains("\"message_type\":\"approval\""), "{text}");
+        assert!(text.contains("\"protocol_version\":\"1.0\""), "{text}");
+        let decoded = BridgeFrame::from_bytes(text.as_bytes()).expect("decodes");
+        assert_eq!(decoded.message_type, MessageType::Approval);
+    }
+
+    #[test]
+    fn the_grant_mode_is_absent_by_default() {
+        let payload = GrantUpdatePayload {
+            root_ids: vec!["1:2".to_string()],
+            grant_epoch: 3,
+            mode: None,
+            session_mode: None,
+        };
+        let json = serde_json::to_string(&payload).expect("encodes");
+        assert!(!json.contains("\"mode\""), "{json}");
+    }
+
+    #[test]
+    fn a_grant_update_without_a_mode_decodes_as_the_read_mode() {
+        let payload: GrantUpdatePayload =
+            serde_json::from_value(serde_json::json!({"root_ids": ["1:2"], "grant_epoch": 3}))
+                .expect("decodes");
+        assert_eq!(payload.mode, None);
+        assert_eq!(payload.root_ids, vec!["1:2".to_string()]);
+        assert_eq!(payload.grant_epoch, 3);
+    }
+
+    #[test]
+    fn a_grant_update_carries_its_mode() {
+        let payload = GrantUpdatePayload {
+            root_ids: vec!["1:2".to_string()],
+            grant_epoch: 3,
+            mode: Some("write".to_string()),
+            session_mode: None,
+        };
+        let json = serde_json::to_value(&payload).expect("encodes");
+        assert_eq!(json["mode"], "write");
+        let decoded: GrantUpdatePayload = serde_json::from_value(json).expect("decodes");
+        assert_eq!(decoded, payload);
     }
 }

@@ -1,4 +1,4 @@
-# FigTether Acceptance Test Catalog (AT01..AT20)
+# FigTether Acceptance Test Catalog (AT01..AT29)
 
 Status: `Proposed`
 
@@ -8,6 +8,11 @@ criteria, and requirement links; no wording weakens the PRD and no ID is renumbe
 Execution organization (pyramid, environments, fixtures, evidence storage) is
 `docs/06-testing/01-test-strategy.md`; benchmark procedures for `N01..N10` are
 `docs/06-testing/04-benchmark-plan.md`, referenced but never duplicated here.
+
+Sections `AT21` to `AT29` are an extension for the write path proposed by `ADR-013`. They are not
+PRD Appendix A rows: they carry no gate, they name the write path requirements `WR01..WR09`
+(`docs/06-testing/03-traceability-matrix.md` section 3.1), and they exist only because `ADR-013`
+is pending product approval (`docs/00-overview/01-prd-analysis.md` section 12).
 
 ## How to read
 
@@ -348,6 +353,157 @@ or stop the daemon.
 
 **Pass criteria.** Bundle integrity is verifiable by hash and schema; offline reads stay offline; no implicit live routing drift; oversize handling is bounded. **Requirements.** FR21. **Gate.** G3.
 
+## Write path scenarios (AT21..AT29)
+
+These scenarios cover the write path specified in `docs/11-write-path/01-write-path-design.md` and
+decided in `ADR-013`. They are proposed. No gate is assigned to them, because `ADR-013` is pending
+product approval; the rollout stages `W1` to `W3` of the write path design describe the intended
+order, not a release schedule. The write fixtures reuse the existing `FX-` fixtures: `FX-SMALL`
+for the mutation checks and `FX-MIXED` for the text and property checks.
+
+## AT21 - A write without a write grant is refused
+
+**Purpose.** A session that holds a read grant only cannot mutate the document; the write is refused before any plan reaches the plugin. **Preconditions.** Paired session on `FX-SMALL` with a read grant; the plugin UI can grant a write mode separately; a plan that would create one node.
+
+**Steps.**
+
+1. Submit the plan with `preview_write` on a read only session; verify the request is refused with `WRITE_NOT_GRANTED` and that no plan was sent to the plugin (WR01; `ADR-013` rule 1).
+2. Repeat the same submit with `apply_write`; verify the same refusal and no approval request was created (WR01).
+3. Grant the write mode in the plugin UI for the same roots; verify the grant epoch changed and that the previous refusal is not retried by the daemon (WR01; ADR-004 amendment).
+4. Verify the granted session list still shows the same scope roots, and that the write mode did not widen the read scope of any other session (WR01).
+5. Review the tool surface at the same commit: no tool applies a mutation directly, and every write path is reachable only through a plan (WR02).
+
+**Evidence required.** Baseline plus per step `expected/actual` with the returned code, sanitized logs showing the refusal before dispatch, and the `grant_epoch` before and after the mode change.
+
+**Pass criteria.** No document change occurs without a write grant; the refusal is structured (`code`, `message`, `retryable`, `action`, `request_id`); the write mode is a separate user action. **Requirements.** WR01; WR02. **Gate.** Not assigned; blocked on the product approval of `ADR-013`.
+
+## AT22 - A preview does not change the document
+
+**Purpose.** `preview_write` resolves a plan against the live document and returns a preview without mutating anything. **Preconditions.** Paired session on `FX-SMIXED` with a write grant; before and after document state capture available.
+
+**Steps.**
+
+1. Record the document state (node ordering, text values, fills, selection, current page) and the fixture content hash (WR03).
+2. Submit a plan that creates a frame, sets text on a text node, and changes a fill; verify the preview reports the created, changed, and moved node ids, the operation count, and a plan hash (WR03).
+3. Compare the before and after states; verify the hash, node order, text, fills, selection, and page are identical and that the trace contains no write frame (WR03; `FR24`).
+4. Submit a plan that names a node that does not exist, a parent outside the grant, and a property outside the allowlist; verify the preview is blocked with the reason for each and that nothing was applied (WR03; ADR-013 rule 3).
+5. Verify the plan hash is stable for the same canonical plan and changes when an operation changes (WR03, WR04).
+
+**Evidence required.** Baseline plus before and after state tables inside `expected/actual`, `fixture_hash`, sanitized trace logs, and the preview payloads.
+
+**Pass criteria.** The document is byte identical after any number of previews; a blocked preview names its reason; the preview is the only artifact the user has to review. **Requirements.** WR03; `FR24`. **Gate.** Not assigned; blocked on the product approval of `ADR-013`.
+
+## AT23 - An apply without a valid approval is refused
+
+**Purpose.** A write that the user did not approve never reaches the document. **Preconditions.** Paired session on `FX-SMALL` with a write grant; the plugin approval panel available.
+
+**Steps.**
+
+1. Submit a plan with `preview_write` and keep the returned `approval_id` (WR04).
+2. Call `apply_write` without an approval token; verify the refusal with `APPROVAL_REQUIRED` and that the document is unchanged (WR04).
+3. Call `apply_write` with a token whose plan hash does not match the submitted plan; verify `PLAN_HASH_MISMATCH` and that the document is unchanged (WR04; ADR-013 rule 4).
+4. Approve the plan in the plugin UI, read the approval with `get_write_approval`, and verify the returned token is bound to the plan hash, the session, and the grant epoch (WR04).
+5. Wait for the approval to expire, or change the grant mode in the plugin UI, and verify the outstanding approval stops resolving and the apply is refused with `APPROVAL_EXPIRED` (WR04; ADR-004 amendment).
+
+**Evidence required.** Baseline plus per step `expected/actual` with the returned code, the approval state transitions, sanitized logs, and the document state after each refusal.
+
+**Pass criteria.** No apply without a valid, unexpired approval changes the document; a grant change invalidates outstanding approvals; the agent cannot approve a plan itself. **Requirements.** WR04. **Gate.** Not assigned; blocked on the product approval of `ADR-013`.
+
+## AT24 - A changed plan hash is refused
+
+**Purpose.** The approval is bound to the exact plan the user saw; a modified plan is refused. **Preconditions.** Paired session on `FX-MIXED` with a write grant; an approved plan kept for comparison.
+
+**Steps.**
+
+1. Preview a plan, get it approved, and record the approved plan hash and the approval id (WR04).
+2. Submit the apply with the approved plan unchanged; verify the daemon recomputes the same plan hash and proceeds to the plugin (WR04).
+3. Change one operation of the plan (a different target node, an extra property change, a changed text value) while keeping the approved token; verify `PLAN_HASH_MISMATCH` and that the document is unchanged (WR04).
+4. Preview the changed plan and verify it receives a new plan hash and a new approval request, so the previous approval does not cover it (WR04).
+
+**Evidence required.** Baseline plus the two plan hashes, per step `expected/actual`, and the document state after each attempt.
+
+**Pass criteria.** The approval covers exactly one plan body; any change produces a new hash and needs a new approval. **Requirements.** WR04. **Gate.** Not assigned; blocked on the product approval of `ADR-013`.
+
+## AT25 - A plan over a budget is refused
+
+**Purpose.** The write budgets are limits, not advice. **Preconditions.** Paired session on `FX-MEDIUM` with a write grant; budget defaults from `docs/11-write-path/01-write-path-design.md` section 3 available in the artifact.
+
+**Steps.**
+
+1. Submit a plan with more operations than the per plan operation budget; verify `BUDGET_EXCEEDED` naming the limit and that nothing was applied (WR06).
+2. Repeat for the created node budget, the text character budget, the property change budget, and the affected subtree size of a delete; verify the same code and the same no change behavior (WR06).
+3. Submit a plan within every budget and verify it previews normally (WR06).
+4. Drive writes faster than the per minute rate budget for a session; verify the refusal names the rate limit (WR06).
+5. Verify that an over budget plan creates no approval request, so the user is never asked to approve a plan that cannot run (WR06).
+
+**Evidence required.** Baseline plus per case `expected/actual` with the limit value in the message, the document state after each refusal, and the budget constants from the artifact.
+
+**Pass criteria.** Every budget produces `BUDGET_EXCEEDED` with the limit named; no partial apply happens; no approval is requested for a refused plan. **Requirements.** WR06. **Gate.** Not assigned; blocked on the product approval of `ADR-013`.
+
+## AT26 - A write outside the granted roots is refused
+
+**Purpose.** A write may not touch a node outside the granted roots, whatever the agent sends. **Preconditions.** Paired session on `FX-MEDIUM` with a write grant on root `1:2`; a sibling subtree outside the grant.
+
+**Steps.**
+
+1. Submit a plan that changes a node outside the granted roots; verify the preview is blocked with the reason and the apply is refused with `OUT_OF_SCOPE` (WR07).
+2. Submit a plan that creates a node under a parent outside the grant; verify the same refusal (WR07).
+3. Submit a plan that moves a node out of the granted roots without the destructive flag; verify `DESTRUCTIVE_NOT_ALLOWED` and no change (WR07; ADR-013 rule 6).
+4. Verify that the refusal happens on both sides: the daemon refuses before dispatch and the plugin refuses a handler call that arrives anyway (WR07; `FR03`).
+5. Verify that no content of the out of scope node appears in the error message or in the preview (WR07; `FR18`).
+
+**Evidence required.** Baseline plus per step `expected/actual`, sanitized logs showing the refusal on both sides, and the document state after each attempt.
+
+**Pass criteria.** Nothing outside the granted roots is read or written by a write path; the refusal is structured and content free. **Requirements.** WR07; `FR03`. **Gate.** Not assigned; blocked on the product approval of `ADR-013`.
+
+## AT27 - A destructive operation without the flag and the toggle is refused
+
+**Purpose.** A delete or an out-of-scope move needs both the destructive flag in the plan and a separate user toggle in the plugin UI. **Preconditions.** Paired session on `FX-SMIXED` with a write grant; a deletable subtree inside the grant; the destructive toggle off by default.
+
+**Steps.**
+
+1. Submit a plan that deletes a node without the `destructive` flag; verify `DESTRUCTIVE_NOT_ALLOWED` and that the node still exists (WR07).
+2. Submit the same plan with the flag set while the user toggle is off; verify the same refusal (WR07; ADR-013 rule 6).
+3. Preview the plan with the flag set and the toggle on; verify the preview names the removed node ids and the affected subtree size (WR07).
+4. Apply the approved plan and verify the node is removed, the result reports it, and the audit record names the operation count and the counts of the created, changed, removed, and moved nodes without design content (WR07, WR08).
+5. Verify the daemon refuses a plan whose `destructive` flag does not match the operations it contains (WR07).
+
+**Evidence required.** Baseline plus per step `expected/actual`, the toggle state before each attempt, and the audit record of the applied delete.
+
+**Pass criteria.** A delete never happens without both the flag and the toggle; the destructive flag alone is not enough; the audit record stays content free. **Requirements.** WR07; WR08. **Gate.** Not assigned; blocked on the product approval of `ADR-013`.
+
+## AT28 - An approved apply leaves an audit record
+
+**Purpose.** An applied plan is recorded, without design content, so a human can review it afterwards. **Preconditions.** Paired session on `FX-MIXED` with a write grant; sanitized diagnostics capture; a plan that creates a node, changes text, and changes a fill.
+
+**Steps.**
+
+1. Preview the plan, get it approved, and apply it; verify the result reports the created, changed, moved, and removed node ids, `undo_committed`, and `version_saved` (WR05, WR08).
+2. Verify the daemon recorded one audit record for the applied plan with the plan id, the plan hash, the approval id, the number of operations, the counts of the created, changed, removed, and moved nodes, and the timestamp (WR08; ADR-013 rule 7). The record holds no node ids; the ids are visible in the result of step 1.
+3. Inspect the audit record and the diagnostics; verify no layer name, no text content, and no other design content is present (WR08; `FR18`).
+4. Verify the version checkpoint is reported when the seat allows it, and that its absence is reported rather than hidden (WR05; write path design section 5).
+5. Reject a second plan in the plugin UI and verify that no audit record claims an applied write for it (WR04, WR08).
+
+**Evidence required.** Baseline plus the result payload, the audit record, a content inspection of the record, and the document state after the apply.
+
+**Pass criteria.** Every applied plan has exactly one audit record; the record is content free; a rejected plan leaves no record of a write. **Requirements.** WR05; WR08; `FR18`. **Gate.** Not assigned; blocked on the product approval of `ADR-013`.
+
+## AT29 - The applied plan is one step in the editor undo history
+
+**Purpose.** The applied plan is a single step in Figma's native undo history, so the user can take it back in the editor. **Preconditions.** A real Figma Desktop session with the plugin, a write grant, and the applied plan from `AT28`; editor interaction available; the automated suites cannot prove this. **Steps.**
+
+1. Apply an approved plan in a real Figma Desktop session and record the `Figma_version` and the editor state before the apply (WR05; ADR-013 rule 5).
+2. Trigger the editor undo once; verify the whole plan is reverted, not only its last operation (WR05).
+3. Redo, then apply a plan that changes several pages; verify the undo behaviour and record the result (WR05; write path design open question 1).
+4. Apply a plan that fails halfway; verify the report says the plan was partially applied, and record what the editor undo does with it (WR05; residual RH05 and RH06).
+5. Verify the tool surface exposes no revert tool: `figma.triggerUndo()` is not offered, and the recovery path is the editor undo plus the version history (WR09).
+
+**Evidence required.** Baseline plus screen recording or editor screenshots per step, the editor version, the `expected/actual` of the undo result, and the partially applied report. Every record states that this scenario needs a real session.
+
+**Pass criteria.** The undo behaviour of an applied plan is observed in a real editor session and recorded. Until this scenario passes, no document claims that an applied plan is a single undo step. **Requirements.** WR05; WR09. **Gate.** Not assigned; blocked on the product approval of `ADR-013` and on a real editor session.
+
 ## Closing notes
 
 The template baseline in How to read is mandatory for every scenario; `docs/06-testing/01-test-strategy.md` section 5 fixes sanitized log rules, evidence storage, and rerun rules. `docs/06-testing/03-traceability-matrix.md` maps each FR and each PRD problem `P01..P14` to the scenarios covering them; `docs/06-testing/04-benchmark-plan.md` owns the `N01..N10` measurement procedures. No scenario is renumbered, weakened against its PRD Appendix A row, or moved to a gate the PRD does not assign.
+
+The write path scenarios `AT21` to `AT29` follow the same template but sit outside the PRD set: they are numbered in their own range, they name the write path requirements `WR01..WR09` instead of PRD `FR` IDs, and no gate is assigned to them because `ADR-013` is pending product approval. `AT29` additionally needs a real Figma Desktop session; the automated suites can prove the contracts, the budget, the scope, and the approval, but not the editor undo behaviour.

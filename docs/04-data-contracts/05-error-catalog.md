@@ -63,6 +63,42 @@ plugin errors without change.
 | `FONT_UNAVAILABLE`       | Font missing or unrenderable                                   | Label the text; do not retry the export; do not mutate fonts (PRD 8.7)          | no          | plugin                                    |
 | `INTERNAL_ERROR`         | Unexpected bug                                                 | Report the sanitized correlation ID; no automatic retry without classification  | no          | daemon, plugin, mcp                       |
 
+## 2.1 Write path codes from ADR-013
+
+The write path extends the taxonomy with eight codes. They follow the same object shape (section 5),
+are business tool-result errors rather than protocol errors, and carry the `action` hint that tells
+the agent what it may do next. The codes are proposed: `ADR-013` is pending product approval
+(`docs/00-overview/01-prd-analysis.md` section 12). `FONT_UNAVAILABLE` already exists in the PRD
+8.7 table above and is reused for a text operation whose font the editor cannot load.
+
+| Code                      | Trigger (write path)                                                                            | Recovery / retry                                                                       | Retryable   | Typical emitters |
+| ------------------------- | ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | ----------- | ---------------- |
+| `WRITE_NOT_GRANTED`       | The session holds a read grant only, or no grant at all                                         | Ask the user to grant write access in the plugin; the agent cannot widen its own grant | no          | daemon, plugin   |
+| `APPROVAL_REQUIRED`       | An apply request arrives without a valid approval token                                         | Ask the user to approve the previewed plan in the plugin; the agent cannot approve it  | no          | daemon           |
+| `APPROVAL_EXPIRED`        | The approval expired, or a grant change invalidated it                                          | Preview the plan again and ask for a new approval                                      | no          | daemon           |
+| `PLAN_HASH_MISMATCH`      | The submitted plan differs from the plan the user approved                                      | Submit exactly the approved plan, or preview it again for a new approval               | no          | daemon, plugin   |
+| `PLAN_INVALID`            | The plan is structurally invalid, or names an operation or property outside the closed contract | Fix the plan and preview it again                                                      | no          | daemon, plugin   |
+| `BUDGET_EXCEEDED`         | The plan exceeds an operation, node, text, property, subtree, validity, or rate budget          | Split the plan into smaller plans; the limit is in the message                         | no          | daemon, plugin   |
+| `DESTRUCTIVE_NOT_ALLOWED` | A delete or an out-of-scope move without the destructive flag, or without the user toggle       | Ask the user to allow the destructive operation, or drop it from the plan              | no          | daemon, plugin   |
+| `MUTATION_REFUSED`        | The editor refused the mutation, for example a reparenting cycle or a readonly parent           | Adjust the plan; the refusal depends on the document, not on a transient condition     | conditional | plugin           |
+
+Notes:
+
+- The daemon is the first emitter for every code except `MUTATION_REFUSED`, which the editor
+  raises and the daemon passes through unchanged.
+- `BUDGET_EXCEEDED` always names the limit that was reached; the budgets are listed in
+  `docs/11-write-path/01-write-path-design.md` section 3 and in `ADR-008` (amendment). The rate
+  budget counts the plans a session starts, not the operations inside them.
+- `PLAN_INVALID` covers a closed contract violation, for example a property outside the
+  allowlist or an unknown operation kind. It is not a best effort path.
+- `OUT_OF_SCOPE` (section 2) still answers a write that names a node outside the granted roots;
+  the write codes do not replace it.
+- The `action` hint of a write refusal is a sentence when the daemon raises the refusal
+  (`crates/daemon/src/write_path.rs`) and one of the shared verbs when the plugin raises it
+  (`plugins/figma/main/src/write/errors.ts`). The verbs a write refusal can carry are
+  `new_grant_required`, `resume_by_user`, `narrow_parameters`, and `use_alternative`. The daemon
+  passes a plugin action through unchanged.
+
 ## 3. Limit codes from PRD 8.5.5
 
 PRD 8.5.5 additionally names `SESSION_LIMIT` (plugin session count) and `INVALID_LIMIT` (batch
@@ -81,6 +117,8 @@ The global rule, from FR14 and PRD 8.3 and 8.5.5: retries are bounded, maximum o
 only for transient conditions, and only for idempotent read operations. Writes do not exist in
 v0.1/v0.2 (D03), so every read qualifies as idempotent with respect to the document (FR24), but
 the retry budget still applies only to the codes marked `yes` above: `BUSY`, `DOCUMENT_CHANGED`.
+The write path proposed by `ADR-013` does not change the read rule; it adds a stricter rule for
+writes, stated below.
 
 - `conditional` means the fixing action is a caller or user decision: retrying verbatim is
   forbidden until the condition changes (parameters narrowed, plugin back online, session resumed,
@@ -90,6 +128,14 @@ the retry budget still applies only to the codes marked `yes` above: `BUSY`, `DO
   executed (PRD 8.5.5). `TIMEOUT` therefore implies the work did not start or was discarded late.
 - Post-`REVOKED` requests are never answered by replay, and late frames after revoke are dropped
   (FR14, FR15, PRD 8.4 heartbeat rules).
+
+Write path rule: a write is not idempotent, so no write request is ever replayed automatically,
+not even once. A refused apply (`WRITE_NOT_GRANTED`, `APPROVAL_REQUIRED`, `APPROVAL_EXPIRED`,
+`PLAN_HASH_MISMATCH`, `PLAN_INVALID`, `BUDGET_EXCEEDED`, `DESTRUCTIVE_NOT_ALLOWED`) is never
+retried verbatim. The plan has to change and be previewed again, which produces a new plan hash
+and needs a new approval. `MUTATION_REFUSED` is conditional because the refusal depends on the
+document state rather than on a transient condition, and the corrected plan needs a new approval
+as well.
 
 ## 5. Error object shape
 
@@ -108,14 +154,14 @@ Every business error, including batch item errors, uses this shape:
 
 Field contract:
 
-| Field            | Type              | Rule                                                                                                                                                                                    |
-| ---------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `code`           | string            | One of the catalog literals; unknown codes normalize to `INTERNAL_ERROR`                                                                                                                |
-| `message`        | string            | Human-readable, sanitized per section 8                                                                                                                                                 |
-| `retryable`      | boolean           | Must match the catalog column; agents may branch on it                                                                                                                                  |
-| `action`         | string            | Recovery verb: `wait_then_retry`, `repair_pairing`, `narrow_parameters`, `refresh_tree`, `resume_by_user`, `new_grant_required`, `use_snapshot`, `upgrade_component`, `contact_support` |
-| `request_id`     | string            | The correlation ID of the failing request; never a stack trace                                                                                                                          |
-| `retry_after_ms` | number (optional) | Present only when `code = BUSY`; other codes never carry it                                                                                                                             |
+| Field            | Type              | Rule                                                                                                                                                                                                                                                                                                                                                                        |
+| ---------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `code`           | string            | One of the catalog literals; unknown codes normalize to `INTERNAL_ERROR`                                                                                                                                                                                                                                                                                                    |
+| `message`        | string            | Human-readable, sanitized per section 8                                                                                                                                                                                                                                                                                                                                     |
+| `retryable`      | boolean           | Must match the catalog column; agents may branch on it                                                                                                                                                                                                                                                                                                                      |
+| `action`         | string            | Recovery hint: `wait_then_retry`, `repair_pairing`, `narrow_parameters`, `refresh_tree`, `resume_by_user`, `new_grant_required`, `use_snapshot`, `upgrade_component`, `contact_support`; the write path reuses this vocabulary (`new_grant_required`, `resume_by_user`, `narrow_parameters`, `use_alternative`) and the daemon may replace it with a more specific sentence |
+| `request_id`     | string            | The correlation ID of the failing request; never a stack trace                                                                                                                                                                                                                                                                                                              |
+| `retry_after_ms` | number (optional) | Present only when `code = BUSY`; other codes never carry it                                                                                                                                                                                                                                                                                                                 |
 
 `retry_after_ms` is required on `BUSY` (FR13) and optional nowhere else (PRD 8.7).
 
@@ -199,12 +245,16 @@ Every message in both channels obeys the diagnostics privacy table (PRD 8.6.2, 8
   `docs/04-data-contracts/01-mcp-envelope.md`.
 - Tests: `AT06`, `AT07`, `AT08`, `AT13`, `AT14` exercise these codes through negative and fuzzing
   paths (PRD Appendix A).
+- Write path codes are exercised by `AT21`, `AT23`, `AT24`, `AT25`, `AT26`, and `AT27` in
+  `docs/06-testing/02-acceptance-catalog.md`; the write contracts live in
+  `docs/11-write-path/01-write-path-design.md` section 2.6.
 
 ## 10. Open questions
 
-| ID    | Question                                                                                                                 | Owner / closure                  |
-| ----- | ------------------------------------------------------------------------------------------------------------------------ | -------------------------------- |
-| QEC01 | Whether `SESSION_LIMIT` and `INVALID_LIMIT` should be promoted into the canonical PRD 8.7 table at G0 review             | Contract reviewer                |
-| QEC02 | Exact `action` vocabulary size: keep small set or allow per-tool actions                                                 | Tool surface owner               |
-| QEC03 | Localization of `message` templates; English-only at v0.1 per docs README conventions                                    | Product maintainer               |
-| QEC04 | Whether `TIMEOUT` after a partial transfer that the client already received should return `partial` batch status instead | Scheduler owner, needs AT08 data |
+| ID    | Question                                                                                                                 | Owner / closure                             |
+| ----- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------- |
+| QEC01 | Whether `SESSION_LIMIT` and `INVALID_LIMIT` should be promoted into the canonical PRD 8.7 table at G0 review             | Contract reviewer                           |
+| QEC02 | Exact `action` vocabulary size: keep small set or allow per-tool actions                                                 | Tool surface owner                          |
+| QEC03 | Localization of `message` templates; English-only at v0.1 per docs README conventions                                    | Product maintainer                          |
+| QEC04 | Whether `TIMEOUT` after a partial transfer that the client already received should return `partial` batch status instead | Scheduler owner, needs AT08 data            |
+| QEC05 | Whether the write path keeps its own `action` verbs or reuses the shared vocabulary of section 5                         | Tool surface owner, with the ADR-013 review |

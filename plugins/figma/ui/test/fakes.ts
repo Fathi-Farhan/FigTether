@@ -7,7 +7,7 @@
  * traffic of the message path without a browser and without a socket.
  */
 
-import { createFrame, isJsonObject } from "@figtether/shared";
+import { isJsonObject } from "@figtether/shared";
 import type { BridgeFrame, JsonValue, MessageType } from "@figtether/shared";
 
 import type { BridgeHandlers } from "../src/bridge.js";
@@ -16,7 +16,8 @@ import type { ActionName, BridgePort, UiModel, UiPort } from "../src/controller.
 import type { SandboxChannel } from "../src/sandbox.js";
 import { createSecretStore } from "../src/secret.js";
 import { UI_CHANNEL } from "../src/protocol.js";
-import type { GrantMode, UiEnvelope } from "../src/protocol.js";
+import type { SessionMode, UiEnvelope, UiMessageType, WriteGrantMode } from "../src/protocol.js";
+import type { ApprovalDecision } from "../src/write.js";
 
 /** The double of the interface of the plugin. */
 export class FakeUi implements UiPort {
@@ -104,6 +105,23 @@ export class FakeSandbox implements SandboxChannel {
   }
 }
 
+/**
+ * A frame the double recorded.
+ *
+ * The message type is the one of the shared vocabulary, so the approval
+ * decision is a kind of the contract and not a kind the interface owns.
+ */
+export interface RecordedFrame {
+  /** Protocol version the sender speaks. */
+  readonly protocol_version: string;
+  /** Frame kind. */
+  readonly message_type: MessageType;
+  /** Correlation id of the request this frame belongs to. */
+  readonly request_id: string;
+  /** Typed payload. */
+  readonly payload: JsonValue;
+}
+
 /** The double of the socket to the local daemon. */
 export class FakeBridge implements BridgePort {
   /** The session of the handshake. */
@@ -115,7 +133,7 @@ export class FakeBridge implements BridgePort {
   /** Every frame the controller sent, as the controller wrote it. */
   public readonly frames: { type: string; payload: unknown; requestId?: string }[] = [];
   /** Every frame the controller sent, as the daemon reads it on the wire. */
-  public readonly wire: BridgeFrame[] = [];
+  public readonly wire: RecordedFrame[] = [];
   /** The secret the user pasted. */
   public pairedWith: string | null = null;
 
@@ -127,10 +145,20 @@ export class FakeBridge implements BridgePort {
   pair(secret: string): void {
     this.pairedWith = secret;
   }
-  sendGrantUpdate(rootIds: readonly string[], grantEpoch: number, mode: GrantMode): boolean {
+  sendGrantUpdate(
+    rootIds: readonly string[],
+    grantEpoch: number,
+    sessionMode: SessionMode,
+    writeMode: WriteGrantMode = "read",
+  ): boolean {
     this.frames.push({
       type: "grant_update",
-      payload: { root_ids: [...rootIds], grant_epoch: grantEpoch, mode },
+      payload: {
+        root_ids: [...rootIds],
+        grant_epoch: grantEpoch,
+        mode: writeMode,
+        session_mode: sessionMode,
+      },
     });
     return true;
   }
@@ -138,7 +166,7 @@ export class FakeBridge implements BridgePort {
     this.frames.push({ type: "revoke", payload: { reason: "user_revoked" } });
     return true;
   }
-  sendFrame(messageType: MessageType, payload: JsonValue, requestId?: string): boolean {
+  sendFrame(messageType: UiMessageType, payload: JsonValue, requestId?: string): boolean {
     const entry: { type: string; payload: unknown; requestId?: string } = {
       type: messageType,
       payload,
@@ -149,11 +177,35 @@ export class FakeBridge implements BridgePort {
     this.frames.push(entry);
     this.requestCounter += 1;
     const id = requestId ?? `ui_${this.requestCounter}`;
-    this.wire.push(createFrame(messageType, id, payload));
+    this.wire.push({
+      protocol_version: "1.0",
+      message_type: messageType,
+      request_id: id,
+      payload,
+    });
     this.complete(messageType, id, payload);
     return true;
   }
-
+  sendApproval(decision: ApprovalDecision): boolean {
+    const payload: Record<string, unknown> = {
+      approval_id: decision.approval_id,
+      plan_hash: decision.plan_hash,
+      approved: decision.approved,
+    };
+    if (decision.reason !== undefined) {
+      payload["reason"] = decision.reason;
+    }
+    this.frames.push({ type: "approval", payload });
+    this.requestCounter += 1;
+    const id = `ui_${this.requestCounter}`;
+    this.wire.push({
+      protocol_version: "1.0",
+      message_type: "approval",
+      request_id: id,
+      payload: payload as JsonValue,
+    });
+    return true;
+  }
   /**
    * Wait for the answer of a request.
    *
@@ -167,15 +219,33 @@ export class FakeBridge implements BridgePort {
   }
 
   /** The grant updates the controller sent. */
-  grantUpdates(): { root_ids: string[]; grant_epoch: number; mode: GrantMode }[] {
+  grantUpdates(): {
+    root_ids: string[];
+    grant_epoch: number;
+    mode: WriteGrantMode;
+    session_mode: SessionMode;
+  }[] {
     return this.frames
       .filter((frame) => frame.type === "grant_update")
       .map(
-        (frame) => frame.payload as { root_ids: string[]; grant_epoch: number; mode: GrantMode },
+        (frame) =>
+          frame.payload as {
+            root_ids: string[];
+            grant_epoch: number;
+            mode: WriteGrantMode;
+            session_mode: SessionMode;
+          },
       );
   }
 
-  private complete(messageType: MessageType, requestId: string, payload: JsonValue): void {
+  /** The approval decisions the controller sent. */
+  approvals(): ApprovalDecision[] {
+    return this.frames
+      .filter((frame) => frame.type === "approval")
+      .map((frame) => frame.payload as ApprovalDecision);
+  }
+
+  private complete(messageType: UiMessageType, requestId: string, payload: JsonValue): void {
     if (messageType !== "result") {
       return;
     }
@@ -222,11 +292,7 @@ export function harness(): Harness {
 }
 
 /** Build an envelope of the sandbox, the way the sandbox sends it. */
-export function sandboxEnvelope(
-  type: string,
-  payload: unknown,
-  requestId?: string,
-): UiEnvelope {
+export function sandboxEnvelope(type: string, payload: unknown, requestId?: string): UiEnvelope {
   return {
     channel: UI_CHANNEL,
     kind: type,

@@ -1,11 +1,12 @@
 # ADR-004: Grant scope model with double enforcement
 
-| Field                | Value      |
-| -------------------- | ---------- |
-| Status               | Accepted   |
-| Created              | 2026-10-20 |
-| Related decision IDs | D05, D06   |
-| Supersedes           | -          |
+| Field                | Value              |
+| -------------------- | ------------------ |
+| Status               | Accepted           |
+| Created              | 2026-10-20         |
+| Related decision IDs | D05, D06           |
+| Supersedes           | -                  |
+| Amended by           | ADR-013 (Proposed) |
 
 ## Context
 
@@ -85,6 +86,23 @@ node, revoke during transfer), AT17 (scope moved, deleted, or renamed during rea
 Gate: G0 (E01 grant and epoch baseline probes), G1 (AT05, AT06, AT17), G2 (release regression on
 exact commit).
 
+## Amendment: write grant mode
+
+`ADR-013` is the separate RFC the PRD requires before write-back may exist. It proposes to give
+the grant a mode (`read` or `write`). This ADR is not rewritten by it:
+
+- The scope semantics, the double enforcement, and the epoch rules of this ADR are unchanged. A
+  write is checked with the same session, epoch, and membership triple as a read, on both sides.
+- The write grant is a separate user action in the plugin UI, and it can be narrowed to fewer
+  roots than the read grant. It never widens the read scope of a session.
+- A mode change increments `grant_epoch`, so every outstanding approval, cursor, and asset bound
+  to the previous epoch stops resolving. A grant change invalidates outstanding write approvals.
+- No tool parameter can widen a grant in either mode.
+
+The write mode is specified in `docs/11-write-path/01-write-path-design.md` section 4 and in
+`docs/05-security/02-access-control.md` section 3.1. `ADR-013` is pending product approval, so
+this amendment records a proposed extension and not a shipped behavior.
+
 ## References
 
 - PRD 4.3 (`FR03`, `FR04`, `FR10`, `FR15`, `FR17`), 8.4 (grant entities and closing rules),
@@ -93,3 +111,5 @@ exact commit).
   section 10.
 - ADR-010 (session identity), ADR-006 (cursor epoch binding), ADR-007 (invalidation on grant
   change), ADR-011 (structured denial codes).
+- ADR-013 (bidirectional write path, Proposed) and `docs/11-write-path/01-write-path-design.md`
+  for the write grant mode.

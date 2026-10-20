@@ -167,6 +167,21 @@ input[type="password"]:disabled {
   color: var(--figtether-fg-muted);
 }
 
+input[type="text"] {
+  font: inherit;
+  padding: 6px 8px;
+  border: 1px solid var(--figtether-border);
+  border-radius: var(--figtether-radius);
+  background: var(--figtether-bg);
+  color: var(--figtether-fg);
+  max-width: 320px;
+}
+
+input[type="text"]:disabled {
+  background: var(--figtether-bg-raised);
+  color: var(--figtether-fg-muted);
+}
+
 .fieldset {
   border: 1px solid var(--figtether-border);
   border-radius: var(--figtether-radius);
@@ -181,14 +196,16 @@ input[type="password"]:disabled {
 
 .candidate-list,
 .capability-list,
-.log-list {
+.log-list,
+.write-list {
   margin: 0;
   padding-left: 18px;
 }
 
 .candidate-list li,
 .capability-list li,
-.log-list li {
+.log-list li,
+.write-list li {
   margin: 2px 0;
 }
 
@@ -296,6 +313,10 @@ input[type="password"]:disabled {
 .facts__item,
 .status-strip__item {
   min-width: 140px;
+}
+
+.facts__item--wide {
+  min-width: 100%;
 }
 
 .facts dt,

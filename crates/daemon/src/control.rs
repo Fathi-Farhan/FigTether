@@ -90,6 +90,42 @@ pub struct DaemonStatus {
     pub pairing_active: usize,
     /// The capabilities the known sessions reported.
     pub capabilities: Vec<SessionCapabilities>,
+    /// The recent write audit records of the installation.
+    ///
+    /// The records hold identifiers, counts, hashes, and timestamps only.
+    /// They are the records of the sessions of the installation the caller
+    /// belongs to, so a client never sees the trail of another one.
+    pub write_audit: Vec<WriteAuditReport>,
+}
+
+/// One audit record of an applied plan, as a client sees it.
+///
+/// The report carries the identity of the plan, its hash, the approval that
+/// allowed it, the counts of the affected nodes, and the moment of the
+/// apply. It never carries a layer name, a text, or any other design
+/// content.
+#[derive(Debug, Clone, Serialize)]
+pub struct WriteAuditReport {
+    /// The session the plan was applied in.
+    pub session_id: String,
+    /// The identity of the applied plan.
+    pub plan_id: String,
+    /// The hash of the applied plan.
+    pub plan_hash: String,
+    /// The approval that allowed the plan.
+    pub approval_id: String,
+    /// The number of operations of the plan.
+    pub operations_count: u32,
+    /// The number of created nodes.
+    pub created: usize,
+    /// The number of changed nodes.
+    pub changed: usize,
+    /// The number of removed nodes.
+    pub removed: usize,
+    /// The number of moved nodes.
+    pub moved: usize,
+    /// When the plan was applied.
+    pub applied_at: String,
 }
 
 /// The capabilities of one session.
@@ -152,6 +188,7 @@ impl DaemonStatus {
             asset_bytes: 0,
             pairing_active: 0,
             capabilities: Vec::new(),
+            write_audit: Vec::new(),
         }
     }
 }
@@ -210,7 +247,19 @@ fn control_request(port: u16, path: &str) -> String {
 }
 
 /// The sanitized status of the running daemon.
+///
+/// The status carries the audit records of the installation of the daemon.
 pub fn status(state: &Arc<DaemonState>) -> DaemonStatus {
+    status_for(state, &state.owner_key())
+}
+
+/// The sanitized status of the daemon for one installation.
+///
+/// The audit records of the trail belong to the sessions of an installation,
+/// so a client only ever sees the records of its own installation. The
+/// status of every other field is the same for every caller: the daemon
+/// serves one installation.
+pub fn status_for(state: &Arc<DaemonState>, owner: &str) -> DaemonStatus {
     let metrics = state.metrics.snapshot();
     let scheduler = guarded(SchedulerStats::default(), || state.scheduler.stats());
     let cache = guarded(CacheStats::default(), || state.cache.stats());
@@ -250,7 +299,40 @@ pub fn status(state: &Arc<DaemonState>) -> DaemonStatus {
         asset_bytes,
         pairing_active: state.pairing.active_count(),
         capabilities: capability_report(state),
+        write_audit: audit_report(state, owner),
     }
+}
+
+/// Build the audit report of the sessions of one installation.
+///
+/// The report holds the records of the trail whose session belongs to the
+/// installation of the caller. A record of another installation never
+/// reaches a client.
+fn audit_report(state: &Arc<DaemonState>, owner: &str) -> Vec<WriteAuditReport> {
+    let sessions = guarded(Vec::new(), || state.registry.list_for_client(owner));
+    let owned: std::collections::HashSet<SessionId> = sessions
+        .into_iter()
+        .map(|session| session.session_id)
+        .collect();
+    guarded(Vec::new(), || state.writes.audit_entries())
+        .into_iter()
+        .filter(|entry| owned.contains(&entry.session_id))
+        .map(|entry| WriteAuditReport {
+            session_id: entry.session_id.to_string(),
+            // The plan id and the approval id are minted by the agent and by
+            // the daemon, so they are sanitized before they leave the
+            // daemon: an id stays a short label.
+            plan_id: sanitize(&entry.record.plan_id),
+            plan_hash: entry.record.plan_hash,
+            approval_id: sanitize(&entry.record.approval_id),
+            operations_count: entry.record.operations_count,
+            created: entry.record.created,
+            changed: entry.record.changed,
+            removed: entry.record.removed,
+            moved: entry.record.moved,
+            applied_at: entry.record.applied_at.to_rfc3339(),
+        })
+        .collect()
 }
 
 /// Build the capability report of the known sessions.
@@ -384,6 +466,13 @@ pub fn revoke_session(
 
     let grant_epoch = session.grant_epoch();
     let grant_id = session.grant.as_ref().map(|grant| grant.grant_id);
+
+    // The approvals of the session die with the grant: an approval never
+    // outlives the grant it was issued under.
+    state.writes.invalidate_session(session_id);
+    if let Some(epoch) = grant_epoch {
+        state.writes.invalidate_grant(epoch);
+    }
 
     let cancelled_jobs = guarded(0, || state.scheduler.cancel_session(session_id));
 
@@ -655,5 +744,92 @@ mod tests {
             .consume(&pair.secret)
             .expect("the secret is accepted");
         assert_eq!(paired.owner, state.owner_key());
+    }
+
+    /// An audit record of an applied plan.
+    fn audit_record(plan_id: &str) -> figtether_core::write::AuditRecord {
+        figtether_core::write::AuditRecord {
+            plan_id: plan_id.to_string(),
+            plan_hash: "sha256:abc".to_string(),
+            approval_id: "apr_1".to_string(),
+            operations_count: 1,
+            created: 1,
+            changed: 0,
+            removed: 0,
+            moved: 0,
+            applied_at: chrono::Utc::now(),
+        }
+    }
+
+    /// A state with two sessions of two installations.
+    ///
+    /// The first session belongs to the installation of the daemon, the
+    /// second one to another installation.
+    fn state_with_two_installations() -> (Arc<DaemonState>, SessionId, SessionId) {
+        let state = Arc::new(DaemonState::new(
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            38947,
+            figtether_core::ResourceLimits::default(),
+            Secret::generate(),
+        ));
+        let own = SessionId::new();
+        let other = SessionId::new();
+        let probes = figtether_model::capabilities::Capabilities::new();
+        state
+            .registry
+            .register(own, state.owner_key(), probes.clone())
+            .expect("registers");
+        state
+            .registry
+            .register(other, "installation-2".to_string(), probes)
+            .expect("registers");
+        (state, own, other)
+    }
+
+    #[test]
+    fn the_audit_report_holds_the_records_of_the_installation_only() {
+        let (state, own, other) = state_with_two_installations();
+        state.writes.record_audit(&own, audit_record("plan_own"));
+        state
+            .writes
+            .record_audit(&other, audit_record("plan_other"));
+
+        let status = status_for(&state, &state.owner_key());
+        assert_eq!(status.write_audit.len(), 1);
+        assert_eq!(status.write_audit[0].plan_id, "plan_own");
+        assert_eq!(status.write_audit[0].session_id, own.to_string());
+
+        let other_status = status_for(&state, "installation-2");
+        assert_eq!(other_status.write_audit.len(), 1);
+        assert_eq!(other_status.write_audit[0].plan_id, "plan_other");
+        assert_eq!(other_status.write_audit[0].session_id, other.to_string());
+    }
+
+    #[test]
+    fn the_audit_report_holds_no_design_content() {
+        let (state, own, _other) = state_with_two_installations();
+        state.writes.record_audit(&own, audit_record("plan_own"));
+
+        let status = status_for(&state, &state.owner_key());
+        let json = serde_json::to_string(&status).expect("serializes");
+        let lower = json.to_lowercase();
+        for forbidden in ["secret", "credential", "token", "layer", "text", "document"] {
+            assert!(
+                !lower.contains(forbidden),
+                "the audit report must not carry {forbidden}: {json}"
+            );
+        }
+        assert!(json.contains("plan_own"), "{json}");
+    }
+
+    #[test]
+    fn the_status_of_the_daemon_carries_the_records_of_its_installation() {
+        let (state, own, _other) = state_with_two_installations();
+        state.writes.record_audit(&own, audit_record("plan_own"));
+
+        let status = status(&state);
+        assert_eq!(status.write_audit.len(), 1);
+        assert_eq!(status.write_audit[0].plan_id, "plan_own");
     }
 }

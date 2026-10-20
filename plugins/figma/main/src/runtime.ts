@@ -15,7 +15,7 @@
  * request id of the answer is the request id of the request it belongs to.
  */
 
-import type { BridgeEnvelope } from "@figtether/shared";
+import type { BridgeEnvelope, GrantMode, SessionMode } from "@figtether/shared";
 
 import {
   buildEnvelope,
@@ -26,7 +26,13 @@ import {
   type InboundMessage,
 } from "./bridge.js";
 import { probeCapabilities, type CapabilityReport } from "./capabilities.js";
-import { capabilityUnavailable, outOfScope, paused, toPluginError } from "./errors.js";
+import {
+  capabilityUnavailable,
+  outOfScope,
+  paused,
+  toPluginError,
+  writeNotGranted,
+} from "./errors.js";
 import type { FigmaApi } from "./figma-api.js";
 import { createHandlerRegistry, handleCaptureSnapshot, type HandlerContext } from "./handlers.js";
 import { FontCatalog } from "./normalize.js";
@@ -34,6 +40,7 @@ import { ScopeGuard } from "./scope.js";
 import { TokenResolver } from "./tokens.js";
 import type { BridgeFrame, BridgeOp, ErrorPayload } from "./types.js";
 import { utf8Encode } from "./encoding.js";
+import { WRITE_OPS } from "./write/types.js";
 
 /** Transport between the sandbox and the UI iframe. */
 export interface SandboxTransport {
@@ -68,6 +75,14 @@ export class PluginRuntime {
   private sessionId: string | undefined;
   private transferCounter = 0;
   private paused = false;
+  /**
+   * The mode of the grant.
+   *
+   * The mode says whether the session may write at all. It is not the
+   * session mode: the session mode says whether the session is live or
+   * paused, and the two never share a field.
+   */
+  private writeMode: GrantMode = "read";
   private lastReadAt: number | null = null;
 
   constructor(options: RuntimeOptions) {
@@ -81,6 +96,16 @@ export class PluginRuntime {
   /** The grant in force. */
   get grant(): { rootIds: string[]; grantEpoch: number } | null {
     return this.guard.current;
+  }
+
+  /**
+   * The mode of the grant in force.
+   *
+   * A session without a write grant never writes, so the mode is `read`
+   * until a grant update names the write mode.
+   */
+  get mode(): GrantMode {
+    return this.writeMode;
   }
 
   /** Start the runtime: listen for messages and probe the capabilities. */
@@ -151,7 +176,12 @@ export class PluginRuntime {
         await this.dispatchFrame(message.frame);
         return;
       case "grant_update":
-        this.applyGrant(message.rootIds, message.grantEpoch, message.mode);
+        this.applyGrant(
+          message.rootIds,
+          message.grantEpoch,
+          message.writeMode,
+          message.sessionMode,
+        );
         await this.refreshCapabilities();
         return;
       case "grant_request":
@@ -163,6 +193,7 @@ export class PluginRuntime {
       case "revoke":
         this.guard.clearGrant();
         this.paused = false;
+        this.writeMode = "read";
         for (const requestId of this.inFlight) {
           this.cancelled.add(requestId);
         }
@@ -197,19 +228,25 @@ export class PluginRuntime {
           root_ids?: unknown;
           grant_epoch?: unknown;
           mode?: unknown;
+          session_mode?: unknown;
         };
         const rootIds = Array.isArray(payload?.root_ids)
           ? payload.root_ids.filter((entry): entry is string => typeof entry === "string")
           : [];
         const grantEpoch = typeof payload?.grant_epoch === "number" ? payload.grant_epoch : 0;
-        const mode = typeof payload?.mode === "string" ? payload.mode : "live";
-        this.applyGrant(rootIds, grantEpoch, mode);
+        this.applyGrant(
+          rootIds,
+          grantEpoch,
+          readGrantMode(payload?.mode),
+          readSessionMode(payload?.session_mode),
+        );
         await this.refreshCapabilities();
         return;
       }
       case "revoke":
         this.guard.clearGrant();
         this.paused = false;
+        this.writeMode = "read";
         return;
       case "cancel":
         this.cancelled.add(frame.request_id);
@@ -222,9 +259,22 @@ export class PluginRuntime {
     }
   }
 
-  private applyGrant(rootIds: string[], grantEpoch: number, mode: string): void {
+  /**
+   * Install a grant.
+   *
+   * The mode of the grant and the session mode are two different things: the
+   * mode says whether the session may write, the session mode says whether
+   * the session is live or paused.
+   */
+  private applyGrant(
+    rootIds: string[],
+    grantEpoch: number,
+    writeMode: GrantMode,
+    sessionMode: SessionMode,
+  ): void {
     this.guard.setGrant({ rootIds, grantEpoch });
-    this.paused = mode === "paused";
+    this.writeMode = writeMode;
+    this.paused = sessionMode === "paused";
   }
 
   private async handleRequest(frame: BridgeFrame): Promise<void> {
@@ -246,6 +296,14 @@ export class PluginRuntime {
 
     if (this.paused) {
       this.sendError(requestId, paused("The session is paused; the user has to resume it first"));
+      return;
+    }
+
+    if (isWriteOperation(op) && this.writeMode !== "write") {
+      this.sendError(
+        requestId,
+        writeNotGranted("The session holds no write grant, so the write is refused"),
+      );
       return;
     }
 
@@ -423,4 +481,24 @@ export class PluginRuntime {
     this.transferCounter += 1;
     return `tr_${requestId}_${this.transferCounter}`;
   }
+}
+
+/**
+ * Whether an operation belongs to the write path.
+ *
+ * The write operations are the two the write path registers, and they are
+ * the two a grant without the write mode refuses.
+ */
+function isWriteOperation(op: string): boolean {
+  return (WRITE_OPS as readonly string[]).includes(op);
+}
+
+/** Read the mode of a grant, where a missing mode means the read mode. */
+function readGrantMode(value: unknown): GrantMode {
+  return value === "write" ? "write" : "read";
+}
+
+/** Read the session mode of a grant, where a missing mode means live. */
+function readSessionMode(value: unknown): SessionMode {
+  return value === "paused" ? "paused" : "live";
 }

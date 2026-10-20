@@ -2,30 +2,42 @@
 
 Status: `Proposed`
 
-Purpose paragraph: This document defines the twelve MCP read tools FigTether exposes to agents with purpose, inputs (types in parentheses), outputs, caps, and one workload example for the tools named required by the contract set. Results use the common envelope of `docs/04-data-contracts/01-mcp-envelope.md`. Normative base: PRD 8.5.1 (tool surface), PRD 8.3 (consistency semantics), PRD 8.5.5 (resource budget). Tool and field names are `Proposal contract` names frozen only after Gate `G0`; before that they change through an ADR in `docs/02-architecture/adr/`.
+Purpose paragraph: This document defines the twelve MCP read tools FigTether exposes to agents with purpose, inputs (types in parentheses), outputs, caps, and one workload example for the tools named required by the contract set. It also records the three write tools proposed by `ADR-013` (sections 3.13 to 3.15): the tool set is no longer uniformly read only, and the read tools are unchanged. Results use the common envelope of `docs/04-data-contracts/01-mcp-envelope.md`. Normative base: PRD 8.5.1 (tool surface), PRD 8.3 (consistency semantics), PRD 8.5.5 (resource budget). Tool and field names are `Proposal contract` names frozen only after Gate `G0`; before that they change through an ADR in `docs/02-architecture/adr/`. The write tools are proposed, not frozen: `ADR-013` is pending product approval (`docs/00-overview/01-prd-analysis.md` section 12).
 
 ## 1. Tool surface (PRD 8.5.1)
 
-| Tool                | Main inputs                                             | Result                                                                  | Phase |
-| ------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------- | ----- |
-| `get_bridge_status` | none                                                    | Version, health; no secret or design content                            | P0    |
-| `list_sessions`     | optional cursor                                         | Sessions granted to this client, scope, capabilities                    | P0    |
-| `get_selection`     | `session_id`                                            | Summary of selection inside scope; out-of-scope selection is not leaked | P0    |
-| `list_nodes`        | source ID, `root_id`, cursor, filters, field projection | Child or tree summary, `next_cursor`, coverage                          | P0    |
-| `get_nodes`         | source ID, `node_ids`, depth, fields, consistency       | Node data with per-item error                                           | P0    |
-| `inspect_design`    | source ID, `root_id`, detail, consistency               | Implementation context, unsupported features, asset refs                | P0    |
-| `get_design_tokens` | source ID, `root_id`, requested kinds                   | Styles and variables in scope, modes, aliases, coverage                 | P0    |
-| `export_assets`     | source ID, `node_ids`, PNG or SVG, scale                | `asset_id`, hash, MIME, size, resource URI; per-item error              | P0    |
-| `get_snapshot_info` | `snapshot_id`                                           | Capture time, hash, coverage, expiry                                    | P0    |
-| `watch_scope`       | `session_id`, scoped `root_id`                          | `watch_id` and cursor; polling when the client lacks events             | P1    |
-| `get_changes`       | `session_id`, `watch_id`, cursor                        | Changed and deleted IDs, or `RESYNC_REQUIRED`                           | P1    |
-| `get_job_status`    | `job_id`                                                | Status, progress, result of long operations                             | P1    |
+| Tool                 | Main inputs                                             | Result                                                                                  | Phase                                      |
+| -------------------- | ------------------------------------------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------ |
+| `get_bridge_status`  | none                                                    | Version, health; no secret or design content                                            | P0                                         |
+| `list_sessions`      | optional cursor                                         | Sessions granted to this client, scope, capabilities                                    | P0                                         |
+| `get_selection`      | `session_id`                                            | Summary of selection inside scope; out-of-scope selection is not leaked                 | P0                                         |
+| `list_nodes`         | source ID, `root_id`, cursor, filters, field projection | Child or tree summary, `next_cursor`, coverage                                          | P0                                         |
+| `get_nodes`          | source ID, `node_ids`, depth, fields, consistency       | Node data with per-item error                                                           | P0                                         |
+| `inspect_design`     | source ID, `root_id`, detail, consistency               | Implementation context, unsupported features, asset refs                                | P0                                         |
+| `get_design_tokens`  | source ID, `root_id`, requested kinds                   | Styles and variables in scope, modes, aliases, coverage                                 | P0                                         |
+| `export_assets`      | source ID, `node_ids`, PNG or SVG, scale                | `asset_id`, hash, MIME, size, resource URI; per-item error                              | P0                                         |
+| `get_snapshot_info`  | `snapshot_id`                                           | Capture time, hash, coverage, expiry                                                    | P0                                         |
+| `watch_scope`        | `session_id`, scoped `root_id`                          | `watch_id` and cursor; polling when the client lacks events                             | P1                                         |
+| `get_changes`        | `session_id`, `watch_id`, cursor                        | Changed and deleted IDs, or `RESYNC_REQUIRED`                                           | P1                                         |
+| `get_job_status`     | `job_id`                                                | Status, progress, result of long operations                                             | P1                                         |
+| `preview_write`      | live `session_id`, write plan                           | Preview of created, changed, moved, and removed nodes; `plan_hash`; approval request id | W1                                         |
+| `get_write_approval` | `approval_id`                                           | Approval state of one request; `approval_token` when approved                           | W1                                         |
+| `apply_write`        | write plan, `approval_token`, optional `session_id`     | Applied node ids, `undo_committed`, `version_saved`, warnings                           | W1 (create, text); W2 (full operation set) |
 
-Creating grants, widening scope, pairing, revoke, and export to the filesystem stay under user control through UI or CLI; an agent cannot raise its own permissions through these read tools, and snapshot capture is created through the plugin UI in P0 (PRD 8.5.1 closing paragraph, `FR15`).
+The `W` column uses the rollout stages of `docs/11-write-path/01-write-path-design.md` section 8
+(`W1` scratch pages, `W2` full operation set, `W3` multi client). They are not PRD phases: the PRD
+lists write-back as not available until a separate RFC, and `ADR-013` is that RFC and is pending
+product approval (`docs/00-overview/01-prd-analysis.md` section 12). The write tools work on a live
+session only: a snapshot is an immutable capture and cannot receive a write, so no write tool
+takes a `snapshot_id`.
+
+Creating grants, widening scope, pairing, revoke, and export to the filesystem stay under user control through UI or CLI; an agent cannot raise its own permissions through these read tools, and snapshot capture is created through the plugin UI in P0 (PRD 8.5.1 closing paragraph, `FR15`). The same holds for the write path: a write grant is a separate user action in the plugin UI, and an approval is a per plan user decision.
 
 ## 2. Cross-cutting rules
 
 - Every read tool declares `readOnlyHint=true` and `destructiveHint=false`; hints describe behavior and are not an authorization mechanism. The real gates are grants, epochs, and per-node membership checks on both daemon and plugin (PRD 8.5.1, `FR03`).
+- The write tools break the rule that every tool of the catalog is read only. The read tools are unchanged; `preview_write` and `get_write_approval` keep `readOnlyHint=true` and `destructiveHint=false` because they change nothing, and `apply_write` carries `readOnlyHint=false` and `destructiveHint=true`.
+- A tool annotation is a hint for the client, not an authorization. The enforcement of a write is the write grant, the plan validation, and the per plan approval (`docs/05-security/02-access-control.md` section 3.1). A client that ignores the annotation gains nothing: the daemon refuses an apply that has no write grant, no valid approval token, or a plan that fails validation.
 - Identifier parameters are strings; `node_id` has meaning only together with its session or snapshot and is never parsed into a number (PRD 8.4 entity table).
 - Data operations (`get_selection`, `list_nodes`, `get_nodes`, `inspect_design`, `get_design_tokens`, `export_assets`) require exactly one of `session_id` or `snapshot_id`; the two are mutually exclusive (`FR04`, `AT05`).
 - The pairing secret, daemon port, and bridge endpoints never appear as tool parameters or any model-visible field (`FR02`, `AT06`, PRD 8.6.1 token prompt row).
@@ -216,10 +228,44 @@ Inputs: `job_id` (string, required; issued for long operations on the P1 job pat
 Outputs: `queued`, `running` with progress, `succeeded` with a result reference, or a terminal error code from `docs/04-data-contracts/05-error-catalog.md`.
 Caps: job records clear with their session; cancelled jobs report `CANCELLED`; a request whose deadline expired while queued was never executed at all (PRD 8.5.5 timeout row). This is observability only; it never turns a Figma operation into an atomically committed transaction (PRD 8.5.1 closing paragraph).
 
+### 3.13 `preview_write` (W1, proposed)
+
+Purpose: submit a write plan for review without changing the document, and return the preview plus the approval request the user answers in the plugin UI.
+Inputs:
+
+- `session_id` (string, required): the live session the plan targets; the session must hold a write grant.
+- `plan` (object, required): the write plan of `docs/11-write-path/01-write-path-design.md` section 2.1, with `plan_id`, `session_id`, `operations` (the ordered list of typed operations), `intent` (free text shown to the user, never executed), and `destructive` (true when the plan contains a delete or an out-of-scope move).
+
+Outputs: the preview of design section 2.3, with `plan_id`, `plan_hash`, `created`, `created_count`, `approval_id`, `changed`, `removed`, `moved`, `operations_count`, `warnings`, and `blocked`; the answer carries the `approval_id` of the approval request and the `expires_at` of that request next to the preview.
+Caps: the preview resolves identifiers against the live document and never mutates it, so the read-only invariant of `FR24` still holds for this tool (`AT22`). A plan that names a node that does not exist, a parent outside the grant, or a property outside the allowlist produces a blocked preview with the reason, never a partial apply. Annotations: `readOnlyHint: true`, `destructiveHint: false`. Parameter schema: `schemas/preview_write_params.schema.json`.
+
+### 3.14 `get_write_approval` (W1, proposed)
+
+Purpose: report the state of an approval request so the agent can wait for, and read, the decision the user took in the plugin UI.
+Inputs:
+
+- `approval_id` (string, required): the id that `preview_write` returned; it names an approval request, never a token. The session is implied by the approval record, so the caller supplies no session field.
+
+Outputs: `approval_id`, `status` (`pending`, `approved`, `rejected`, or `expired`), and the `expires_at` of the approval request; for an approved request the `approval_token`, and for a rejected request the optional reason the user typed.
+Caps: it reads approval state only; it never mutates the document and never widens a grant. A token is only served to the session that owns the approval, and a token stops being usable when the grant epoch changes or the expiry passes. Annotations: `readOnlyHint: true`, `destructiveHint: false`. Parameter schema: `schemas/get_write_approval_params.schema.json`.
+
+### 3.15 `apply_write` (W1, proposed)
+
+Purpose: apply a plan the user approved, as one step in Figma's own undo history.
+Inputs:
+
+- `plan` (object, required): the same plan that was previewed; the daemon recomputes the plan hash and compares it with the approved one.
+- `approval_token` (string, required): the token that binds the approval to the plan hash, the session, the grant epoch, and the expiry (design section 2.4).
+- `session_id` (string, optional): the live session that holds the write grant. The daemon reads the session from the plan first, then from this field, and the token carries it as the last resort, so naming it in both places is only allowed when both names are the same.
+
+Outputs: the result of design section 2.5, with `plan_id`, `plan_hash`, `approval_id`, `created`, `changed`, `removed`, `moved`, `undo_committed`, `version_saved`, and `warnings`. The plugin adds the applied status (`applied` or `partial`), the number of operations it applied, whether the seat exposes the version history, and the non fatal caveat of the apply; the published `schemas/write_result.schema.json` describes the contract of section 2.5.
+Caps: annotations are `readOnlyHint: false` and `destructiveHint: true`. Refusals use the write codes of `docs/04-data-contracts/05-error-catalog.md` section 2.1: no write grant gives `WRITE_NOT_GRANTED`, a missing or invalid token gives `APPROVAL_REQUIRED` or `APPROVAL_EXPIRED`, a changed plan gives `PLAN_HASH_MISMATCH`, an oversized plan gives `BUDGET_EXCEEDED`, a delete or an out-of-scope move without the destructive flag gives `DESTRUCTIVE_NOT_ALLOWED`, and an editor refusal gives `MUTATION_REFUSED`. An apply is never replayed automatically: a write is not idempotent. Parameter schema: `schemas/apply_write_params.schema.json`.
+
 ## 4. Related documents
 
 - Envelope semantics for all results: `docs/04-data-contracts/01-mcp-envelope.md`.
 - Error codes, retry flags, and batch status: `docs/04-data-contracts/05-error-catalog.md` (PRD 8.7).
 - Limit matrix: `docs/04-data-contracts/06-resource-limits.md`; transport: `docs/04-data-contracts/03-bridge-protocol.md`.
 - Scheduler and cancellation behavior: `docs/02-architecture/01-system-design.md`; implementation homes per PRD 8.4: `crates/mcp`, `crates/core`.
-- Tool traceability to `AT04`, `AT05`, `AT07`, `AT10`, `AT11`, `AT12`, `AT14`, `AT18`, `AT19`: `docs/06-testing/03-traceability-matrix.md`.
+- Write path contracts, budgets, grant mode, and rollout: `docs/11-write-path/01-write-path-design.md`; decision: `docs/02-architecture/adr/ADR-013-bidirectional-write-path.md`; grant mode: `docs/05-security/02-access-control.md` section 3.1.
+- Tool traceability to `AT04`, `AT05`, `AT07`, `AT10`, `AT11`, `AT12`, `AT14`, `AT18`, `AT19`, and the write scenarios `AT21..AT29`: `docs/06-testing/03-traceability-matrix.md`.

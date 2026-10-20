@@ -9,6 +9,9 @@
  * sides of the plugin: the channel, the envelope, the vocabulary of the
  * message kinds and the unwrapping of the messages of the editor.
  *
+ * It carries the contract of the write path as well: the plan, the
+ * operations, the preview, the approval and the result.
+ *
  * Nothing in this package uses a browser API or a Node.js API: the Figma main
  * sandbox has neither.
  */
@@ -23,3 +26,4 @@ export * from "./sha256";
 export * from "./utf8";
 export * from "./frame";
 export * from "./bridge";
+export * from "./write";

@@ -17,22 +17,25 @@
 These documents preserve the original requirements and design decisions. Much of the material
 was written before implementation and remains **proposed**, not a list of working features.
 In particular, snapshot storage, watch/resync, offline bundles, asset-resource delivery, and
-desktop compatibility are not proven by the diagrams or acceptance catalog.
+desktop compatibility are not proven by the diagrams or acceptance catalog. The write path is a
+proposed design as well: it is pending product approval, and no applied write has been verified
+in a Figma Desktop session.
 
-| Area                                                                  | Contents                                                                                    |
-| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| [Overview](00-overview/01-prd-analysis.md)                            | Product goals, scope, assumptions, alternatives                                             |
-| [Agile delivery](01-agile/01-sdlc-process.md)                         | Backlog, relative roadmap, risks, review gates                                              |
-| [Architecture](02-architecture/01-system-design.md)                   | Rust/TypeScript boundaries, transport, state machines                                       |
-| [Decisions](02-architecture/adr/ADR-000-template.md)                  | ADRs and the template for changing a contract                                               |
-| [UML](03-uml/01-use-case-diagrams.md)                                 | Use cases, classes, sequences, states, deployment                                           |
-| [Contracts](04-data-contracts/01-mcp-envelope.md)                     | Envelope, tool surface, wire protocol, normalized model, budgets                            |
-| [Security](05-security/01-threat-model.md)                            | Threat model, access control, privacy, [PentAGI plan](05-security/04-pentagi-validation.md) |
-| [Testing](06-testing/01-test-strategy.md)                             | Acceptance catalog, traceability, benchmark protocol                                        |
-| [Operations](07-ops/03-runbook.md)                                    | Diagnostics, recovery, planned release process                                              |
-| [Harness² research](08-harness2/01-harness2-overview.md)              | Optional evaluation design; not an installed product feature                                |
-| [Implementation notes](10-implementation/01-implementation-status.md) | Code map, limitations, integration history                                                  |
-| [Reference](99-appendices/01-glossary.md)                             | Glossary, sources, review record                                                            |
+| Area                                                                  | Contents                                                                                                                                                  |
+| --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Overview](00-overview/01-prd-analysis.md)                            | Product goals, scope, assumptions, alternatives                                                                                                           |
+| [Agile delivery](01-agile/01-sdlc-process.md)                         | Backlog, relative roadmap, risks, review gates                                                                                                            |
+| [Architecture](02-architecture/01-system-design.md)                   | Rust/TypeScript boundaries, transport, state machines                                                                                                     |
+| [Decisions](02-architecture/adr/ADR-000-template.md)                  | ADRs and the template for changing a contract                                                                                                             |
+| [UML](03-uml/01-use-case-diagrams.md)                                 | Use cases, classes, sequences, states, deployment                                                                                                         |
+| [Contracts](04-data-contracts/01-mcp-envelope.md)                     | Envelope, tool surface, wire protocol, normalized model, budgets                                                                                          |
+| [Security](05-security/01-threat-model.md)                            | Threat model, access control, privacy, [PentAGI plan](05-security/04-pentagi-validation.md)                                                               |
+| [Testing](06-testing/01-test-strategy.md)                             | Acceptance catalog, traceability, benchmark protocol                                                                                                      |
+| [Write path](11-write-path/01-write-path-design.md)                   | Plan, preview, approval, apply, and undo contracts of the proposed write path (`ADR-013`), published as JSON Schema in [`schemas/`](../schemas/README.md) |
+| [Operations](07-ops/03-runbook.md)                                    | Diagnostics, recovery, planned release process                                                                                                            |
+| [Harness² research](08-harness2/01-harness2-overview.md)              | Optional evaluation design; not an installed product feature                                                                                              |
+| [Implementation notes](10-implementation/01-implementation-status.md) | Code map, limitations, integration history                                                                                                                |
+| [Reference](99-appendices/01-glossary.md)                             | Glossary, sources, review record                                                                                                                          |
 
 The source PRD is identified as `FGT-PRD-001`, version 1.1. It is not shipped as an external
 Word document or a path into a maintainer's workspace. Relevant requirements are preserved here;

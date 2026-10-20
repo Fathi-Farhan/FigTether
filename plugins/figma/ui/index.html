@@ -72,11 +72,106 @@
           <button id="allow-button" type="button" class="button button--primary" disabled>
             Allow read session
           </button>
+          <button id="write-grant-button" type="button" class="button" disabled>
+            Allow write session
+          </button>
         </div>
         <p class="note">
           The grant binds the roots you check now. A later selection change never widens the grant.
         </p>
+        <p id="write-grant-state" class="note">
+          Editing inside the granted roots is not allowed. The read grant never allows a change.
+        </p>
         <p id="grant-feedback" class="message" role="status" aria-live="polite"></p>
+        <p id="write-grant-feedback" class="message" role="status" aria-live="polite"></p>
+      </section>
+
+      <section
+        id="write-approval-panel"
+        class="panel"
+        aria-labelledby="write-approval-heading"
+        hidden
+      >
+        <h2 id="write-approval-heading">Proposed change</h2>
+        <p class="note">
+          This is a proposal of the agent. Nothing has changed in the document yet. You approve the
+          plan here, and only then the plugin applies it. After it is applied the change is a single
+          step in the undo history of Figma, so you can take it back with the undo command of the
+          editor.
+        </p>
+        <p id="write-approval-state" class="message">This plan is a proposal.</p>
+        <p id="write-approval-plan" class="note">Plan without an id.</p>
+        <h3 id="write-counts-heading">What the plan would change</h3>
+        <dl class="facts" aria-labelledby="write-counts-heading">
+          <div class="facts__item">
+            <dt>Nodes to create</dt>
+            <dd id="write-count-create">0</dd>
+          </div>
+          <div class="facts__item">
+            <dt>Nodes to change</dt>
+            <dd id="write-count-change">0</dd>
+          </div>
+          <div class="facts__item">
+            <dt>Nodes to move</dt>
+            <dd id="write-count-move">0</dd>
+          </div>
+          <div class="facts__item">
+            <dt>Nodes to remove</dt>
+            <dd id="write-count-remove">0</dd>
+          </div>
+          <div class="facts__item facts__item--wide">
+            <dt>Intent of the plan</dt>
+            <dd id="write-plan-intent">The agent did not describe this plan.</dd>
+          </div>
+        </dl>
+        <h3 id="write-warnings-heading">Warnings of the plugin</h3>
+        <ul
+          id="write-warning-list"
+          class="write-list"
+          aria-labelledby="write-warnings-heading"
+        ></ul>
+        <p id="write-warning-empty" class="empty">The plugin reported no warnings for this plan.</p>
+        <div
+          id="write-blocked"
+          class="confirm"
+          role="group"
+          aria-labelledby="write-blocked-heading"
+          hidden
+        >
+          <h3 id="write-blocked-heading">This plan is blocked</h3>
+          <p>The plan cannot be applied as it is written, so there is nothing to approve.</p>
+          <ul id="write-blocked-list" class="write-list"></ul>
+        </div>
+        <div class="field">
+          <label for="write-reject-reason">Reason for rejecting the plan (optional)</label>
+          <input
+            id="write-reject-reason"
+            type="text"
+            autocomplete="off"
+            autocapitalize="off"
+            spellcheck="false"
+            aria-describedby="write-reject-reason-help"
+          />
+          <p id="write-reject-reason-help" class="help">
+            The reason travels to the local daemon with the rejection. It is never written into the
+            activity log.
+          </p>
+        </div>
+        <div class="controls" role="group" aria-labelledby="write-approval-heading">
+          <button
+            id="write-approve-button"
+            type="button"
+            class="button button--primary"
+            aria-describedby="write-approval-state"
+            hidden
+          >
+            Approve the plan
+          </button>
+          <button id="write-reject-button" type="button" class="button" hidden>
+            Reject the plan
+          </button>
+        </div>
+        <p id="write-approval-feedback" class="message" role="status" aria-live="polite"></p>
       </section>
 
       <section class="panel" aria-labelledby="status-heading">
@@ -105,6 +200,34 @@
         </dl>
         <h3 id="capability-heading">Available capabilities</h3>
         <ul id="capability-list" class="capability-list" aria-labelledby="capability-heading"></ul>
+        <h3 id="write-status-heading">Last applied change</h3>
+        <dl class="status-strip" aria-labelledby="write-status-heading">
+          <div class="status-strip__item">
+            <dt>Nodes created</dt>
+            <dd id="write-result-created">0</dd>
+          </div>
+          <div class="status-strip__item">
+            <dt>Nodes changed</dt>
+            <dd id="write-result-changed">0</dd>
+          </div>
+          <div class="status-strip__item">
+            <dt>Nodes moved</dt>
+            <dd id="write-result-moved">0</dd>
+          </div>
+          <div class="status-strip__item">
+            <dt>Nodes removed</dt>
+            <dd id="write-result-removed">0</dd>
+          </div>
+          <div class="status-strip__item">
+            <dt>Undo history</dt>
+            <dd id="write-result-undo">No write applied yet</dd>
+          </div>
+          <div class="status-strip__item">
+            <dt>Version checkpoint</dt>
+            <dd id="write-result-version">No version checkpoint</dd>
+          </div>
+        </dl>
+        <p id="write-result-feedback" class="message" role="status" aria-live="polite"></p>
       </section>
 
       <section class="panel" aria-labelledby="controls-heading">
@@ -144,8 +267,9 @@
       <section class="panel" aria-labelledby="log-heading">
         <h2 id="log-heading">Activity log</h2>
         <p class="note">
-          The log shows the operation, the count, the duration and the error code only. Layer names,
-          text content and file identifiers are never logged.
+          The log shows the operation, the count, the duration and the error code only. The kinds of
+          the operations of a proposed plan and their counts are logged as well. Layer names, text
+          content, the plan itself and file identifiers are never logged.
         </p>
         <ol id="log-list" class="log-list" role="log" aria-labelledby="log-heading"></ol>
       </section>

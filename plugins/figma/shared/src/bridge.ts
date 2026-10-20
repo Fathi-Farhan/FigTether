@@ -15,6 +15,7 @@
  * Nothing in this file uses a browser API or a Node.js API: the Figma main
  * sandbox has neither.
  */
+import { BRIDGE_OPS } from "./protocol";
 
 /** Channel every message of the bridge carries. */
 export const BRIDGE_CHANNEL = "figtether.bridge";
@@ -32,10 +33,24 @@ export const DAEMON_MESSAGE_KINDS = [
   "chunk",
   "capabilities",
   "selection",
+  "preview",
+  "write_result",
 ] as const;
 
 /** One message kind of the contract with the daemon. */
 export type DaemonMessageKind = (typeof DAEMON_MESSAGE_KINDS)[number];
+
+/**
+ * Message kinds the user interface sends to the daemon.
+ *
+ * They travel the other way: the sandbox never sends them, the interface
+ * hands them to the sandbox, and the sandbox forwards them to the daemon.
+ * The approval decision of the user is the first of them.
+ */
+export const UI_TO_DAEMON_MESSAGE_KINDS = ["approval"] as const;
+
+/** One message kind the user interface sends to the daemon. */
+export type UiToDaemonMessageKind = (typeof UI_TO_DAEMON_MESSAGE_KINDS)[number];
 
 /**
  * Message kinds that never leave the plugin.
@@ -71,6 +86,36 @@ export const INBOUND_MESSAGE_KINDS = DAEMON_MESSAGE_KINDS;
 
 /** One message kind the user interface accepts from the sandbox. */
 export type InboundMessageKind = (typeof INBOUND_MESSAGE_KINDS)[number];
+
+/**
+ * Bridge operations of the write path.
+ *
+ * They are operations of a frame and not message kinds: the daemon sends
+ * them inside a request frame, and the plugin answers with a preview or with
+ * a result. They are listed apart from the read operations so the read path
+ * keeps its own vocabulary.
+ */
+export const WRITE_BRIDGE_OPS = ["preview_write", "apply_write"] as const;
+
+/** One bridge operation of the write path. */
+export type WriteBridgeOp = (typeof WRITE_BRIDGE_OPS)[number];
+
+/**
+ * Every bridge operation the plugin accepts.
+ *
+ * The list is the read operations of the daemon contract followed by the
+ * operations of the write path, so the user interface and the sandbox
+ * accept the same set.
+ */
+export const ACCEPTED_BRIDGE_OPS = [...BRIDGE_OPS, ...WRITE_BRIDGE_OPS] as const;
+
+/** One bridge operation the plugin accepts. */
+export type AcceptedBridgeOp = (typeof ACCEPTED_BRIDGE_OPS)[number];
+
+/** Whether a string is a bridge operation the plugin accepts. */
+export function isAcceptedBridgeOp(value: unknown): value is AcceptedBridgeOp {
+  return typeof value === "string" && (ACCEPTED_BRIDGE_OPS as readonly string[]).includes(value);
+}
 
 /**
  * The envelope of every message of the bridge.

@@ -9,7 +9,7 @@
  */
 
 import { base64Decode, base64Encode, createFrame } from "@figtether/shared";
-import type { BridgeFrame, JsonValue, MessageType } from "@figtether/shared";
+import type { BridgeFrame, JsonValue } from "@figtether/shared";
 
 import { BridgeClient } from "./bridge.js";
 import type { BridgeHandlers } from "./bridge.js";
@@ -20,9 +20,11 @@ import type {
   UiError,
   CandidateRoot,
   CapabilityMap,
-  GrantMode,
   ReadMode,
+  SessionMode,
   UiEnvelope,
+  UiMessageType,
+  WriteGrantMode,
 } from "./protocol.js";
 import { createSecretStore } from "./secret.js";
 import type { SecretStore } from "./secret.js";
@@ -38,9 +40,41 @@ import {
 import type { ConnectionState, SessionPhase } from "./status.js";
 import { splitIntoChunks, TransferAssembler } from "./transfer.js";
 import type { SandboxChannel } from "./sandbox.js";
+import {
+  affectedNodes,
+  buildApprovalDecision,
+  countOperations,
+  previewHeadline,
+  readApprovalId,
+  readPlanIntent,
+  readPlanOperations,
+  readWritePreview,
+  readWriteResult,
+  writeResultSummary,
+} from "./write.js";
+import type {
+  ApprovalDecision,
+  WritePlanContext,
+  WritePreviewView,
+  WriteResultView,
+} from "./write.js";
 
 /** Actions that report a result to the user. */
-export type ActionName = "pair" | "grant" | "pause" | "resume" | "capture" | "revoke";
+export type ActionName =
+  | "pair"
+  | "grant"
+  | "write_grant"
+  | "pause"
+  | "resume"
+  | "capture"
+  | "revoke"
+  | "preview"
+  | "approve"
+  | "reject"
+  | "write_result";
+
+/** The decision the user took about a proposed plan. */
+export type WriteDecision = "none" | "approved" | "rejected";
 
 /** One capability of the runtime as the user interface shows it. */
 export interface CapabilityView {
@@ -73,6 +107,20 @@ export interface UiModel {
   readonly canRevoke: boolean;
   readonly revokeConfirmVisible: boolean;
   readonly grantPending: boolean;
+  /** Whether the user allowed editing inside the granted roots. */
+  readonly writeGrantEnabled: boolean;
+  /** Whether the user may allow editing inside the granted roots now. */
+  readonly canGrantWrite: boolean;
+  /** The plan the agent proposed, when one is waiting for a decision. */
+  readonly writePreview: WritePreviewView | null;
+  /** The decision the user took about the proposed plan. */
+  readonly writeDecision: WriteDecision;
+  /** Whether the user may approve the proposed plan. */
+  readonly canApproveWrite: boolean;
+  /** Whether the user may reject the proposed plan. */
+  readonly canRejectWrite: boolean;
+  /** The plan that was applied last, when one was. */
+  readonly writeResult: WriteResultView | null;
 }
 
 /** The interface the controller renders into. */
@@ -88,9 +136,15 @@ export interface UiPort {
 /** The socket surface the controller uses. */
 export interface BridgePort {
   pair(secret: string): void;
-  sendGrantUpdate(rootIds: readonly string[], grantEpoch: number, mode: GrantMode): boolean;
+  sendGrantUpdate(
+    rootIds: readonly string[],
+    grantEpoch: number,
+    sessionMode: SessionMode,
+    writeMode?: WriteGrantMode,
+  ): boolean;
   revoke(): boolean;
-  sendFrame(messageType: MessageType, payload: JsonValue, requestId?: string): boolean;
+  sendFrame(messageType: UiMessageType, payload: JsonValue, requestId?: string): boolean;
+  sendApproval(decision: ApprovalDecision): boolean;
   reportPolicyViolation?(): void;
   readonly sessionId: string | null;
   readonly connectionEpoch: number;
@@ -119,6 +173,11 @@ const NO_SESSION = "Not paired";
 const NO_FINGERPRINT = "Not available";
 const NOT_REPORTED = "Not reported by the daemon";
 
+/** Whether a value is a plain record. */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 /** Controller of the plugin UI. */
 export class AppController {
   private readonly sandbox: SandboxChannel;
@@ -141,6 +200,16 @@ export class AppController {
   private grantPending = false;
   private revokeConfirmVisible = false;
   private localGrantEpoch = 0;
+  /** Whether the user allowed editing inside the granted roots. */
+  private writeGrantEnabled = false;
+  /** The plan the agent proposed, waiting for a decision of the user. */
+  private writePreview: WritePreviewView | null = null;
+  /** The approval the daemon issued for the proposed plan. */
+  private writeApprovalId: string | null = null;
+  /** Whether the user already decided about the proposed plan. */
+  private writeDecision: WriteDecision = "none";
+  /** The plan that was applied last. */
+  private writeResult: WriteResultView | null = null;
   /**
    * The requests that the sandbox still has to answer.
    *
@@ -239,8 +308,16 @@ export class AppController {
     const epoch = this.nextGrantEpoch();
     this.grantPending = true;
     this.ui.setActionResult("grant", true, "Registering the selected roots with the local daemon.");
-    this.sandbox.post("grant_update", { root_ids: roots, grant_epoch: epoch });
-    const sent = this.bridge.sendGrantUpdate(roots, epoch, "live");
+    // The read grant is a read grant: it never carries the write grant with
+    // it, so a new read grant always returns the session to read only.
+    this.writeGrantEnabled = false;
+    this.sandbox.post("grant_update", {
+      root_ids: roots,
+      grant_epoch: epoch,
+      mode: "read",
+      session_mode: "live",
+    });
+    const sent = this.bridge.sendGrantUpdate(roots, epoch, "live", "read");
     if (!sent) {
       this.grantPending = false;
       this.ui.setActionResult(
@@ -265,6 +342,169 @@ export class AppController {
     this.render();
   }
 
+  /**
+   * The user pressed the write grant.
+   *
+   * The write grant is a separate action: the read grant never implies it.
+   * It allows editing inside the roots of the read grant and it says so, and
+   * it never approves a plan on its own.
+   */
+  onWriteGrantRequested(): void {
+    if (this.connection !== "connected") {
+      this.ui.setActionResult(
+        "write_grant",
+        false,
+        "Pair with the local daemon before allowing a write session.",
+      );
+      return;
+    }
+    if (this.grantedRootIds.length === 0) {
+      this.ui.setActionResult(
+        "write_grant",
+        false,
+        "Allow a read session first. The write session uses the roots of the read session.",
+      );
+      return;
+    }
+    const enabled = !this.writeGrantEnabled;
+    const mode: WriteGrantMode = enabled ? "write" : "read";
+    const epoch = this.nextGrantEpoch();
+    const sent = this.bridge.sendGrantUpdate(
+      this.grantedRootIds,
+      epoch,
+      this.paused ? "paused" : "live",
+      mode,
+    );
+    if (!sent) {
+      this.ui.setActionResult(
+        "write_grant",
+        false,
+        "The daemon is not reachable. Reconnect and allow again.",
+      );
+      this.log({ operation: "write_grant", errorCode: "PLUGIN_OFFLINE" });
+      return;
+    }
+    this.sandbox.post("grant_update", {
+      root_ids: this.grantedRootIds,
+      grant_epoch: epoch,
+      mode,
+      session_mode: this.paused ? "paused" : "live",
+    });
+    this.localGrantEpoch = epoch;
+    this.writeGrantEnabled = enabled;
+    this.ui.setActionResult(
+      "write_grant",
+      true,
+      enabled
+        ? "Write session allowed for the granted roots. Every plan still needs your approval before anything changes."
+        : "The session is back to read only. Plans are refused now.",
+    );
+    this.log({ operation: "write_grant", count: this.grantedRootIds.length });
+    this.render();
+  }
+
+  /**
+   * The user approved the proposed plan.
+   *
+   * The decision goes to the daemon with the hash of the plan the user was
+   * shown. The plugin never applies a plan on its own.
+   */
+  onApproveWriteRequested(): void {
+    const preview = this.writePreview;
+    if (preview === null) {
+      this.ui.setActionResult("approve", false, "There is no proposed change to approve.");
+      return;
+    }
+    if (preview.blocked) {
+      this.ui.setActionResult(
+        "approve",
+        false,
+        "The proposed change is blocked. It cannot be approved as it is written.",
+      );
+      return;
+    }
+    if (this.writeDecision !== "none") {
+      this.ui.setActionResult(
+        "approve",
+        false,
+        "This plan was already decided. Wait for the next proposal.",
+      );
+      return;
+    }
+    const approvalId = this.writeApprovalId;
+    if (approvalId === null) {
+      this.ui.setActionResult(
+        "approve",
+        false,
+        "The daemon issued no approval for this plan. Ask the agent to preview the plan again.",
+      );
+      return;
+    }
+    const decision = buildApprovalDecision(approvalId, preview.planHash, true, null);
+    if (!this.bridge.sendApproval(decision)) {
+      this.ui.setActionResult(
+        "approve",
+        false,
+        "The daemon is not reachable. The plan stays unapproved.",
+      );
+      this.log({ operation: "approve", errorCode: "PLUGIN_OFFLINE" });
+      return;
+    }
+    this.writeDecision = "approved";
+    this.ui.setActionResult(
+      "approve",
+      true,
+      "Approved. The daemon applies the plan, and the change lands as one step in the undo history of Figma.",
+    );
+    this.log({ operation: "approve", count: preview.operationsCount });
+    this.render();
+  }
+
+  /**
+   * The user rejected the proposed plan.
+   *
+   * The reason is optional. It travels with the decision when the user wrote
+   * one, and it never travels to the log.
+   */
+  onRejectWriteRequested(reason: string): void {
+    const preview = this.writePreview;
+    if (preview === null) {
+      this.ui.setActionResult("reject", false, "There is no proposed change to reject.");
+      return;
+    }
+    if (this.writeDecision !== "none") {
+      this.ui.setActionResult(
+        "reject",
+        false,
+        "This plan was already decided. Wait for the next proposal.",
+      );
+      return;
+    }
+    const approvalId = this.writeApprovalId;
+    if (approvalId === null) {
+      this.ui.setActionResult(
+        "reject",
+        false,
+        "The daemon issued no approval for this plan. Ask the agent to preview the plan again.",
+      );
+      return;
+    }
+    const decision = buildApprovalDecision(approvalId, preview.planHash, false, reason);
+    if (!this.bridge.sendApproval(decision)) {
+      this.ui.setActionResult(
+        "reject",
+        false,
+        "The daemon is not reachable. The plan stays undecided.",
+      );
+      this.log({ operation: "reject", errorCode: "PLUGIN_OFFLINE" });
+      return;
+    }
+    this.writeDecision = "rejected";
+    this.ui.setActionResult("reject", true, "Rejected. The daemon will not apply this plan.");
+    this.log({ operation: "reject", count: preview.operationsCount });
+    this.render();
+  }
+
   /** The user pressed Pause. */
   onPauseRequested(): void {
     if (this.connection !== "connected" || this.grantedRootIds.length === 0) {
@@ -272,7 +512,12 @@ export class AppController {
       return;
     }
     const epoch = this.nextGrantEpoch();
-    const sent = this.bridge.sendGrantUpdate(this.grantedRootIds, epoch, "paused");
+    const sent = this.bridge.sendGrantUpdate(
+      this.grantedRootIds,
+      epoch,
+      "paused",
+      this.writeGrantEnabled ? "write" : "read",
+    );
     if (!sent) {
       this.ui.setActionResult(
         "pause",
@@ -281,7 +526,12 @@ export class AppController {
       );
       return;
     }
-    this.sandbox.post("grant_update", { root_ids: this.grantedRootIds, grant_epoch: epoch });
+    this.sandbox.post("grant_update", {
+      root_ids: this.grantedRootIds,
+      grant_epoch: epoch,
+      mode: this.writeGrantEnabled ? "write" : "read",
+      session_mode: "paused",
+    });
     this.localGrantEpoch = epoch;
     this.paused = true;
     this.ui.setActionResult("pause", true, "Paused. New reads are refused until you resume.");
@@ -296,7 +546,12 @@ export class AppController {
       return;
     }
     const epoch = this.nextGrantEpoch();
-    const sent = this.bridge.sendGrantUpdate(this.grantedRootIds, epoch, "live");
+    const sent = this.bridge.sendGrantUpdate(
+      this.grantedRootIds,
+      epoch,
+      "live",
+      this.writeGrantEnabled ? "write" : "read",
+    );
     if (!sent) {
       this.ui.setActionResult(
         "resume",
@@ -305,7 +560,12 @@ export class AppController {
       );
       return;
     }
-    this.sandbox.post("grant_update", { root_ids: this.grantedRootIds, grant_epoch: epoch });
+    this.sandbox.post("grant_update", {
+      root_ids: this.grantedRootIds,
+      grant_epoch: epoch,
+      mode: this.writeGrantEnabled ? "write" : "read",
+      session_mode: "live",
+    });
     this.localGrantEpoch = epoch;
     this.paused = false;
     this.mode = "live";
@@ -374,6 +634,12 @@ export class AppController {
         return;
       case "result":
         this.handleSandboxResult(envelope.payload, requestId);
+        return;
+      case "preview":
+        this.handleSandboxPreview(envelope.payload, requestId);
+        return;
+      case "write_result":
+        this.handleSandboxWriteResult(envelope.payload, requestId);
         return;
       case "error":
         this.handleSandboxError(envelope.payload, requestId);
@@ -593,23 +859,218 @@ export class AppController {
    * The answer travels to the daemon with the request id of the request it
    * belongs to, so the daemon completes the pending request. The local state
    * of the interface is updated as well.
+   *
+   * A write request may also be answered with a plain result. The interface
+   * reads the preview out of it, so the plan reaches the user either way.
    */
   private handleSandboxResult(payload: unknown, requestId: string | null): void {
-    const answerId = this.completeRequest(requestId);
-    if (answerId === null) {
-      return;
-    }
+    const context = this.readPlanContext(requestId ?? this.inFlight);
     const data =
       payload !== null && typeof payload === "object"
         ? (payload as { data?: unknown }).data
         : undefined;
+    const preview = data === undefined ? null : readWritePreview(data, context);
+    const applied = data === undefined ? null : readWriteResult(data);
+    const answerId = this.completeRequest(requestId);
+    if (answerId === null) {
+      if (preview !== null) {
+        this.showPreview(preview, context);
+      } else if (applied !== null) {
+        this.showWriteResult(applied);
+      }
+      return;
+    }
     if (data === undefined) {
       this.bridge.sendFrame("result", { data: null }, answerId);
     } else {
       this.bridge.sendFrame("result", { data: data as JsonValue }, answerId);
     }
+    if (preview !== null) {
+      this.showPreview(preview, context);
+      return;
+    }
+    if (applied !== null) {
+      this.showWriteResult(applied);
+      return;
+    }
     this.lastReadAt = this.now();
     this.render();
+  }
+
+  /**
+   * The preview of a write plan.
+   *
+   * The plugin resolved the plan against the live document without changing
+   * it. The preview travels to the daemon with the request id of the request
+   * it belongs to, so the daemon can answer the agent, and the interface
+   * shows the plan to the user.
+   */
+  private handleSandboxPreview(payload: unknown, requestId: string | null): void {
+    const context = this.readPlanContext(requestId ?? this.inFlight);
+    const preview = readWritePreview(payload, context);
+    const answerId = this.completeRequest(requestId);
+    this.forwardToDaemon(this.previewAnswer(payload), answerId);
+    if (preview === null) {
+      this.ui.setActionResult(
+        "preview",
+        false,
+        "The editor sent a preview the interface could not read.",
+      );
+      this.log({ operation: "preview", errorCode: "INTERNAL_ERROR" });
+      this.render();
+      return;
+    }
+    this.showPreview(preview, context);
+  }
+
+  /**
+   * The result of an applied write plan.
+   *
+   * The result travels to the daemon with the request id of the request it
+   * belongs to, and the status area of the interface reports what the plan
+   * did.
+   */
+  private handleSandboxWriteResult(payload: unknown, requestId: string | null): void {
+    const answerId = this.completeRequest(requestId);
+    this.forwardToDaemon(this.resultAnswer(payload), answerId);
+    const result = readWriteResult(payload);
+    if (result === null) {
+      this.ui.setActionResult(
+        "write_result",
+        false,
+        "The editor sent a result the interface could not read.",
+      );
+      this.log({ operation: "write_result", errorCode: "INTERNAL_ERROR" });
+      this.render();
+      return;
+    }
+    this.showWriteResult(result);
+  }
+
+  /**
+   * Report the result of an applied plan.
+   *
+   * The status area names the counts of the nodes, the undo history and the
+   * version checkpoint. It never promises a revert that FigTether does not
+   * provide: the recovery path is the undo command of the editor.
+   */
+  private showWriteResult(result: WriteResultView): void {
+    this.writeResult = result;
+    this.ui.setActionResult("write_result", true, writeResultSummary(result));
+    this.log({
+      operation: "write_result",
+      count: affectedNodes(result.counts),
+    });
+    this.render();
+  }
+
+  /**
+   * Show the plan the agent proposed.
+   *
+   * The plan waits for a decision of the user. The interface never moves the
+   * focus, so a key press that belongs to another control cannot approve the
+   * plan.
+   */
+  private showPreview(preview: WritePreviewView, context: WritePlanContext): void {
+    this.writePreview = preview;
+    this.writeApprovalId = preview.approvalId ?? context.approvalId;
+    this.writeDecision = "none";
+    this.ui.setActionResult("preview", true, previewHeadline(preview));
+    this.logPreview(preview);
+    this.render();
+  }
+
+  /**
+   * Read what the interface knows about the plan behind a preview.
+   *
+   * The preview of the plugin does not carry the intent of the plan and not
+   * the kinds of its operations, and the approval id is minted by the
+   * daemon. All of them travel with the request of the daemon that caused
+   * the preview, so the interface reads them there.
+   */
+  private readPlanContext(requestId: string | null): WritePlanContext {
+    const frame = requestId === null ? undefined : this.daemonFrames.get(requestId);
+    const payload = frame === undefined ? null : frame.payload;
+    const operations = countOperations(readPlanOperations(payload));
+    return {
+      intent: readPlanIntent(payload),
+      operationCounts: operations,
+      approvalId: readApprovalId(payload),
+    };
+  }
+
+  /**
+   * Forward the answer of the sandbox to the daemon.
+   *
+   * The answer keeps its shape, so the daemon reads the preview and the
+   * result exactly as the plugin produced them.
+   */
+  private forwardToDaemon(payload: unknown, answerId: string | null): void {
+    if (answerId === null) {
+      return;
+    }
+    this.bridge.sendFrame("result", { data: payload as JsonValue }, answerId);
+  }
+
+  /**
+   * The data of an answer of the sandbox.
+   *
+   * The sandbox wraps the answer of a request in an envelope that carries the
+   * answer under `data`. The data is what the daemon reads.
+   */
+  private answerData(payload: unknown): unknown {
+    if (payload !== null && typeof payload === "object") {
+      const record = payload as { data?: unknown };
+      if (record.data !== undefined) {
+        return record.data;
+      }
+    }
+    return payload;
+  }
+
+  /**
+   * The answer that carries a preview to the daemon.
+   *
+   * The daemon reads the preview under `preview`, so an answer that holds the
+   * preview on its own is wrapped.
+   */
+  private previewAnswer(payload: unknown): unknown {
+    const data = this.answerData(payload);
+    if (isRecord(data) && "preview" in data) {
+      return data;
+    }
+    return { preview: data };
+  }
+
+  /**
+   * The answer that carries a result to the daemon.
+   *
+   * The daemon reads the result under `result`, so an answer that holds the
+   * result on its own is wrapped.
+   */
+  private resultAnswer(payload: unknown): unknown {
+    const data = this.answerData(payload);
+    if (isRecord(data) && "result" in data) {
+      return data;
+    }
+    return { result: data };
+  }
+
+  /**
+   * Write the preview of a plan into the log.
+   *
+   * The log carries the kinds of the operations and their counts. It never
+   * carries the plan itself, the intent of the plan or any text of the
+   * document.
+   */
+  private logPreview(preview: WritePreviewView): void {
+    if (preview.operationCounts.length === 0) {
+      this.log({ operation: "preview", count: preview.operationsCount });
+      return;
+    }
+    for (const entry of preview.operationCounts) {
+      this.log({ operation: entry.kind, count: entry.count });
+    }
   }
 
   /**
@@ -872,6 +1333,11 @@ export class AppController {
     this.mode = "unknown";
     this.paused = false;
     this.grantPending = false;
+    this.writeGrantEnabled = false;
+    this.writePreview = null;
+    this.writeApprovalId = null;
+    this.writeDecision = "none";
+    this.writeResult = null;
     this.waiting.length = 0;
     this.inFlight = null;
     this.chunkRequestId = null;
@@ -886,6 +1352,8 @@ export class AppController {
     const phase = derivePhase(this.connection, this.paused, this.grantedRootIds.length > 0);
     const connected = this.connection === "connected";
     const hasGrant = this.grantedRootIds.length > 0;
+    const preview = this.writePreview;
+    const canDecide = preview !== null && this.writeDecision === "none";
     this.ui.render({
       connection: this.connection,
       connectionText: connectionLabel(this.connection),
@@ -909,6 +1377,15 @@ export class AppController {
       canRevoke: connected && hasGrant,
       revokeConfirmVisible: this.revokeConfirmVisible,
       grantPending: this.grantPending,
+      writeGrantEnabled: this.writeGrantEnabled,
+      canGrantWrite: connected && hasGrant && !this.paused,
+      writePreview: preview,
+      writeDecision: this.writeDecision,
+      // A blocked plan is never approved, and a plan that was decided is
+      // never decided twice.
+      canApproveWrite: canDecide && preview.blocked === false && this.writeApprovalId !== null,
+      canRejectWrite: canDecide && this.writeApprovalId !== null,
+      writeResult: this.writeResult,
     });
   }
 }

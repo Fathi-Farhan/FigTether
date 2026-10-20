@@ -14,13 +14,14 @@ an obligation on the G0, G1, and G2 gates and must be traceable in
 
 ## 1. Scope and method
 
-| Item                      | Decision                                                                                                                                                          |
-| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Normative source          | PRD `FGT-PRD-001` sections 8.6.1, 8.6.2, 8.5.4, 8.5.5, and 8.4, plus Appendix A                                                                                   |
-| Method                    | STRIDE applied per trust boundary; one row per PRD 8.6.1 threat, plus epoch and mutation rows                                                                     |
-| Interpretation authority  | `docs/00-overview/01-prd-analysis.md` Section 10 committed interpretations                                                                                        |
-| Assumed attacker position | A process running as the same OS user, an untrusted web page or iframed content reaching the loopback port, a malicious MCP client, or manipulated design content |
-| Explicitly out of model   | Defense against same-user malware or OS admin, cloud relay abuse, protection of editor internal memory, and governance of the AI client context                   |
+| Item                      | Decision                                                                                                                                                                       |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Normative source          | PRD `FGT-PRD-001` sections 8.6.1, 8.6.2, 8.5.4, 8.5.5, and 8.4, plus Appendix A                                                                                                |
+| Method                    | STRIDE applied per trust boundary; one row per PRD 8.6.1 threat, plus epoch and mutation rows                                                                                  |
+| Interpretation authority  | `docs/00-overview/01-prd-analysis.md` Section 10 committed interpretations                                                                                                     |
+| Assumed attacker position | A process running as the same OS user, an untrusted web page or iframed content reaching the loopback port, a malicious MCP client, or manipulated design content              |
+| Explicitly out of model   | Defense against same-user malware or OS admin, cloud relay abuse, protection of editor internal memory, and governance of the AI client context                                |
+| Write path                | Proposed by `ADR-013` and pending product approval; section 4.1 and the write residuals of section 5 are the write counterpart of the read analysis, not a shipped control set |
 
 ## 2. Protected assets
 
@@ -75,19 +76,20 @@ Boundary properties (G0 and G1 must demonstrate each):
 - **T2** Loopback IPC: client credential from the runtime directory; fail closed if the directory is not owner only (`FR02`, PRD 8.6.2).
 - **T3** Browser WebSocket: loopback literal bind, peer and Host validation, endpoint and message type allowlist, tested Origin validation; auth before any design data (PRD 8.5.4, `AT06`).
 - **T4** postMessage between UI iframe and main sandbox: schema validated, origin checked frames only (PRD 8.5.4).
-- **T5** Plugin API: allowlisted read handlers only; no eval and no shell anywhere (`FR24`, `D03`).
+- **T5** Plugin API: allowlisted read handlers only; no eval and no shell anywhere (`FR24`, `D03`). The write path proposed by `ADR-013` adds write handlers that run only inside a write grant and only for an approved plan; the read path keeps its own boundary unchanged.
 - **T6** Runtime directory: owner only; daemon restarts rotate credentials and refuse stale files (`FR16`, PRD 8.7).
 
 Boundary assumption table:
 
-| Boundary | Trust assumption granted                                         | What invalidates the assumption                                  | Checked at                |
-| -------- | ---------------------------------------------------------------- | ---------------------------------------------------------------- | ------------------------- |
-| T1       | The same user process acts as a well formed MCP client           | A malicious or buggy client sends malformed protocol frames      | `AT14`, `AT13`            |
-| T2       | The runtime directory is owner only                              | A same-user process reads or forges the client credential (RH01) | `AT06`, `AT09`, PRD 8.6.2 |
-| T3       | The peer is the paired plugin UI iframe behind the browser stack | A foreign page or iframe reaches the port (TH01, TH02)           | `AT06`, G0 per OS         |
-| T4       | Frames originate from the paired UI adapter                      | Manipulated content reaching the UI path                         | `AT13`                    |
-| T5       | Handlers stay within the documented read only API                | Undocumented editor side effects of reads or exports             | `AT18`                    |
-| T6       | Directory ownership holds on the target platform                 | ACL misconfiguration; the fail closed rule stops startup         | PRD 8.6.2, `AT09`         |
+| Boundary        | Trust assumption granted                                                                               | What invalidates the assumption                                                                       | Checked at                                          |
+| --------------- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| T1              | The same user process acts as a well formed MCP client                                                 | A malicious or buggy client sends malformed protocol frames                                           | `AT14`, `AT13`                                      |
+| T2              | The runtime directory is owner only                                                                    | A same-user process reads or forges the client credential (RH01)                                      | `AT06`, `AT09`, PRD 8.6.2                           |
+| T3              | The peer is the paired plugin UI iframe behind the browser stack                                       | A foreign page or iframe reaches the port (TH01, TH02)                                                | `AT06`, G0 per OS                                   |
+| T4              | Frames originate from the paired UI adapter                                                            | Manipulated content reaching the UI path                                                              | `AT13`                                              |
+| T5              | Handlers stay within the documented read only API                                                      | Undocumented editor side effects of reads or exports                                                  | `AT18`                                              |
+| T5 (write path) | A write handler runs only for a plan that passed grant, validation, scope, budget, and approval checks | An undocumented side effect of a write operation, or a handler that mutates outside the approved plan | `AT22`, `AT29` (proposed, pending product approval) |
+| T6              | Directory ownership holds on the target platform                                                       | ACL misconfiguration; the fail closed rule stops startup                                              | PRD 8.6.2, `AT09`                                   |
 
 ## 4. STRIDE analysis per boundary
 
@@ -110,6 +112,27 @@ rendering); the residual column is the reciprocal "residual limit" entry of the 
 | TH12 | T3, T4, T5   | Tampering                         | Bridge or tool handlers mutate the document as a side effect of reads             | Read only handlers, allowlisted bridge message types, no eval and no shell, before and after fixture hash checks        | None claimed; violation blocks release                                                             | `FR24`, `D03`, `AT18`          |
 | TH13 | All          | Repudiation                       | Authorization decisions cannot be reconstructed after an incident                 | Structured local diagnostics with error codes, versions, and sanitized correlation IDs only; no design content          | Logs rotate locally at most 7 days / 10 MiB; incident review depends on retained error IDs         | `FR18`, PRD 8.7, `R13`         |
 
+## 4.1 Write path threat classes
+
+The write path proposed by `ADR-013` adds a class the read path cannot have: the failure of a write
+is a changed design, not a wrong answer. The classes below are the write counterparts of the
+STRIDE rows above. They are proposed, not in force: `ADR-013` is pending product approval
+(`docs/00-overview/01-prd-analysis.md` section 12), and the acceptance scenarios they point to
+(`AT21..AT29`) carry no gate yet.
+
+| ID   | Class                             | Scenario                                                                                                 | Layer that stops it                                                                                                                                                                                                    | Evidence                      |
+| ---- | --------------------------------- | -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| TH14 | Tampering, Elevation of privilege | A confused or compromised agent submits a destructive plan: a delete, or a move out of the granted roots | Write grant in the plugin UI, then the destructive policy in the daemon and the plugin UI: a delete or an out-of-scope move needs the `destructive` flag in the plan and a separate user toggle                        | `AT27`, `ADR-013` rule 6      |
+| TH15 | Elevation of privilege            | A plan touches nodes outside the granted roots, or names a parent outside the grant                      | Scope check in the daemon and in the plugin: the preview is blocked with the reason and the apply is refused with `OUT_OF_SCOPE`                                                                                       | `AT26`, `AT22`                |
+| TH16 | Denial of service                 | A plan creates or changes far more than the write budgets allow                                          | Budget layer in the daemon: operations per plan, nodes created, text characters, property changes, affected subtree per delete, plan validity, and write plans per minute                                              | `AT25`, `ADR-008` amendment   |
+| TH17 | Spoofing, Tampering               | A stale approval is replayed: the plan was edited, the grant changed, or the session changed             | Approval binding: the token carries the plan hash, the session, and the grant epoch, and the daemon verifies all three plus the expiry; a grant change increments the epoch and invalidates every outstanding approval | `AT23`, `AT24`                |
+| TH18 | Tampering, Repudiation            | A plan fails halfway and leaves the document partially changed                                           | Undo commit (`figma.commitUndo()` once at the end of the plan), the audit record, and an explicit partially applied report; the editor level undo of a partial plan is not proved by the automated suites              | `AT28`, `AT29`, residual RH05 |
+
+Layers between a plan and the document, from `docs/11-write-path/01-write-path-design.md` section 6:
+write grant, plan validation, scope check, budget, destructive policy, preview, approval, undo
+commit, audit. `ADR-013` names four of them as the standing protection against TH14: the budget,
+the scope check, the preview, and the approval.
+
 ## 5. Residual risk register
 
 | ID   | Residual risk                                 | Why it stands after P0 controls                                                                                                                               | User facing wording obligation                                                                      |
@@ -119,18 +142,29 @@ rendering); the residual column is the reciprocal "residual limit" entry of the 
 | RH03 | Data already delivered to the client or model | Revoke stops later transfers and deletes daemon side state, but recall of received bytes is impossible (PRD 8.4, Section 5.3)                                 | Revoke UI must explain this before the user depends on it (`AT15` covers the daemon side guarantee) |
 | RH04 | Editor and AI client network paths            | Attribution note (Appendix A): packet capture must not conclude that the whole Figma application is offline safe; only FigTether core processes are auditable | Claims are limited to FigTether processes; see `03-privacy-data-handling.md` Section 6              |
 
+Write path residuals, added for the path proposed by `ADR-013`. They stand even with every layer
+of section 4.1 in place.
+
+| ID   | Residual risk                         | Why it stands after the write layers                                                                                                                                                                                                                                                                                                                                 | User facing wording obligation                                                                                                              |
+| ---- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| RH05 | A partially applied plan              | The plugin executes the operations of a plan one by one. A refusal halfway leaves the earlier operations applied. The plan is reported as partially applied and the audit record names the operation count and the counts of the created, changed, removed, and moved nodes, but only the editor undo can restore the document, and only if the undo commit happened | The docs must say that a failed plan can leave changes behind and that the user should inspect the document after a refused or failed apply |
+| RH06 | The undo behaviour of an applied plan | `figma.commitUndo()` is documented by the Plugin API typings, but whether an approved plan is one step in Figma's undo history, and what the editor does with a plan that failed halfway, can only be observed in a real Figma Desktop session                                                                                                                       | The docs must not claim a single step undo before `AT29` has passed in a real session; the current wording is "in progress"                 |
+| RH07 | A write grant widens the blast radius | A write grant lets an agent change the document inside its roots, so the damage of a bad plan is a changed design rather than a wrong answer. The budget, the scope check, the preview, and the approval bound the damage; they do not remove it                                                                                                                     | The docs must say that write access is a wider grant than read access, and that the user approves every plan                                |
+
 ## 6. Control to evidence mapping
 
-| Control from this document                               | Requirement    | Acceptance scenario (condensed from Appendix A)                                                                         | Gate  | Related doc                                    |
-| -------------------------------------------------------- | -------------- | ----------------------------------------------------------------------------------------------------------------------- | ----- | ---------------------------------------------- |
-| No PAT, core egress restricted to loopback               | `FR19`, `FR06` | `AT02`: `FIGMA_TOKEN` unset, core still reads, egress denied except loopback                                            | G0    | `docs/02-architecture/01-system-design.md`     |
-| Scope enforcement double checked, session isolated       | `FR03`, `FR04` | `AT05`: two sessions with identical node IDs exchange nothing; `AT17`: membership checked fresh, stale results rejected | G1    | `02-access-control.md` Section 4               |
-| Pairing secret lifecycle and anti spoofing on the bridge | `FR02`         | `AT06`: wrong, expired, and replayed tokens plus wrong Host and Origin are rejected                                     | G1/G2 | `02-access-control.md` Section 2               |
-| Reconnect hygiene, epoch invalidation                    | `FR16`         | `AT09`: plugin close and reopen, sleep and wake, daemon restart, delayed old epoch frame refused                        | G1/G2 | `docs/06-testing/02-acceptance-catalog.md`     |
-| Revoke deletes state and stops transfers                 | `FR15`         | `AT15`: cache and assets deleted, retry blocked, no job replay after reconnect                                          | G1/G2 | `03-privacy-data-handling.md` Section 2        |
-| Parser, depth, and chunk limits with fuzzing             | `FR07`, `FR13` | `AT13`: recursion, numeric extremes, invalid IDs, unknown enums, malformed chunks, zip bombs for P1                     | G1/G3 | `docs/04-data-contracts/06-resource-limits.md` |
-| Read only operations, no document mutation               | `FR24`         | `AT18`: fixture hash and properties unchanged after reads and exports                                                   | G0/G2 | `02-access-control.md` Section 3               |
-| Attribution of network paths                             | `FR19`         | `N09`: zero official MCP or REST requests from core; connection capture attributed per process                          | G0    | `docs/06-testing/04-benchmark-plan.md`         |
+| Control from this document                               | Requirement              | Acceptance scenario (condensed from Appendix A)                                                                                                                                                    | Gate         | Related doc                                            |
+| -------------------------------------------------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ | ------------------------------------------------------ |
+| No PAT, core egress restricted to loopback               | `FR19`, `FR06`           | `AT02`: `FIGMA_TOKEN` unset, core still reads, egress denied except loopback                                                                                                                       | G0           | `docs/02-architecture/01-system-design.md`             |
+| Scope enforcement double checked, session isolated       | `FR03`, `FR04`           | `AT05`: two sessions with identical node IDs exchange nothing; `AT17`: membership checked fresh, stale results rejected                                                                            | G1           | `02-access-control.md` Section 4                       |
+| Pairing secret lifecycle and anti spoofing on the bridge | `FR02`                   | `AT06`: wrong, expired, and replayed tokens plus wrong Host and Origin are rejected                                                                                                                | G1/G2        | `02-access-control.md` Section 2                       |
+| Reconnect hygiene, epoch invalidation                    | `FR16`                   | `AT09`: plugin close and reopen, sleep and wake, daemon restart, delayed old epoch frame refused                                                                                                   | G1/G2        | `docs/06-testing/02-acceptance-catalog.md`             |
+| Revoke deletes state and stops transfers                 | `FR15`                   | `AT15`: cache and assets deleted, retry blocked, no job replay after reconnect                                                                                                                     | G1/G2        | `03-privacy-data-handling.md` Section 2                |
+| Parser, depth, and chunk limits with fuzzing             | `FR07`, `FR13`           | `AT13`: recursion, numeric extremes, invalid IDs, unknown enums, malformed chunks, zip bombs for P1                                                                                                | G1/G3        | `docs/04-data-contracts/06-resource-limits.md`         |
+| Read only operations, no document mutation               | `FR24`                   | `AT18`: fixture hash and properties unchanged after reads and exports                                                                                                                              | G0/G2        | `02-access-control.md` Section 3                       |
+| Attribution of network paths                             | `FR19`                   | `N09`: zero official MCP or REST requests from core; connection capture attributed per process                                                                                                     | G0           | `docs/06-testing/04-benchmark-plan.md`                 |
+| Write grant, plan validation, scope check, budget        | ADR-013 rules 1, 3, 6    | `AT21`: a write without a write grant is refused; `AT26`: an out-of-scope write is refused                                                                                                         | not assigned | `docs/11-write-path/01-write-path-design.md` section 6 |
+| Preview, approval, undo commit, audit                    | ADR-013 rules 3, 4, 5, 7 | `AT22`: a preview does not change the document; `AT24`: a changed plan hash is refused; `AT28`: an approved apply leaves an audit record; `AT29`: the editor level undo check needs a real session | not assigned | `docs/05-security/02-access-control.md` section 3.1    |
 
 ## 6.1 Adversarial validation
 
@@ -184,6 +218,7 @@ endpoints, which is described in section 8 of that document and closed in the da
 ## 10. Cross references
 
 - Access control and grant enforcement details: `docs/05-security/02-access-control.md`.
+- Write path contracts, grant mode, budgets, and rollout: `docs/11-write-path/01-write-path-design.md`; decision: `docs/02-architecture/adr/ADR-013-bidirectional-write-path.md`.
 - Storage, sanitization, and export hygiene: `docs/05-security/03-privacy-data-handling.md`.
 - Wire contracts and limits backing TH06 mitigations: `docs/04-data-contracts/01-mcp-envelope.md` and
   `docs/04-data-contracts/06-resource-limits.md`.

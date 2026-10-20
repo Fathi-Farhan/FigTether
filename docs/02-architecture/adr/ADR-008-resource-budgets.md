@@ -1,11 +1,12 @@
 # ADR-008: Resource budgets adopted from PRD 8.5.5 as code constants
 
-| Field                | Value      |
-| -------------------- | ---------- |
-| Status               | Accepted   |
-| Created              | 2026-10-20 |
-| Related decision IDs | D01, D12   |
-| Supersedes           | -          |
+| Field                | Value              |
+| -------------------- | ------------------ |
+| Status               | Accepted           |
+| Created              | 2026-10-20         |
+| Related decision IDs | D01, D12           |
+| Supersedes           | -                  |
+| Amended by           | ADR-013 (Proposed) |
 
 ## Context
 
@@ -91,6 +92,32 @@ AT refs: AT08, AT13, AT11 (export limits), AT04 (cache budget interplay); benchm
 `N02`, `N03`, `N04`, `N05`.
 Gate: G1 (constant module plus tests), G2 (benchmarks and soak evidence at exact commit).
 
+## Amendment: write budgets
+
+The budgets of this ADR cover reads, transport, and the editor queue. `ADR-013` proposes a second
+budget family for the write path, defined in `docs/11-write-path/01-write-path-design.md` section 3:
+
+| Budget                             | Default    | Over limit         |
+| ---------------------------------- | ---------- | ------------------ |
+| Operations per plan                | 50         | `BUDGET_EXCEEDED`  |
+| Nodes created per plan             | 100        | `BUDGET_EXCEEDED`  |
+| Text characters per plan           | 20,000     | `BUDGET_EXCEEDED`  |
+| Property changes per plan          | 200        | `BUDGET_EXCEEDED`  |
+| Affected subtree size per delete   | 50 nodes   | `BUDGET_EXCEEDED`  |
+| Plan validity                      | 10 minutes | `APPROVAL_EXPIRED` |
+| Write plans per minute per session | 10         | `BUDGET_EXCEEDED`  |
+
+The rules of this ADR carry over unchanged: the numbers live in one constants module, every other
+crate reads them from there, configuration may only lower them, a raised value is labeled
+`custom`/`unvalidated`, and no budget is advisory. The rate window counts the plans a session
+starts, not the operations inside them: with 10 operations per minute and 50 operations per plan, a
+plan of the maximum size would consume the whole minute budget on its own. The write path is not a
+read path, so the global retry rule of `FR14` does not apply to it: a refused write is never
+replayed (`docs/04-data-contracts/05-error-catalog.md` section 4).
+
+These numbers are not PRD 8.5.5 numbers. They are proposed with `ADR-013`, which is pending
+product approval, and they are proved by `AT25` once a gate is assigned to the write scenarios.
+
 ## References
 
 - PRD 4.3 (`FR13`, `FR14`, `FR18`, `FR22`), 2.1 (`N01..N05`), 8.5.5, 8.7 (metrics and doctor),
@@ -98,3 +125,5 @@ Gate: G1 (constant module plus tests), G2 (benchmarks and soak evidence at exact
 - `D01`, `D12`; committed interpretation 5 (bounded everything) in
   `docs/00-overview/01-prd-analysis.md` section 10.
 - `docs/04-data-contracts/06-resource-limits.md` (frozen numbers), ADR-006, ADR-007, ADR-011.
+- ADR-013 (bidirectional write path, Proposed) and `docs/11-write-path/01-write-path-design.md`
+  for the write budgets.

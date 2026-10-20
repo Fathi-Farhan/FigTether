@@ -1,8 +1,9 @@
 //! FigTether MCP adapter crate.
 //!
-//! The adapter exposes the read-only tool surface to MCP clients over stdio.
-//! It never mutates a document and never widens a grant: every tool is a
-//! read that is checked against the session and the grant epoch.
+//! The adapter exposes the tool surface to MCP clients over stdio. Twelve of
+//! the tools are read only: they never mutate a document and never widen a
+//! grant. Three of them are the write path: an agent proposes a plan, the
+//! user approves it in the plugin, and only then is the plan applied.
 //!
 //! The adapter is a client of the local daemon. It opens one authenticated
 //! loopback websocket to the daemon, sends the client credential from the
@@ -29,6 +30,7 @@ mod error;
 mod result;
 mod runtime;
 mod tools;
+mod tools_write;
 mod ws;
 
 #[cfg(test)]
@@ -43,7 +45,12 @@ pub use daemon::DaemonClient;
 pub use endpoint::Endpoint;
 pub use error::McpError;
 pub use runtime::{DaemonRuntime, PlatformDirs, RUNTIME_FILE_NAME};
-pub use tools::{tool_router, CancelSource, FigTetherService, TOOL_NAMES};
+pub use tools::{
+    tool_router, CancelSource, FigTetherService, READ_TOOL_NAMES, TOOL_NAMES, WRITE_TOOL_NAMES,
+};
+pub use tools_write::{
+    ApplyWriteParams, GetWriteApprovalParams, PreviewWriteParams, OPERATION_KINDS,
+};
 
 /// Version of the MCP adapter.
 pub const MCP_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -174,7 +181,7 @@ impl McpServerBuilder {
     }
 }
 
-/// The MCP server of the FigTether read only surface.
+/// The MCP server of the FigTether tool surface.
 pub struct McpServer {
     service: FigTetherService,
 }

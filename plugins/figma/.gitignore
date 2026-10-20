@@ -1,5 +1,6 @@
 # Build output
 dist/
+types-dist/
 
 # Dependencies
 node_modules/

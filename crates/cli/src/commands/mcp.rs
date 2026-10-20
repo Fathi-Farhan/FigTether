@@ -33,21 +33,37 @@ pub fn run(args: McpArgs) -> anyhow::Result<CommandOutcome> {
 
 #[cfg(test)]
 mod tests {
-    use figtether_mcp::TOOL_NAMES;
+    use figtether_mcp::{READ_TOOL_NAMES, TOOL_NAMES, WRITE_TOOL_NAMES};
 
     #[test]
     fn the_adapter_publishes_the_read_only_tools() {
-        assert_eq!(TOOL_NAMES.len(), 12);
-        assert!(TOOL_NAMES.contains(&"list_sessions"));
-        assert!(TOOL_NAMES.contains(&"get_selection"));
-        assert!(TOOL_NAMES.contains(&"inspect_design"));
+        assert_eq!(READ_TOOL_NAMES.len(), 12);
+        assert!(READ_TOOL_NAMES.contains(&"list_sessions"));
+        assert!(READ_TOOL_NAMES.contains(&"get_selection"));
+        assert!(READ_TOOL_NAMES.contains(&"inspect_design"));
     }
 
     #[test]
-    fn the_adapter_publishes_no_mutating_tool() {
-        for name in TOOL_NAMES {
-            for banned in ["create", "delete", "update", "mutate"] {
-                assert!(!name.contains(banned), "the tool {name} mutates");
+    fn the_write_tools_are_separate_and_named() {
+        assert_eq!(WRITE_TOOL_NAMES.len(), 3);
+        assert!(WRITE_TOOL_NAMES.contains(&"preview_write"));
+        assert!(WRITE_TOOL_NAMES.contains(&"get_write_approval"));
+        assert!(WRITE_TOOL_NAMES.contains(&"apply_write"));
+        assert_eq!(
+            TOOL_NAMES.len(),
+            READ_TOOL_NAMES.len() + WRITE_TOOL_NAMES.len(),
+            "every tool is either a read tool or a write tool"
+        );
+    }
+
+    #[test]
+    fn the_read_tools_stay_free_of_mutating_names() {
+        for name in READ_TOOL_NAMES {
+            for banned in ["create", "delete", "update", "mutate", "write"] {
+                assert!(
+                    !name.contains(banned),
+                    "the read tool {name} looks mutating"
+                );
             }
         }
     }

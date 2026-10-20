@@ -13,6 +13,12 @@ docs/06-testing/04-benchmark-plan.md. All IDs are verbatim from the PRD: nothing
 reassigned, and every value in a Target column is a target until a published evidence report (slots
 in docs/07-ops/04-release-process.md) records measured results.
 
+Extension for the write path. Section 3.1 adds the write path requirements `WR01..WR09`, which
+come from `ADR-013` and not from the PRD, and maps them to the write path scenarios
+`AT21..AT29` and to the write path design documents. The PRD `FR`, `N`, `P`, and `D` sets keep
+their identity and their row counts; `D13` is a proposed decision from `ADR-013` and is listed in
+matrix (d) with the same convention as the PRD decisions.
+
 ## 1. Reading guide and conventions
 
 | Rule             | Meaning                                                                                                                                                                                                                                                                                                                                                                             |
@@ -43,6 +49,10 @@ in docs/07-ops/04-release-process.md) records measured results.
 
 Note: tests listed at two gates (AT06, AT09, AT10, AT11, AT13, AT15 among others) must keep passing
 at every gate where they are listed; a later gate never lowers an earlier one.
+
+Note: the write path scenarios `AT21..AT29` are assigned to no gate. `ADR-013` is pending product
+approval (`docs/00-overview/01-prd-analysis.md` section 12), and the PRD lists write-back as not
+available until a separate RFC. Adding a gate for them is a product decision, not a doc edit.
 
 ## 3. Matrix (a): FR01..FR24
 
@@ -79,6 +89,24 @@ plugin). FR18 and FR23 have no Appendix A row; their closure is a named review r
 G1 and G3/G4 evidence slots respectively. FR22 closes P1 enforcement in the G3 window while soak
 evidence already lands at G2.
 
+## 3.1 Matrix (a.1): write path requirements (WR01..WR09)
+
+These requirements come from `ADR-013` and the write path design, not from the PRD. They are
+proposed: `ADR-013` is pending product approval, and no gate is assigned to the scenarios they
+map to.
+
+| ID   | Requirement (short)                                                                                                            | Source                | Acceptance tests | Design refs                            | Contract refs                                                                 | Status   |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------ | --------------------- | ---------------- | -------------------------------------- | ----------------------------------------------------------------------------- | -------- |
+| WR01 | A write needs a write grant; a read grant never authorizes a mutation, and no tool parameter can widen a grant                 | ADR-013 rule 1        | AT21             | write path design section 4            | 02-access-control.md section 3.1; 05-error-catalog.md section 2.1             | proposed |
+| WR02 | The agent submits declarative plans; no tool mutates the document directly                                                     | ADR-013 rule 2        | AT21, AT22       | write path design sections 2.1 and 2.2 | 02-tool-catalog.md sections 3.13 to 3.15                                      | proposed |
+| WR03 | A preview resolves the plan against the live document without mutating it, and a blocked plan names its reason                 | ADR-013 rule 3        | AT22, AT26       | write path design section 2.3          | 02-tool-catalog.md section 3.13                                               | proposed |
+| WR04 | A write needs a per plan user approval bound to the plan hash, the session, and the grant epoch, with an expiry                | ADR-013 rule 4        | AT23, AT24, AT28 | write path design section 2.4          | 02-access-control.md section 3.1; 05-error-catalog.md section 2.1             | proposed |
+| WR05 | An approved plan is applied as one editor undo step, and the commit and the version checkpoint are reported                    | ADR-013 rule 5        | AT28, AT29       | write path design section 5            | 02-tool-catalog.md section 3.15; 01-threat-model.md section 4.1 (TH18)        | proposed |
+| WR06 | Write budgets bound operations, created nodes, text length, property changes, subtree size, plan validity, and write rate      | ADR-013 rule 6        | AT25             | write path design section 3            | adr/ADR-008-resource-budgets.md amendment; 05-error-catalog.md section 2.1    | proposed |
+| WR07 | A write stays inside the granted roots; a delete or an out-of-scope move needs the destructive flag and a separate user toggle | ADR-013 rules 3 and 6 | AT26, AT27       | write path design section 6            | 01-threat-model.md section 4.1 (TH14, TH15); 02-access-control.md section 3.1 | proposed |
+| WR08 | Every applied plan leaves a content free audit record                                                                          | ADR-013 rule 7        | AT27, AT28       | write path design section 5            | 01-threat-model.md section 6; 05-error-catalog.md section 8                   | proposed |
+| WR09 | No self invented revert: the editor undo and the version history are the recovery path                                         | ADR-013 rule 8        | AT29             | write path design section 5            | adr/ADR-013-bidirectional-write-path.md alternatives considered               | proposed |
+
 ## 4. Reverse acceptance index (AT01..AT20)
 
 | ID   | Scenario (condensed)                                                                                   | FRs covered           | Problems | Gate  | Benchmark link                     |
@@ -106,6 +134,23 @@ evidence already lands at G2.
 
 Scenario text is condensed; the binding definitions live in docs/06-testing/02-acceptance-catalog.md.
 
+### 4.1 Write path scenarios (AT21..AT29)
+
+These are not PRD Appendix A rows. They cover the write path proposed by `ADR-013`, they carry no
+gate, and `AT29` needs a real Figma Desktop session.
+
+| ID   | Scenario (condensed)                                                                                         | WRs covered      | Gate                                      |
+| ---- | ------------------------------------------------------------------------------------------------------------ | ---------------- | ----------------------------------------- |
+| AT21 | A write on a read only session is refused with `WRITE_NOT_GRANTED`; the write mode is a separate user action | WR01, WR02       | not assigned                              |
+| AT22 | A preview resolves the plan without changing the document; a blocked preview names its reason                | WR02, WR03       | not assigned                              |
+| AT23 | An apply without a valid approval is refused; a grant change invalidates outstanding approvals               | WR04             | not assigned                              |
+| AT24 | A changed plan body does not match the approved plan hash and is refused                                     | WR04             | not assigned                              |
+| AT25 | A plan over any write budget is refused with the limit named, and nothing is applied                         | WR06             | not assigned                              |
+| AT26 | A write outside the granted roots is blocked and refused on both sides                                       | WR03, WR07       | not assigned                              |
+| AT27 | A delete without the destructive flag and the user toggle is refused                                         | WR07, WR08       | not assigned                              |
+| AT28 | An approved apply reports its result and leaves one content free audit record                                | WR04, WR05, WR08 | not assigned                              |
+| AT29 | The applied plan is one step in the editor undo history; no revert tool is exposed                           | WR05, WR09       | not assigned; needs a real editor session |
+
 ## 5. Error-code traceability (PRD 8.7)
 
 Every structured error code promised by the PRD must be reachable by a test or a benchmark control;
@@ -127,6 +172,21 @@ none is decorative.
 | UNSUPPORTED_SCHEMA / PROTOCOL_MISMATCH | incompatible client, plugin or daemon versions | doctor and handshake                | AT14              | version pin evidence, D08               |
 | EXPORT_FAILED / FONT_UNAVAILABLE       | node, format or render unsupported             | fallback guidance, no node mutation | AT11              | N03 failure denominators                |
 | INTERNAL_ERROR                         | unexpected defect                              | sanitized correlation ID            | classifier of N05 | N05 unexpected error rate < 0.1%        |
+
+Write path codes, proposed by `ADR-013` and defined in
+`docs/04-data-contracts/05-error-catalog.md` section 2.1. They are listed here so that no code is
+decorative; the scenarios carry no gate because `ADR-013` is pending product approval.
+
+| Code                    | Trigger (condensed)                                           | Surfaced by                     | ATs        | Benchmark or protocol link        |
+| ----------------------- | ------------------------------------------------------------- | ------------------------------- | ---------- | --------------------------------- |
+| WRITE_NOT_GRANTED       | the session holds a read grant only, or no grant              | write grant check in the daemon | AT21       | ADR-013 rule 1                    |
+| APPROVAL_REQUIRED       | an apply arrives without a valid approval token               | approval verification           | AT23       | ADR-013 rule 4                    |
+| APPROVAL_EXPIRED        | the approval expired or a grant change invalidated it         | approval verification           | AT23       | ADR-004 amendment, epoch rules    |
+| PLAN_HASH_MISMATCH      | the plan differs from the approved plan                       | plan hash comparison            | AT24       | write path design section 2.4     |
+| PLAN_INVALID            | the plan is invalid or names a closed contract violation      | plan validation in the daemon   | AT25       | write path design section 2.2     |
+| BUDGET_EXCEEDED         | the plan exceeds a write budget                               | budget layer in the daemon      | AT25       | ADR-008 amendment                 |
+| DESTRUCTIVE_NOT_ALLOWED | a delete or out-of-scope move without the flag and the toggle | destructive policy              | AT26, AT27 | ADR-013 rule 6                    |
+| MUTATION_REFUSED        | the editor refused the mutation                               | the plugin                      | AT29       | write path design open question 1 |
 
 ## 6. Goal-to-evidence bridge (G01..G05) and assumption audit
 
@@ -192,34 +252,36 @@ hypotheses must end as measured evidence, never as assumptions carried into rele
 
 ## 9. Matrix (d): D01..D12
 
-| ID  | Decision (short)                                             | ADR association (docs/02-architecture/adr/)            | Evidence to close                                                                                                    | Gate                              |
-| --- | ------------------------------------------------------------ | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
-| D01 | Rust core; TypeScript adapter required by the editor runtime | ADR-001                                                | build and size verification of daemon, MCP adapter and plugin bundle on Windows and macOS; sizes in release evidence | G0                                |
-| D02 | Plugin path without REST/PAT/official MCP                    | none; PRD baseline decision, enforced by FR19          | AT01 and AT02 plus egress audit at the exact commit                                                                  | G0, recheck G2                    |
-| D03 | Read-only v0.1/v0.2; no eval or arbitrary execution          | none; PRD decision                                     | handler audit plus AT18 before/after fixture hash                                                                    | G0/G2                             |
-| D04 | Live fresh default; cached only by explicit request          | none; fixed by the envelope contract                   | AT04 fresh/snapshot/cached behavior; class split rules in 04-benchmark-plan.md section 1.2                           | G1                                |
-| D05 | Session identity independent of fileKey                      | none; PRD decision                                     | AT05 two-session fixture; public probes of identifyable session fields                                               | G1                                |
-| D06 | Local WebSocket transport candidate                          | ADR-002                                                | CSP/Origin/manifest test per OS inside real Figma Desktop; on failure a new ADR, never a public relay fallback       | G0                                |
-| D07 | Watch page-scoped if any; global watch never the default     | ADR filed only if promoted                             | nodechange/style event coverage test; on failure watch stays request-based only                                      | G3                                |
-| D08 | rmcp version, MSRV, client support                           | ADR-003                                                | pinned version plus compatibility evidence with >= 2 MCP clients (AT14)                                              | pin at G0 kickoff; evidence at G2 |
-| D09 | Variables/library resolution per seat                        | none; capability matrix docs                           | probe matrix per seat; unavailable stays a valid answer                                                              | G0/G2                             |
-| D10 | Final name and dual license                                  | ADR-009                                                | name/marker check and dependency license review recorded by the maintainer                                           | G2 wording; G4 window             |
-| D11 | Community plugin publication                                 | none; production release review                        | production manifest review and Community policy review                                                               | G4                                |
-| D12 | Performance beyond the initial profile not promised          | none; governed by docs/06-testing/04-benchmark-plan.md | any raise needs a reproducible rerun and a labeled publication                                                       | G2 baseline, then per claim       |
+| ID  | Decision (short)                                                         | ADR association (docs/02-architecture/adr/)            | Evidence to close                                                                                                                      | Gate                                   |
+| --- | ------------------------------------------------------------------------ | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| D01 | Rust core; TypeScript adapter required by the editor runtime             | ADR-001                                                | build and size verification of daemon, MCP adapter and plugin bundle on Windows and macOS; sizes in release evidence                   | G0                                     |
+| D02 | Plugin path without REST/PAT/official MCP                                | none; PRD baseline decision, enforced by FR19          | AT01 and AT02 plus egress audit at the exact commit                                                                                    | G0, recheck G2                         |
+| D03 | Read-only v0.1/v0.2; no eval or arbitrary execution                      | none; PRD decision                                     | handler audit plus AT18 before/after fixture hash; `ADR-013` would restate `FR24` for a future release and is pending product approval | G0/G2                                  |
+| D13 | Write path: plan based, previewed, approved, budgeted, audited, undoable | ADR-013 (Proposed)                                     | AT21..AT29 once the product decision is made; the editor undo check needs a real Figma Desktop session                                 | not assigned; pending product approval |
+| D04 | Live fresh default; cached only by explicit request                      | none; fixed by the envelope contract                   | AT04 fresh/snapshot/cached behavior; class split rules in 04-benchmark-plan.md section 1.2                                             | G1                                     |
+| D05 | Session identity independent of fileKey                                  | none; PRD decision                                     | AT05 two-session fixture; public probes of identifyable session fields                                                                 | G1                                     |
+| D06 | Local WebSocket transport candidate                                      | ADR-002                                                | CSP/Origin/manifest test per OS inside real Figma Desktop; on failure a new ADR, never a public relay fallback                         | G0                                     |
+| D07 | Watch page-scoped if any; global watch never the default                 | ADR filed only if promoted                             | nodechange/style event coverage test; on failure watch stays request-based only                                                        | G3                                     |
+| D08 | rmcp version, MSRV, client support                                       | ADR-003                                                | pinned version plus compatibility evidence with >= 2 MCP clients (AT14)                                                                | pin at G0 kickoff; evidence at G2      |
+| D09 | Variables/library resolution per seat                                    | none; capability matrix docs                           | probe matrix per seat; unavailable stays a valid answer                                                                                | G0/G2                                  |
+| D10 | Final name and dual license                                              | ADR-009                                                | name/marker check and dependency license review recorded by the maintainer                                                             | G2 wording; G4 window                  |
+| D11 | Community plugin publication                                             | none; production release review                        | production manifest review and Community policy review                                                                                 | G4                                     |
+| D12 | Performance beyond the initial profile not promised                      | none; governed by docs/06-testing/04-benchmark-plan.md | any raise needs a reproducible rerun and a labeled publication                                                                         | G2 baseline, then per claim            |
 
 ## 10. Coverage audit rules
 
-| Check            | Expected state                                                                                                                                  |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| Row counts       | FR 24 rows (P0 = 20, P1 = FR20, FR21, FR22, FR23), AT 20 rows, N 10 rows, P 14 rows, D 12 rows.                                                 |
-| FR closure       | every FR row names at least one AT, or a named review (FR18, FR23), soak extension (FR22), or benchmark (FR06 via N02).                         |
-| FR completeness  | every FR row has at least one epic and one design reference; new engineering questions take new IDs only.                                       |
-| AT reverse index | the FR lists in section 4 are identical to PRD Appendix A; drift is a spec change, not an edit here.                                            |
-| N linkage        | every N row points to a protocol section in docs/06-testing/04-benchmark-plan.md and to one evidence slot in docs/07-ops/04-release-process.md. |
-| P linkage        | every P row maps to at least one AT; P12 additionally refers into the AT16 wording policy.                                                      |
-| D linkage        | every D row has closure evidence and a gate; D06, D08, D09 stay open until G0 evidence exists.                                                  |
-| Error map        | every PRD 8.7 error code appears in section 5 with at least one AT or benchmark linkage.                                                        |
-| Orphan rule      | an FR without an AT, design ref and backlog link may not enter a sprint (docs/00-overview/01-prd-analysis.md section 11).                       |
+| Check            | Expected state                                                                                                                                                                      |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Row counts       | FR 24 rows (P0 = 20, P1 = FR20, FR21, FR22, FR23), AT 20 PRD rows plus 9 write path rows (AT21..AT29), N 10 rows, P 14 rows, D 12 PRD rows plus D13 (proposed write path decision). |
+| FR closure       | every FR row names at least one AT, or a named review (FR18, FR23), soak extension (FR22), or benchmark (FR06 via N02).                                                             |
+| FR completeness  | every FR row has at least one epic and one design reference; new engineering questions take new IDs only.                                                                           |
+| AT reverse index | the FR lists in section 4 are identical to PRD Appendix A; drift is a spec change, not an edit here.                                                                                |
+| N linkage        | every N row points to a protocol section in docs/06-testing/04-benchmark-plan.md and to one evidence slot in docs/07-ops/04-release-process.md.                                     |
+| P linkage        | every P row maps to at least one AT; P12 additionally refers into the AT16 wording policy.                                                                                          |
+| D linkage        | every D row has closure evidence and a gate; D06, D08, D09 stay open until G0 evidence exists.                                                                                      |
+| Write path rows  | every WR row names at least one AT, a design ref, and a contract ref; the write scenarios carry no gate until the product decision is recorded.                                     |
+| Error map        | every PRD 8.7 error code appears in section 5 with at least one AT or benchmark linkage.                                                                                            |
+| Orphan rule      | an FR without an AT, design ref and backlog link may not enter a sprint (docs/00-overview/01-prd-analysis.md section 11).                                                           |
 
 ## 11. Maintenance rules
 
@@ -232,4 +294,8 @@ hypotheses must end as measured evidence, never as assumptions carried into rele
 | ADR slugs      | ADR numbers are normative; their actual file names resolve through the docs/02-architecture/adr/ index.                  |
 
 Revision history: v0.1, 2026-10-20, initial four matrices proposed together with
-docs/06-testing/02-acceptance-catalog.md and docs/06-testing/04-benchmark-plan.md.
+docs/06-testing/02-acceptance-catalog.md and docs/06-testing/04-benchmark-plan.md. v0.2, 2026-10-20,
+write path extension: section 3.1 adds the write path requirements `WR01..WR09` from `ADR-013`,
+section 4.1 adds the scenarios `AT21..AT29`, section 5 adds the write error codes, matrix (d) adds
+the proposed decision `D13`; the PRD `FR`, `N`, `P`, and `D` rows are unchanged and the write
+scenarios carry no gate while `ADR-013` is pending product approval.

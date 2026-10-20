@@ -8,8 +8,8 @@
  * credential in a persistent store.
  */
 
-import { createFrame, isCapabilityState, parseFrame, serializeFrame } from "@figtether/shared";
-import type { BridgeFrame, CapabilityMap, JsonValue, MessageType } from "@figtether/shared";
+import { isCapabilityState, parseFrame } from "@figtether/shared";
+import type { BridgeFrame, CapabilityMap, JsonValue } from "@figtether/shared";
 
 import { DEFAULT_BACKOFF } from "./backoff.js";
 import type { BackoffConfig } from "./backoff.js";
@@ -22,12 +22,21 @@ import {
   MAX_FRAME_BYTES,
   MISSED_HEARTBEATS_BEFORE_OFFLINE,
   PROTOCOL_VERSION,
+  createFrame,
+  serializeFrame,
 } from "./protocol.js";
-import type { AuthAcceptedPayload, UiError, GrantMode } from "./protocol.js";
+import type {
+  AuthAcceptedPayload,
+  UiError,
+  SessionMode,
+  UiMessageType,
+  WriteGrantMode,
+} from "./protocol.js";
 import { createSecretStore } from "./secret.js";
 import type { SecretStore } from "./secret.js";
 import { reduceConnection } from "./status.js";
 import type { ConnectionEvent, ConnectionState } from "./status.js";
+import type { ApprovalDecision } from "./write.js";
 
 /** Request id that the daemon uses for the handshake frames. */
 export const AUTH_REQUEST_ID = "auth";
@@ -90,7 +99,7 @@ export const DAEMON_UNREACHABLE_MESSAGE =
 const AUTH_ERROR_CODES = ["AUTH_REQUIRED", "AUTH_EXPIRED", "PROTOCOL_MISMATCH"];
 
 /** Message types that the UI is allowed to send on the socket. */
-const ALLOWED_OUTBOUND_TYPES: readonly MessageType[] = [
+const ALLOWED_OUTBOUND_TYPES: readonly UiMessageType[] = [
   "hello_auth",
   "grant_update",
   "revoke",
@@ -99,6 +108,7 @@ const ALLOWED_OUTBOUND_TYPES: readonly MessageType[] = [
   "chunk",
   "progress",
   "error",
+  "approval",
 ];
 
 function defaultSocketFactory(url: string): SocketLike {
@@ -317,12 +327,40 @@ export class BridgeClient {
     this.handlers.onConnection(this.state, POLICY_BLOCKED_MESSAGE);
   }
 
-  /** Send a grant update to the daemon. */
-  sendGrantUpdate(rootIds: readonly string[], grantEpoch: number, mode: GrantMode): boolean {
+  /**
+   * Send a grant update to the daemon.
+   *
+   * The two modes travel on their own fields: the mode of the grant says
+   * whether the session may write, and the session mode says whether the
+   * session is live or paused.
+   */
+  sendGrantUpdate(
+    rootIds: readonly string[],
+    grantEpoch: number,
+    sessionMode: SessionMode,
+    writeMode: WriteGrantMode = "read",
+  ): boolean {
     return this.sendFrame("grant_update", {
       root_ids: [...rootIds],
       grant_epoch: grantEpoch,
-      mode,
+      mode: writeMode,
+      session_mode: sessionMode,
+    });
+  }
+
+  /**
+   * Send the decision of the user about a write plan.
+   *
+   * The decision goes straight to the daemon: the sandbox never sees it and
+   * never answers it. The payload carries the approval the decision answers,
+   * the hash of the plan the user was shown and the decision itself.
+   */
+  sendApproval(decision: ApprovalDecision): boolean {
+    return this.sendFrame("approval", {
+      approval_id: decision.approval_id,
+      plan_hash: decision.plan_hash,
+      approved: decision.approved,
+      ...(decision.reason === undefined ? {} : { reason: decision.reason }),
     });
   }
 
@@ -349,7 +387,7 @@ export class BridgeClient {
    * unknown type is refused here so that no free form blob can reach the
    * socket.
    */
-  sendFrame(messageType: MessageType, payload: JsonValue, requestId?: string): boolean {
+  sendFrame(messageType: UiMessageType, payload: JsonValue, requestId?: string): boolean {
     if (!ALLOWED_OUTBOUND_TYPES.includes(messageType)) {
       return false;
     }

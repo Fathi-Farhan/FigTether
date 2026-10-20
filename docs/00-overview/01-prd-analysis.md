@@ -21,19 +21,19 @@ alternatives consume REST quota and require tokens, both of which break intense 
 
 ## 2. Product facts (fixed interpretation)
 
-| Aspect            | Interpretation                                                                                                                    |
-| ----------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| Core language     | **Rust** for daemon, MCP adapter, CLI, contract model, scheduler, cache, asset store (`D01`)                                      |
-| Adapter language  | TypeScript only inside the Figma plugin (main sandbox + UI iframe), enforced by scope review                                      |
-| Primary target    | Figma Design desktop on Windows and macOS; Linux gets core/CLI/fixtures only until an editor environment is tested                |
-| Read path         | Plugin API on the live path; `JSON_REST_V1` (`exportAsync`) is an optional adapter input, never the whole model (`FR08`)          |
-| Write path        | None. v0.1/v0.2 are read-only (`D03`, `FR24`). Write-back requires a separate RFC                                                 |
-| Modes             | Snapshot (immutable capture) and Live session (request-based). Watch is P1 and is invalidation-only, not a truth source (`D07`)   |
-| Freshness         | `consistency=fresh` is the live default; cached reads require explicit `consistency=cached` plus `max_age_ms` (`D04`)             |
-| Session identity  | UUID per plugin run/tab; `fileKey` is never the routing key (`D05`, `FR04`)                                                       |
-| Default transport | Local WebSocket on loopback, plugin dials daemon; finalized by G0 evidence (`D06`)                                                |
-| Default port      | `38947`, loopback only; collision fails loudly with `--port` guidance                                                             |
-| Pricing/claims    | Free publication; claims limited to "core path does not consume official MCP/REST quota"; **no unlimited claims** (`P14`, `AT16`) |
+| Aspect            | Interpretation                                                                                                                                              |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Core language     | **Rust** for daemon, MCP adapter, CLI, contract model, scheduler, cache, asset store (`D01`)                                                                |
+| Adapter language  | TypeScript only inside the Figma plugin (main sandbox + UI iframe), enforced by scope review                                                                |
+| Primary target    | Figma Design desktop on Windows and macOS; Linux gets core/CLI/fixtures only until an editor environment is tested                                          |
+| Read path         | Plugin API on the live path; `JSON_REST_V1` (`exportAsync`) is an optional adapter input, never the whole model (`FR08`)                                    |
+| Write path        | None. v0.1/v0.2 are read-only (`D03`, `FR24`). Write-back requires a separate RFC. That RFC is `ADR-013` and it is pending product approval; see section 12 |
+| Modes             | Snapshot (immutable capture) and Live session (request-based). Watch is P1 and is invalidation-only, not a truth source (`D07`)                             |
+| Freshness         | `consistency=fresh` is the live default; cached reads require explicit `consistency=cached` plus `max_age_ms` (`D04`)                                       |
+| Session identity  | UUID per plugin run/tab; `fileKey` is never the routing key (`D05`, `FR04`)                                                                                 |
+| Default transport | Local WebSocket on loopback, plugin dials daemon; finalized by G0 evidence (`D06`)                                                                          |
+| Default port      | `38947`, loopback only; collision fails loudly with `--port` guidance                                                                                       |
+| Pricing/claims    | Free publication; claims limited to "core path does not consume official MCP/REST quota"; **no unlimited claims** (`P14`, `AT16`)                           |
 
 ## 3. Problem decomposition (P01-P14)
 
@@ -192,3 +192,42 @@ Each `FR*` maps to at least one `AT*` and at least one design section; see
 `06-testing/04-benchmark-plan.md`. PRD problems `P*` map into the problem decomposition table
 above and reporting templates. Any newly identified requirement takes a new ID with owner and
 test before entering a sprint.
+
+## 12. Scope change record: the write path
+
+The PRD does not contain a write path. This section records the change of scope and does not
+pretend that the PRD already allowed one.
+
+| Question                                                                    | Answer in PRD `FGT-PRD-001` v1.1                                                                                           |
+| --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Which decision forbids writing?                                             | `D03` decides read-only v0.1/v0.2 with no eval. `FR24` requires that a read never mutates the document.                    |
+| When does write-back become allowed?                                        | The release boundary table lists write-back as "not available" until a separate RFC with permissions and mutation testing. |
+| Does the PRD describe plans, approvals, budgets, undo, or audit for writes? | No. None of these write concepts appear in the PRD write-back boundary.                                                    |
+
+`ADR-013` (`docs/02-architecture/adr/ADR-013-bidirectional-write-path.md`) is that separate RFC.
+It proposes a write path that is plan based, previewed, explicitly approved, budgeted, audited,
+and undoable in Figma itself, and it fixes the concrete contracts in
+`docs/11-write-path/01-write-path-design.md`.
+
+Three states have to stay apart:
+
+| State           | What is true                                                                                                                                                                                 |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PRD v1.1        | Write-back is not available. `D03` and `FR24` stand as written. The shipped contract is the PRD wording.                                                                                     |
+| `ADR-013`       | Proposed. It changes `D03` for a future release. It is a product decision that has not been made; no product approval is recorded in `docs/99-appendices/03-approval-record.md`.             |
+| This repository | The read path is implemented and tested. The write path is specified and under implementation, it is not verified in a Figma Desktop session, and no editor level undo behaviour is claimed. |
+
+Consequences of the proposed change:
+
+- Today the invariant is "a read never mutates". It stays true for every read tool, and `AT18`
+  continues to prove it.
+- `ADR-013` restates `FR24` as "reads never mutate; writes mutate only inside an approved write
+  grant". That restatement is proposed, not in force. Until the product decision is made, the
+  contract is the PRD wording.
+- The restatement reaches beyond `FR24`: the MCP tool surface stops being uniformly read only
+  (`docs/04-data-contracts/02-tool-catalog.md`), the grant model gains a mode (`ADR-004`,
+  amendment), the budget model gains write budgets (`ADR-008`, amendment), the threat model gains
+  a write class (`docs/05-security/01-threat-model.md`), and the acceptance catalog gains write
+  scenarios `AT21..AT29` (`docs/06-testing/02-acceptance-catalog.md`).
+- A read grant never authorizes a mutation. In the proposed model a write needs its own grant mode
+  and its own per plan approval, and no tool parameter can widen either.

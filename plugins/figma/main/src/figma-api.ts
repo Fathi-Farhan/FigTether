@@ -113,6 +113,8 @@ export interface FigmaNode {
   counterAxisSizingMode?: string;
   layoutWrap?: string;
   clipsContent?: boolean;
+  blendMode?: string;
+  description?: string;
   fills?: unknown;
   strokes?: unknown;
   effects?: unknown;
@@ -137,6 +139,19 @@ export interface FigmaNode {
   gridStyleId?: unknown;
   textStyleId?: unknown;
   exportAsync?: (settings: FigmaExportSettings) => Promise<Uint8Array>;
+  /**
+   * Append a child, when the node accepts children.
+   *
+   * The method is optional because not every node of the document can hold
+   * children, and because a readonly node refuses the call.
+   */
+  appendChild?: ((child: FigmaNode) => void) | undefined;
+  /** Insert a child at an index, when the node accepts children. */
+  insertChild?: ((index: number, child: FigmaNode) => void) | undefined;
+  /** Remove the node from its parent. */
+  remove?: (() => void) | undefined;
+  /** Resize the node, when the node has a size. */
+  resize?: ((width: number, height: number) => void) | undefined;
 }
 
 /** Export settings accepted by `node.exportAsync`. */
@@ -190,6 +205,17 @@ export interface FigmaTeamLibraryApi {
   getAvailableLibraryStylesAsync?: () => Promise<unknown>;
 }
 
+/**
+ * The result of a version checkpoint.
+ *
+ * The editor resolves the promise with `null` when it wrote no version, so
+ * the absence of a version id is a normal outcome and not an error.
+ */
+export interface FigmaVersionResult {
+  /** Id of the version that was written. */
+  id: string;
+}
+
 /** The UI channel of the plugin. */
 export interface FigmaUiApi {
   /** Send a message to the UI iframe. */
@@ -224,6 +250,37 @@ export interface FigmaApi {
   getLocalGridStylesAsync?: (() => Promise<FigmaStyle[]>) | undefined;
   /** Fonts the editor can render. */
   listAvailableFontsAsync?: (() => Promise<Array<{ fontName: FigmaFontName }>>) | undefined;
+  /** Create a frame. */
+  createFrame?: (() => FigmaNode) | undefined;
+  /** Create a text node. */
+  createText?: (() => FigmaNode) | undefined;
+  /** Create a rectangle. */
+  createRectangle?: (() => FigmaNode) | undefined;
+  /** Create a component. */
+  createComponent?: (() => FigmaNode) | undefined;
+  /** Create a vector network. */
+  createVector?: (() => FigmaNode) | undefined;
+  /** Create a section. */
+  createSection?: (() => FigmaNode) | undefined;
+  /** Create a line. */
+  createLine?: (() => FigmaNode) | undefined;
+  /** Create an ellipse. */
+  createEllipse?: (() => FigmaNode) | undefined;
+  /**
+   * Group nodes under a parent.
+   *
+   * The Plugin API has no `createGroup`: a group always holds at least one
+   * node, so the editor builds it from the nodes it takes over.
+   */
+  group?: ((nodes: readonly FigmaNode[], parent: FigmaNode, index?: number) => FigmaNode) | undefined;
+  /** Load a font before its properties or its characters can be written. */
+  loadFontAsync?: ((font: FigmaFontName) => Promise<void>) | undefined;
+  /** Commit the changes of the plugin to the undo history of the editor. */
+  commitUndo?: (() => void) | undefined;
+  /** Write a version checkpoint of the file. */
+  saveVersionHistoryAsync?:
+    | ((title: string, description?: string) => Promise<FigmaVersionResult | null>)
+    | undefined;
   /** The variables API. */
   readonly variables?: FigmaVariablesApi | undefined;
   /** The team library API. */
@@ -326,6 +383,22 @@ export function resolveFigmaApi(scope: unknown): FigmaApi {
     listAvailableFontsAsync: asFunction<() => Promise<Array<{ fontName: FigmaFontName }>>>(
       api["listAvailableFontsAsync"],
     ),
+    createFrame: asFunction<() => FigmaNode>(api["createFrame"]),
+    createText: asFunction<() => FigmaNode>(api["createText"]),
+    createRectangle: asFunction<() => FigmaNode>(api["createRectangle"]),
+    createComponent: asFunction<() => FigmaNode>(api["createComponent"]),
+    createVector: asFunction<() => FigmaNode>(api["createVector"]),
+    createSection: asFunction<() => FigmaNode>(api["createSection"]),
+    createLine: asFunction<() => FigmaNode>(api["createLine"]),
+    createEllipse: asFunction<() => FigmaNode>(api["createEllipse"]),
+    group: asFunction<(nodes: readonly FigmaNode[], parent: FigmaNode, index?: number) => FigmaNode>(
+      api["group"],
+    ),
+    loadFontAsync: asFunction<(font: FigmaFontName) => Promise<void>>(api["loadFontAsync"]),
+    commitUndo: asFunction<() => void>(api["commitUndo"]),
+    saveVersionHistoryAsync: asFunction<
+      (title: string, description?: string) => Promise<FigmaVersionResult | null>
+    >(api["saveVersionHistoryAsync"]),
     variables: optionalRecord(api["variables"]) as FigmaVariablesApi | undefined,
     teamLibrary: optionalRecord(api["teamLibrary"]) as FigmaTeamLibraryApi | undefined,
     ui: optionalRecord(api["ui"]) as FigmaUiApi | undefined,

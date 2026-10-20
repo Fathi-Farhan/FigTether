@@ -1,0 +1,138 @@
+{
+  "$defs": {
+    "WriteOperationKind": {
+      "description": "The kind of one write operation.\n\nThe set is closed. An agent cannot invent an operation, and the plugin\nresolves exactly these kinds against the document.",
+      "oneOf": [
+        {
+          "const": "create_node",
+          "description": "Create a new node of a type below a parent.",
+          "type": "string"
+        },
+        {
+          "const": "insert_child",
+          "description": "Move an existing node below another parent.",
+          "type": "string"
+        },
+        {
+          "const": "set_properties",
+          "description": "Set allowlisted properties on an existing node.",
+          "type": "string"
+        },
+        {
+          "const": "set_text",
+          "description": "Replace the characters of a text node.",
+          "type": "string"
+        },
+        {
+          "const": "set_fills",
+          "description": "Replace the fills of a node.",
+          "type": "string"
+        },
+        {
+          "const": "delete_node",
+          "description": "Remove a node and its subtree.",
+          "type": "string"
+        },
+        {
+          "const": "move_node",
+          "description": "Change the position of a node.",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "$id": "urn:figtether:schema:write_operation",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "One operation of a write plan.\n\nThe shape is deliberately wide and declarative: the same operation struct\ncarries every kind, and the fields that a kind does not use stay empty.\nThe daemon validates the combination, the plugin resolves it.",
+  "properties": {
+    "fills": {
+      "description": "Paints to set on the node. Only the `SetFills` operation reads this\nfield. The values are normalized by the plugin before they reach the\neditor.",
+      "items": true,
+      "type": [
+        "array",
+        "null"
+      ]
+    },
+    "font_family": {
+      "description": "Font family of the characters.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "font_style": {
+      "description": "Font style of the characters.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "index": {
+      "description": "Position of the node among the children of the parent.",
+      "format": "uint32",
+      "minimum": 0,
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "kind": {
+      "$ref": "#/$defs/WriteOperationKind",
+      "description": "What the operation does."
+    },
+    "node_id": {
+      "description": "Node the operation acts on. Required for every operation that changes\nan existing node.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "node_type": {
+      "description": "Type of the node to create. Required for create, and limited to\n`ALLOWED_NODE_TYPES`.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "parent_id": {
+      "description": "Parent the operation works under. Required for create and insert.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "properties": {
+      "additionalProperties": true,
+      "description": "Properties to set on the node. Only the names in\n`ALLOWED_WRITE_PROPERTIES` are accepted. Fills and strokes are not\nproperties, they are set through the `SetFills` operation.",
+      "type": "object"
+    },
+    "text": {
+      "description": "Characters of a text node.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "x": {
+      "description": "Horizontal position.",
+      "format": "double",
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "y": {
+      "description": "Vertical position.",
+      "format": "double",
+      "type": [
+        "number",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "kind"
+  ],
+  "title": "WriteOperation",
+  "type": "object"
+}

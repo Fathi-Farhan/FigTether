@@ -25,6 +25,13 @@ export const ERROR_CODES = {
   TIMEOUT: "TIMEOUT",
   CANCELLED: "CANCELLED",
   UNSUPPORTED_SCHEMA: "UNSUPPORTED_SCHEMA",
+  WRITE_NOT_GRANTED: "WRITE_NOT_GRANTED",
+  APPROVAL_REQUIRED: "APPROVAL_REQUIRED",
+  PLAN_HASH_MISMATCH: "PLAN_HASH_MISMATCH",
+  PLAN_INVALID: "PLAN_INVALID",
+  BUDGET_EXCEEDED: "BUDGET_EXCEEDED",
+  DESTRUCTIVE_NOT_ALLOWED: "DESTRUCTIVE_NOT_ALLOWED",
+  MUTATION_REFUSED: "MUTATION_REFUSED",
 } as const;
 
 /** One canonical error code. */
@@ -64,6 +71,13 @@ const RETRYABLE: Readonly<Record<ErrorCode, boolean>> = {
   TIMEOUT: true,
   CANCELLED: false,
   UNSUPPORTED_SCHEMA: false,
+  WRITE_NOT_GRANTED: false,
+  APPROVAL_REQUIRED: false,
+  PLAN_HASH_MISMATCH: false,
+  PLAN_INVALID: false,
+  BUDGET_EXCEEDED: false,
+  DESTRUCTIVE_NOT_ALLOWED: false,
+  MUTATION_REFUSED: false,
 };
 
 /** Default recovery hint per code, mirroring `ErrorCode::default_action`. */
@@ -83,6 +97,13 @@ const DEFAULT_ACTION: Readonly<Record<ErrorCode, ErrorAction>> = {
   TIMEOUT: ERROR_ACTIONS.NARROW_PARAMETERS,
   CANCELLED: ERROR_ACTIONS.RESTART_TRAVERSAL,
   UNSUPPORTED_SCHEMA: ERROR_ACTIONS.CONTACT_SUPPORT,
+  WRITE_NOT_GRANTED: ERROR_ACTIONS.NEW_GRANT_REQUIRED,
+  APPROVAL_REQUIRED: ERROR_ACTIONS.RESUME_BY_USER,
+  PLAN_HASH_MISMATCH: ERROR_ACTIONS.NARROW_PARAMETERS,
+  PLAN_INVALID: ERROR_ACTIONS.NARROW_PARAMETERS,
+  BUDGET_EXCEEDED: ERROR_ACTIONS.NARROW_PARAMETERS,
+  DESTRUCTIVE_NOT_ALLOWED: ERROR_ACTIONS.RESUME_BY_USER,
+  MUTATION_REFUSED: ERROR_ACTIONS.USE_ALTERNATIVE,
 };
 
 /**
@@ -192,6 +213,11 @@ export function revoked(message: string): PluginError {
 /** The session is paused and the user has to resume it. */
 export function paused(message: string): PluginError {
   return new PluginError(ERROR_CODES.PAUSED, message);
+}
+
+/** The session holds no write grant, so a write is refused. */
+export function writeNotGranted(message: string): PluginError {
+  return new PluginError(ERROR_CODES.WRITE_NOT_GRANTED, message);
 }
 
 /** The operation exceeded its deadline. */

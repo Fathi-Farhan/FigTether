@@ -1,0 +1,57 @@
+{
+  "$defs": {
+    "SessionId": {
+      "description": "Identity of one plugin run or tab.",
+      "format": "uuid",
+      "type": "string"
+    }
+  },
+  "$id": "urn:figtether:schema:write_approval",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "The token that authorizes one approved plan.\n\nThe token is bound to the plan hash, the session, the grant epoch, and an\nexpiry. A grant change invalidates every outstanding approval.",
+  "properties": {
+    "approval_id": {
+      "description": "Opaque approval id.",
+      "type": "string"
+    },
+    "approved_by": {
+      "description": "Who approved. Always the user, never the agent.",
+      "type": "string"
+    },
+    "expires_at": {
+      "description": "When the approval expires.",
+      "format": "date-time",
+      "type": "string"
+    },
+    "grant_epoch": {
+      "description": "Grant epoch the approval is bound to.",
+      "format": "uint64",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "issued_at": {
+      "description": "When the approval was issued.",
+      "format": "date-time",
+      "type": "string"
+    },
+    "plan_hash": {
+      "description": "Hash of the canonical plan the user approved.",
+      "type": "string"
+    },
+    "session_id": {
+      "$ref": "#/$defs/SessionId",
+      "description": "Session the approval is bound to."
+    }
+  },
+  "required": [
+    "approval_id",
+    "plan_hash",
+    "session_id",
+    "grant_epoch",
+    "issued_at",
+    "expires_at",
+    "approved_by"
+  ],
+  "title": "WriteApproval",
+  "type": "object"
+}

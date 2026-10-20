@@ -237,6 +237,43 @@ pub struct GetJobStatusParams {
     pub job_id: JobId,
 }
 
+/// Parameters of `preview_write`.
+///
+/// The plan is a proposal. It changes nothing until the user approves the
+/// preview in the plugin.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+pub struct PreviewWriteParams {
+    /// Live session the plan targets.
+    pub session_id: SessionId,
+    /// The proposed change set.
+    pub plan: crate::write::WritePlan,
+}
+
+/// Parameters of `get_write_approval`.
+///
+/// The answer carries the approval token once the user approved the plan.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct GetWriteApprovalParams {
+    /// Approval to ask about.
+    pub approval_id: String,
+}
+
+/// Parameters of `apply_write`.
+///
+/// The token comes from `get_write_approval` and is bound to the plan hash,
+/// the session, and the grant epoch.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+pub struct ApplyWriteParams {
+    /// The plan that was approved, in the exact shape it was previewed.
+    pub plan: crate::write::WritePlan,
+    /// Approval token.
+    pub approval_token: String,
+    /// Session the plan targets. Optional: the daemon reads it from the plan
+    /// when the field is absent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

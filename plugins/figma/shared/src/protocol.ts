@@ -9,6 +9,7 @@
  */
 import type { CapabilityMap } from "./capabilities";
 import type { JsonValue } from "./json";
+import type { GrantMode } from "./write";
 
 /** Wire protocol version spoken by the daemon and the plugin. */
 export const PROTOCOL_VERSION = "1.0";
@@ -40,7 +41,8 @@ export type MessageType =
   | "error"
   | "cancel"
   | "heartbeat"
-  | "revoke";
+  | "revoke"
+  | "approval";
 
 /** Every message type in wire order. */
 export const MESSAGE_TYPES: readonly MessageType[] = [
@@ -55,6 +57,7 @@ export const MESSAGE_TYPES: readonly MessageType[] = [
   "cancel",
   "heartbeat",
   "revoke",
+  "approval",
 ];
 
 /** Operations the plugin can perform. */
@@ -188,13 +191,33 @@ export interface HeartbeatPayload {
   timestamp: string;
 }
 
-/** Update of the granted scope. */
+/**
+ * Update of the granted scope.
+ *
+ * The two modes are two different things and they never share a field: the
+ * mode of the grant says whether the session may write, the session mode says
+ * whether the session is live or paused. Both fields are additive, so a peer
+ * that does not know them keeps the safe behaviour: no mode means the read
+ * mode, and no session mode means live.
+ */
 export interface GrantUpdatePayload {
   /** Root ids the user granted. */
   root_ids: string[];
   /** Epoch of the new grant. */
   grant_epoch: number;
+  /** Mode of the new grant: `read` or `write`. */
+  mode?: GrantMode;
+  /** Session mode of the new grant: `live` or `paused`. */
+  session_mode?: SessionMode;
 }
+
+/**
+ * Session mode of a grant.
+ *
+ * The pause is an extension of the read path, so it lives beside the mode of
+ * the grant and not inside it.
+ */
+export type SessionMode = "live" | "paused";
 
 /** Revocation of a grant. */
 export interface RevokePayload {

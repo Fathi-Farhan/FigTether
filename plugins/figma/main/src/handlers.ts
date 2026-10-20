@@ -1,9 +1,14 @@
 /**
  * Operation handlers of the plugin main sandbox.
  *
- * Every handler is read only. A handler never creates, modifies, deletes,
- * moves or resizes anything, and never changes the current selection or the
- * current page as a side effect of a read.
+ * Every read handler is read only. A read handler never creates, modifies,
+ * deletes, moves or resizes anything, and never changes the current
+ * selection or the current page as a side effect of a read.
+ *
+ * The write path is the exception, and it is a separate one: the two write
+ * handlers live in `src/write`, they live behind the same injectable editor
+ * API, and they enforce the grant, the scope, the destructive policy and the
+ * budgets before they touch the document.
  */
 
 import {
@@ -49,6 +54,8 @@ import {
   DEFAULT_SUMMARY_FIELDS,
   type NodeField,
 } from "./projection.js";
+import { handleApplyWrite, handlePreviewWrite } from "./write/handlers.js";
+import type { WriteOp } from "./write/types.js";
 import { assertJsonValue, sha256Hex } from "@figtether/shared";
 import type {
   BridgeOp,
@@ -95,25 +102,33 @@ export interface HandlerContext {
   onProgress: (progress: TraversalProgress) => void;
 }
 
+/**
+ * Every operation the plugin answers.
+ *
+ * The read operations come from the shared contract, the write operations
+ * from the write path.
+ */
+export type PluginOp = BridgeOp | WriteOp;
+
 /** One operation handler. */
 export type Handler = (params: unknown, context: HandlerContext) => Promise<unknown>;
 
 /** Registry of the allowlisted operations. */
 export class HandlerRegistry {
-  private readonly handlers = new Map<BridgeOp, Handler>();
+  private readonly handlers = new Map<PluginOp, Handler>();
 
   /** Register one operation. */
-  register(op: BridgeOp, handler: Handler): void {
+  register(op: PluginOp, handler: Handler): void {
     this.handlers.set(op, handler);
   }
 
   /** Look up one operation. */
-  get(op: BridgeOp): Handler | undefined {
+  get(op: PluginOp): Handler | undefined {
     return this.handlers.get(op);
   }
 
   /** Names of the registered operations. */
-  ops(): BridgeOp[] {
+  ops(): PluginOp[] {
     return [...this.handlers.keys()];
   }
 }
@@ -167,6 +182,8 @@ export function createHandlerRegistry(): HandlerRegistry {
   registry.register("list_sessions", handleListSessions);
   registry.register("watch_scope", handleWatchScope);
   registry.register("get_changes", handleGetChanges);
+  registry.register("preview_write", handlePreviewWrite);
+  registry.register("apply_write", handleApplyWrite);
   return registry;
 }
 

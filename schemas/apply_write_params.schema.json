@@ -1,0 +1,216 @@
+{
+  "$defs": {
+    "SessionId": {
+      "description": "Identity of one plugin run or tab.",
+      "format": "uuid",
+      "type": "string"
+    },
+    "WriteOperation": {
+      "description": "One operation of a write plan.\n\nThe shape is deliberately wide and declarative: the same operation struct\ncarries every kind, and the fields that a kind does not use stay empty.\nThe daemon validates the combination, the plugin resolves it.",
+      "properties": {
+        "fills": {
+          "description": "Paints to set on the node. Only the `SetFills` operation reads this\nfield. The values are normalized by the plugin before they reach the\neditor.",
+          "items": true,
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "font_family": {
+          "description": "Font family of the characters.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "font_style": {
+          "description": "Font style of the characters.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "index": {
+          "description": "Position of the node among the children of the parent.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "kind": {
+          "$ref": "#/$defs/WriteOperationKind",
+          "description": "What the operation does."
+        },
+        "node_id": {
+          "description": "Node the operation acts on. Required for every operation that changes\nan existing node.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "node_type": {
+          "description": "Type of the node to create. Required for create, and limited to\n`ALLOWED_NODE_TYPES`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "parent_id": {
+          "description": "Parent the operation works under. Required for create and insert.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "properties": {
+          "additionalProperties": true,
+          "description": "Properties to set on the node. Only the names in\n`ALLOWED_WRITE_PROPERTIES` are accepted. Fills and strokes are not\nproperties, they are set through the `SetFills` operation.",
+          "type": "object"
+        },
+        "text": {
+          "description": "Characters of a text node.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "x": {
+          "description": "Horizontal position.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "y": {
+          "description": "Vertical position.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "type": "object"
+    },
+    "WriteOperationKind": {
+      "description": "The kind of one write operation.\n\nThe set is closed. An agent cannot invent an operation, and the plugin\nresolves exactly these kinds against the document.",
+      "oneOf": [
+        {
+          "const": "create_node",
+          "description": "Create a new node of a type below a parent.",
+          "type": "string"
+        },
+        {
+          "const": "insert_child",
+          "description": "Move an existing node below another parent.",
+          "type": "string"
+        },
+        {
+          "const": "set_properties",
+          "description": "Set allowlisted properties on an existing node.",
+          "type": "string"
+        },
+        {
+          "const": "set_text",
+          "description": "Replace the characters of a text node.",
+          "type": "string"
+        },
+        {
+          "const": "set_fills",
+          "description": "Replace the fills of a node.",
+          "type": "string"
+        },
+        {
+          "const": "delete_node",
+          "description": "Remove a node and its subtree.",
+          "type": "string"
+        },
+        {
+          "const": "move_node",
+          "description": "Change the position of a node.",
+          "type": "string"
+        }
+      ]
+    },
+    "WritePlan": {
+      "description": "A declarative change set proposed for one session.\n\nThe plan is the only thing an agent submits. It is reviewed, hashed,\napproved, and applied as a whole.",
+      "properties": {
+        "destructive": {
+          "default": false,
+          "description": "Whether the plan declares itself destructive.",
+          "type": "boolean"
+        },
+        "intent": {
+          "description": "Short free text shown to the user. It is never executed.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "operations": {
+          "default": [],
+          "description": "Ordered list of operations.",
+          "items": {
+            "$ref": "#/$defs/WriteOperation"
+          },
+          "type": "array"
+        },
+        "plan_id": {
+          "description": "Opaque plan id, minted by the agent, echoed back in the preview.",
+          "type": "string"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SessionId"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Session the plan targets."
+        }
+      },
+      "required": [
+        "plan_id"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "urn:figtether:schema:apply_write_params",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Parameters of `apply_write`.\n\nThe token comes from `get_write_approval` and is bound to the plan hash,\nthe session, and the grant epoch.",
+  "properties": {
+    "approval_token": {
+      "description": "Approval token.",
+      "type": "string"
+    },
+    "plan": {
+      "$ref": "#/$defs/WritePlan",
+      "description": "The plan that was approved, in the exact shape it was previewed."
+    },
+    "session_id": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SessionId"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Session the plan targets. Optional: the daemon reads it from the plan\nwhen the field is absent."
+    }
+  },
+  "required": [
+    "plan",
+    "approval_token"
+  ],
+  "title": "ApplyWriteParams",
+  "type": "object"
+}

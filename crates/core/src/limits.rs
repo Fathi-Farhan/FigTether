@@ -59,6 +59,22 @@ pub struct ResourceLimits {
     pub live_cache_ttl: Duration,
     /// Idle time after which a snapshot is dropped.
     pub snapshot_idle_ttl: Duration,
+    // The write path budgets follow the read budgets: a plan is a change set,
+    // not a script, and every one of these limits is enforced, never advisory.
+    /// Maximum number of operations in one write plan.
+    pub max_operations_per_plan: u32,
+    /// Maximum number of nodes one write plan may create.
+    pub max_created_nodes_per_plan: u32,
+    /// Maximum number of text characters one write plan may write.
+    pub max_text_characters_per_plan: usize,
+    /// Maximum number of property changes one write plan may apply.
+    pub max_property_changes_per_plan: u32,
+    /// Maximum number of nodes one delete may remove.
+    pub max_deleted_subtree_nodes: u32,
+    /// Time to live of one approval, in seconds.
+    pub approval_ttl_seconds: u64,
+    /// Maximum number of write operations one session may run per minute.
+    pub max_write_operations_per_minute: u32,
 }
 
 impl Default for ResourceLimits {
@@ -88,6 +104,13 @@ impl Default for ResourceLimits {
             max_fresh_read_retries: 1,
             live_cache_ttl: Duration::from_secs(2),
             snapshot_idle_ttl: Duration::from_secs(30 * 60),
+            max_operations_per_plan: 50,
+            max_created_nodes_per_plan: 100,
+            max_text_characters_per_plan: 20_000,
+            max_property_changes_per_plan: 200,
+            max_deleted_subtree_nodes: 50,
+            approval_ttl_seconds: 600,
+            max_write_operations_per_minute: 10,
         }
     }
 }
@@ -111,6 +134,21 @@ impl ResourceLimits {
             ((self.max_traversal_nodes as f64) * f).floor().max(1.0) as usize;
         limits.max_cache_bytes = ((self.max_cache_bytes as f64) * f) as u64;
         limits.max_asset_bytes = ((self.max_asset_bytes as f64) * f) as u64;
+        // The write budgets are lowered the same way: never above the
+        // current value, and never below one, because a budget of zero would
+        // refuse every write.
+        limits.max_operations_per_plan = lower_u64(self.max_operations_per_plan as u64, f) as u32;
+        limits.max_created_nodes_per_plan =
+            lower_u64(self.max_created_nodes_per_plan as u64, f) as u32;
+        limits.max_text_characters_per_plan =
+            lower_u64(self.max_text_characters_per_plan as u64, f) as usize;
+        limits.max_property_changes_per_plan =
+            lower_u64(self.max_property_changes_per_plan as u64, f) as u32;
+        limits.max_deleted_subtree_nodes =
+            lower_u64(self.max_deleted_subtree_nodes as u64, f) as u32;
+        limits.approval_ttl_seconds = lower_u64(self.approval_ttl_seconds, f);
+        limits.max_write_operations_per_minute =
+            lower_u64(self.max_write_operations_per_minute as u64, f) as u32;
         limits
     }
 
@@ -133,6 +171,15 @@ impl ResourceLimits {
     pub fn depth_is_valid(&self, depth: u32) -> bool {
         depth <= self.max_depth
     }
+}
+
+/// Lower one count by a fraction of its current value.
+///
+/// The result is never above the current value and never below one: a
+/// budget of zero would refuse every write.
+fn lower_u64(value: u64, factor: f64) -> u64 {
+    let lowered = ((value as f64) * factor).floor().max(1.0) as u64;
+    lowered.min(value.max(1))
 }
 
 #[cfg(test)]
@@ -172,5 +219,43 @@ mod tests {
         assert!(!limits.scale_is_valid(4.0));
         assert!(limits.pixels_are_valid(1024, 1024));
         assert!(!limits.pixels_are_valid(8000, 8000));
+    }
+
+    #[test]
+    fn the_write_defaults_match_the_documented_profile() {
+        let limits = ResourceLimits::default();
+        assert_eq!(limits.max_operations_per_plan, 50);
+        assert_eq!(limits.max_created_nodes_per_plan, 100);
+        assert_eq!(limits.max_text_characters_per_plan, 20_000);
+        assert_eq!(limits.max_property_changes_per_plan, 200);
+        assert_eq!(limits.max_deleted_subtree_nodes, 50);
+        assert_eq!(limits.approval_ttl_seconds, 600);
+        assert_eq!(limits.max_write_operations_per_minute, 10);
+    }
+
+    #[test]
+    fn lowering_never_raises_a_write_limit() {
+        let default = ResourceLimits::default();
+        let lowered = default.lowered(0.5);
+        assert!(lowered.max_operations_per_plan <= default.max_operations_per_plan);
+        assert!(lowered.max_created_nodes_per_plan <= default.max_created_nodes_per_plan);
+        assert!(lowered.max_text_characters_per_plan <= default.max_text_characters_per_plan);
+        assert!(lowered.max_property_changes_per_plan <= default.max_property_changes_per_plan);
+        assert!(lowered.max_deleted_subtree_nodes <= default.max_deleted_subtree_nodes);
+        assert!(lowered.approval_ttl_seconds <= default.approval_ttl_seconds);
+        assert!(lowered.max_write_operations_per_minute <= default.max_write_operations_per_minute);
+    }
+
+    #[test]
+    fn lowering_keeps_every_write_limit_at_least_one() {
+        let default = ResourceLimits::default();
+        let lowered = default.lowered(0.001);
+        assert!(lowered.max_operations_per_plan >= 1);
+        assert!(lowered.max_created_nodes_per_plan >= 1);
+        assert!(lowered.max_text_characters_per_plan >= 1);
+        assert!(lowered.max_property_changes_per_plan >= 1);
+        assert!(lowered.max_deleted_subtree_nodes >= 1);
+        assert!(lowered.approval_ttl_seconds >= 1);
+        assert!(lowered.max_write_operations_per_minute >= 1);
     }
 }

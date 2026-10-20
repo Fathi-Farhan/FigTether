@@ -326,6 +326,79 @@ impl FixtureCorpus {
             .map(|node| node.id.as_str())
     }
 
+    /// Create a node under a parent, the way an editor edit would.
+    ///
+    /// The corpus is the document the fake plugin serves, so a write path
+    /// flow can prove that an approved plan really changed the document and
+    /// that a preview did not.
+    ///
+    /// Returns `false` when the parent does not exist.
+    pub fn create_node(
+        &mut self,
+        parent_id: &str,
+        node_id: &str,
+        node_type: &str,
+        name: &str,
+    ) -> bool {
+        if self.node(parent_id).is_none() {
+            return false;
+        }
+        let node = make_node(
+            node_id.to_string(),
+            Some(parent_id.to_string()),
+            node_type,
+            name.to_string(),
+            None,
+        );
+        self.nodes.push(node);
+        self.rebuild_children();
+        true
+    }
+
+    /// Remove a node and its children, the way an editor edit would.
+    ///
+    /// Returns `false` when the node does not exist.
+    pub fn remove_node(&mut self, node_id: &str) -> bool {
+        if self.node(node_id).is_none() {
+            return false;
+        }
+        let mut doomed = vec![node_id.to_string()];
+        doomed.extend(
+            self.descendants(node_id, 32)
+                .into_iter()
+                .map(|node| node.id),
+        );
+        let before = self.nodes.len();
+        self.nodes.retain(|node| !doomed.contains(&node.id));
+        self.rebuild_children();
+        self.nodes.len() != before
+    }
+
+    /// Move a node under another parent, the way an editor edit would.
+    ///
+    /// Returns `false` when one of the two nodes does not exist.
+    pub fn move_node(&mut self, node_id: &str, parent_id: &str) -> bool {
+        if self.node(node_id).is_none() || self.node(parent_id).is_none() {
+            return false;
+        }
+        if let Some(node) = self.nodes.iter_mut().find(|node| node.id == node_id) {
+            node.parent_id = Some(parent_id.to_string());
+        }
+        self.rebuild_children();
+        true
+    }
+
+    /// Change the name of one node, the way an editor edit would.
+    ///
+    /// Returns `false` when the node does not exist.
+    pub fn set_name(&mut self, node_id: &str, name: &str) -> bool {
+        let Some(node) = self.nodes.iter_mut().find(|node| node.id == node_id) else {
+            return false;
+        };
+        node.name = name.to_string();
+        true
+    }
+
     /// Change the text of one node, the way an editor edit would.
     ///
     /// Returns `false` when the node does not exist.

@@ -1812,7 +1812,7 @@ async fn at14_the_shipped_mcp_adapter_completes_the_stdio_handshake() {
     assert_eq!(
         tools.len(),
         figtether_mcp::TOOL_NAMES.len(),
-        "the surface holds exactly the twelve read only tools"
+        "the surface holds exactly the tools of the catalog"
     );
     for tool in tools {
         let name = tool["name"].as_str().expect("the tool has a name");
@@ -1820,15 +1820,21 @@ async fn at14_the_shipped_mcp_adapter_completes_the_stdio_handshake() {
             figtether_mcp::TOOL_NAMES.contains(&name),
             "the tool {name} is not part of the frozen surface"
         );
+        // The read tools stay read only. The write path adds one mutating
+        // tool, and the hints tell the client which one changes the document.
+        let (read_only, destructive) = match name {
+            "apply_write" => (false, true),
+            _ => (true, false),
+        };
         assert_eq!(
             tool["annotations"]["readOnlyHint"],
-            json!(true),
-            "the tool {name} must be read only"
+            json!(read_only),
+            "the tool {name} carries the wrong read only hint"
         );
         assert_eq!(
             tool["annotations"]["destructiveHint"],
-            json!(false),
-            "the tool {name} must not be destructive"
+            json!(destructive),
+            "the tool {name} carries the wrong destructive hint"
         );
     }
 

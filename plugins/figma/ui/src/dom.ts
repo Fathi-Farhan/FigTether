@@ -25,12 +25,38 @@ export interface UiElements {
   readonly refreshButton: HTMLButtonElement;
   readonly allowButton: HTMLButtonElement;
   readonly grantFeedback: HTMLElement;
+  readonly writeGrantButton: HTMLButtonElement;
+  readonly writeGrantState: HTMLElement;
+  readonly writeGrantFeedback: HTMLElement;
   readonly statusConnection: HTMLElement;
   readonly statusRoots: HTMLElement;
   readonly statusMode: HTMLElement;
   readonly statusLastRead: HTMLElement;
   readonly statusQueue: HTMLElement;
   readonly capabilityList: HTMLElement;
+  readonly writeResultCreated: HTMLElement;
+  readonly writeResultChanged: HTMLElement;
+  readonly writeResultMoved: HTMLElement;
+  readonly writeResultRemoved: HTMLElement;
+  readonly writeResultUndo: HTMLElement;
+  readonly writeResultVersion: HTMLElement;
+  readonly writeResultFeedback: HTMLElement;
+  readonly writeApprovalPanel: HTMLElement;
+  readonly writeApprovalState: HTMLElement;
+  readonly writeApprovalPlan: HTMLElement;
+  readonly writeCountCreate: HTMLElement;
+  readonly writeCountChange: HTMLElement;
+  readonly writeCountMove: HTMLElement;
+  readonly writeCountRemove: HTMLElement;
+  readonly writePlanIntent: HTMLElement;
+  readonly writeWarningList: HTMLElement;
+  readonly writeWarningEmpty: HTMLElement;
+  readonly writeBlocked: HTMLElement;
+  readonly writeBlockedList: HTMLElement;
+  readonly writeApproveButton: HTMLButtonElement;
+  readonly writeRejectButton: HTMLButtonElement;
+  readonly writeRejectReason: HTMLInputElement;
+  readonly writeApprovalFeedback: HTMLElement;
   readonly pauseButton: HTMLButtonElement;
   readonly resumeButton: HTMLButtonElement;
   readonly captureButton: HTMLButtonElement;
@@ -48,12 +74,15 @@ export interface UiCallbacks {
   onSelectionChanged(rootIds: readonly string[]): void;
   onSelectionRefresh(): void;
   onAllow(): void;
+  onWriteGrant(): void;
   onPause(): void;
   onResume(): void;
   onCapture(): void;
   onRevoke(): void;
   onRevokeConfirm(): void;
   onRevokeCancel(): void;
+  onApproveWrite(): void;
+  onRejectWrite(reason: string): void;
 }
 
 function requireElement<T extends HTMLElement>(doc: Document, id: string): T {
@@ -81,12 +110,38 @@ export function collectElements(doc: Document): UiElements {
     refreshButton: requireElement<HTMLButtonElement>(doc, "refresh-button"),
     allowButton: requireElement<HTMLButtonElement>(doc, "allow-button"),
     grantFeedback: requireElement(doc, "grant-feedback"),
+    writeGrantButton: requireElement<HTMLButtonElement>(doc, "write-grant-button"),
+    writeGrantState: requireElement(doc, "write-grant-state"),
+    writeGrantFeedback: requireElement(doc, "write-grant-feedback"),
     statusConnection: requireElement(doc, "status-connection"),
     statusRoots: requireElement(doc, "status-roots"),
     statusMode: requireElement(doc, "status-mode"),
     statusLastRead: requireElement(doc, "status-last-read"),
     statusQueue: requireElement(doc, "status-queue"),
     capabilityList: requireElement(doc, "capability-list"),
+    writeResultCreated: requireElement(doc, "write-result-created"),
+    writeResultChanged: requireElement(doc, "write-result-changed"),
+    writeResultMoved: requireElement(doc, "write-result-moved"),
+    writeResultRemoved: requireElement(doc, "write-result-removed"),
+    writeResultUndo: requireElement(doc, "write-result-undo"),
+    writeResultVersion: requireElement(doc, "write-result-version"),
+    writeResultFeedback: requireElement(doc, "write-result-feedback"),
+    writeApprovalPanel: requireElement(doc, "write-approval-panel"),
+    writeApprovalState: requireElement(doc, "write-approval-state"),
+    writeApprovalPlan: requireElement(doc, "write-approval-plan"),
+    writeCountCreate: requireElement(doc, "write-count-create"),
+    writeCountChange: requireElement(doc, "write-count-change"),
+    writeCountMove: requireElement(doc, "write-count-move"),
+    writeCountRemove: requireElement(doc, "write-count-remove"),
+    writePlanIntent: requireElement(doc, "write-plan-intent"),
+    writeWarningList: requireElement(doc, "write-warning-list"),
+    writeWarningEmpty: requireElement(doc, "write-warning-empty"),
+    writeBlocked: requireElement(doc, "write-blocked"),
+    writeBlockedList: requireElement(doc, "write-blocked-list"),
+    writeApproveButton: requireElement<HTMLButtonElement>(doc, "write-approve-button"),
+    writeRejectButton: requireElement<HTMLButtonElement>(doc, "write-reject-button"),
+    writeRejectReason: requireElement<HTMLInputElement>(doc, "write-reject-reason"),
+    writeApprovalFeedback: requireElement(doc, "write-approval-feedback"),
     pauseButton: requireElement<HTMLButtonElement>(doc, "pause-button"),
     resumeButton: requireElement<HTMLButtonElement>(doc, "resume-button"),
     captureButton: requireElement<HTMLButtonElement>(doc, "capture-button"),
@@ -117,6 +172,30 @@ function describeCapability(capability: CapabilityView): string {
   return `${capability.name}: unavailable, ${reason}`;
 }
 
+/**
+ * The sentence that names the state of the proposed plan.
+ *
+ * The state is always named in words, so it never depends on the color of
+ * the panel.
+ */
+function describeDecision(model: UiModel): string {
+  const preview = model.writePreview;
+  if (preview === null) {
+    return "There is no proposed change.";
+  }
+  if (preview.blocked) {
+    return "This plan is blocked. It cannot be applied as it is written.";
+  }
+  switch (model.writeDecision) {
+    case "approved":
+      return "You approved this plan. The daemon applies it, and the change lands as one step in the undo history of Figma.";
+    case "rejected":
+      return "You rejected this plan. The daemon will not apply it.";
+    default:
+      return "This plan is a proposal. Nothing has changed yet, and nothing changes before you approve it here.";
+  }
+}
+
 /** The DOM backed user interface. */
 export class DomUi implements UiPort {
   private readonly elements: UiElements;
@@ -142,6 +221,15 @@ export class DomUi implements UiPort {
       this.callbacks.onSelectionRefresh(),
     );
     elements.allowButton.addEventListener("click", (): void => this.callbacks.onAllow());
+    elements.writeGrantButton.addEventListener("click", (): void => this.callbacks.onWriteGrant());
+    elements.writeApproveButton.addEventListener("click", (): void =>
+      this.callbacks.onApproveWrite(),
+    );
+    elements.writeRejectButton.addEventListener("click", (): void => {
+      const reason = elements.writeRejectReason.value;
+      elements.writeRejectReason.value = "";
+      this.callbacks.onRejectWrite(reason);
+    });
     elements.pauseButton.addEventListener("click", (): void => this.callbacks.onPause());
     elements.resumeButton.addEventListener("click", (): void => this.callbacks.onResume());
     elements.captureButton.addEventListener("click", (): void => this.callbacks.onCapture());
@@ -171,6 +259,7 @@ export class DomUi implements UiPort {
     elements.pairButton.disabled = !model.canPair;
     elements.secretInput.disabled = !model.canPair;
     elements.allowButton.disabled = !model.canGrant;
+    elements.writeGrantButton.disabled = !model.canGrantWrite;
     elements.pauseButton.disabled = !model.canPause;
     elements.resumeButton.disabled = !model.canResume;
     elements.captureButton.disabled = !model.canCapture;
@@ -180,6 +269,109 @@ export class DomUi implements UiPort {
 
     this.renderCandidates(model);
     this.renderCapabilities(model.capabilities);
+    this.renderWriteGrant(model);
+    this.renderWritePreview(model);
+    this.renderWriteResult(model);
+  }
+
+  /**
+   * Render the write grant.
+   *
+   * The control states in words whether editing inside the granted roots is
+   * allowed, so the state never depends on the color of the panel.
+   */
+  private renderWriteGrant(model: UiModel): void {
+    const elements = this.elements;
+    elements.writeGrantButton.textContent = model.writeGrantEnabled
+      ? "Restrict the session to reading"
+      : "Allow write session";
+    setText(
+      elements.writeGrantState,
+      model.writeGrantEnabled
+        ? "Editing inside the granted roots is allowed. Every plan still needs your approval before anything changes."
+        : "Editing inside the granted roots is not allowed. The read grant never allows a change.",
+    );
+  }
+
+  /**
+   * Render the plan the agent proposed.
+   *
+   * A blocked plan shows its reasons and offers no approve action. The panel
+   * never moves the focus, so an accidental key press cannot approve a plan.
+   */
+  private renderWritePreview(model: UiModel): void {
+    const elements = this.elements;
+    const preview = model.writePreview;
+    if (preview === null) {
+      elements.writeApprovalPanel.hidden = true;
+      return;
+    }
+    elements.writeApprovalPanel.hidden = false;
+    setText(elements.writeApprovalState, describeDecision(model));
+    setText(
+      elements.writeApprovalPlan,
+      `Plan ${preview.planId === "" ? "without an id" : preview.planId}, fingerprint ${preview.fingerprint}.`,
+    );
+    setText(elements.writeCountCreate, String(preview.counts.create));
+    setText(elements.writeCountChange, String(preview.counts.change));
+    setText(elements.writeCountMove, String(preview.counts.move));
+    setText(elements.writeCountRemove, String(preview.counts.remove));
+    setText(elements.writePlanIntent, preview.intent ?? "The agent did not describe this plan.");
+    this.renderReasons(elements.writeWarningList, preview.warnings);
+    elements.writeWarningEmpty.hidden = preview.warnings.length > 0;
+    this.renderReasons(elements.writeBlockedList, preview.blockedReasons);
+    elements.writeBlocked.hidden = !preview.blocked;
+    elements.writeApproveButton.hidden = !model.canApproveWrite;
+    elements.writeApproveButton.disabled = !model.canApproveWrite;
+    elements.writeRejectButton.hidden = !model.canRejectWrite;
+    elements.writeRejectButton.disabled = !model.canRejectWrite;
+    elements.writeRejectReason.disabled = !model.canRejectWrite;
+  }
+
+  /**
+   * Render the result of the plan that was applied last.
+   *
+   * The area names the undo history in words and never promises a revert that
+   * FigTether does not provide.
+   */
+  private renderWriteResult(model: UiModel): void {
+    const elements = this.elements;
+    const result = model.writeResult;
+    if (result === null) {
+      setText(elements.writeResultCreated, "0");
+      setText(elements.writeResultChanged, "0");
+      setText(elements.writeResultMoved, "0");
+      setText(elements.writeResultRemoved, "0");
+      setText(elements.writeResultUndo, "No write applied yet");
+      setText(elements.writeResultVersion, "No version checkpoint");
+      return;
+    }
+    setText(elements.writeResultCreated, String(result.counts.create));
+    setText(elements.writeResultChanged, String(result.counts.change));
+    setText(elements.writeResultMoved, String(result.counts.move));
+    setText(elements.writeResultRemoved, String(result.counts.remove));
+    setText(
+      elements.writeResultUndo,
+      result.undoCommitted
+        ? "Committed to the undo history of Figma as one step"
+        : "Not committed to the undo history of Figma",
+    );
+    setText(
+      elements.writeResultVersion,
+      result.versionSaved === null ? "No version checkpoint" : result.versionSaved,
+    );
+  }
+
+  /** Render a list of reasons of the plugin. */
+  private renderReasons(list: HTMLElement, reasons: readonly string[]): void {
+    while (list.firstChild !== null) {
+      list.removeChild(list.firstChild);
+    }
+    for (const reason of reasons) {
+      const item = this.doc.createElement("li");
+      item.textContent = reason;
+      list.appendChild(item);
+    }
   }
 
   private renderCandidates(model: UiModel): void {
@@ -266,14 +458,29 @@ export class DomUi implements UiPort {
   }
 
   setActionResult(action: ActionName, ok: boolean, message: string): void {
-    const element =
-      action === "pair"
-        ? this.elements.pairFeedback
-        : action === "grant"
-          ? this.elements.grantFeedback
-          : this.elements.controlFeedback;
+    const element = this.feedbackFor(action);
     element.textContent = message;
     element.dataset["state"] = ok ? "ok" : "error";
+  }
+
+  /** The live region that carries the outcome of an action. */
+  private feedbackFor(action: ActionName): HTMLElement {
+    switch (action) {
+      case "pair":
+        return this.elements.pairFeedback;
+      case "grant":
+        return this.elements.grantFeedback;
+      case "write_grant":
+        return this.elements.writeGrantFeedback;
+      case "preview":
+      case "approve":
+      case "reject":
+        return this.elements.writeApprovalFeedback;
+      case "write_result":
+        return this.elements.writeResultFeedback;
+      default:
+        return this.elements.controlFeedback;
+    }
   }
 
   setRevokeConfirmVisible(visible: boolean): void {

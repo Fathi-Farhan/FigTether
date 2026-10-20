@@ -26,6 +26,8 @@ import {
   INBOUND_MESSAGE_KINDS,
   LOCAL_MESSAGE_KINDS,
   OUTBOUND_MESSAGE_KINDS,
+  UI_TO_DAEMON_MESSAGE_KINDS,
+  WRITE_BRIDGE_OPS,
   unwrapPluginMessage,
 } from "../src/index";
 
@@ -118,10 +120,31 @@ describe("the contract of the postMessage channel", () => {
       "chunk",
       "capabilities",
       "selection",
+      "preview",
+      "write_result",
     ]);
     expect(LOCAL_MESSAGE_KINDS).toEqual(["grant_verified", "status", "capture_chunk"]);
     for (const kind of DAEMON_MESSAGE_KINDS) {
       expect(LOCAL_MESSAGE_KINDS).not.toContain(kind);
+    }
+  });
+
+  it("keeps the kinds of the write path in their direction", () => {
+    // The answers of the write path travel from the sandbox to the daemon.
+    expect(DAEMON_MESSAGE_KINDS).toContain("preview");
+    expect(DAEMON_MESSAGE_KINDS).toContain("write_result");
+    // The approval travels from the user interface to the daemon.
+    expect(UI_TO_DAEMON_MESSAGE_KINDS).toEqual(["approval"]);
+    expect(DAEMON_MESSAGE_KINDS).not.toContain("approval");
+    expect(LOCAL_MESSAGE_KINDS).not.toContain("approval");
+    expect(OUTBOUND_MESSAGE_KINDS).not.toContain("approval");
+  });
+
+  it("names the operations of the write path apart from the message kinds", () => {
+    expect(WRITE_BRIDGE_OPS).toEqual(["preview_write", "apply_write"]);
+    for (const op of WRITE_BRIDGE_OPS) {
+      expect(DAEMON_MESSAGE_KINDS).not.toContain(op);
+      expect(LOCAL_MESSAGE_KINDS).not.toContain(op);
     }
   });
 
@@ -145,7 +168,15 @@ describe("the contract of the postMessage channel", () => {
     for (const kind of LOCAL_MESSAGE_KINDS) {
       expect(main.includes(`"${kind}"`), `the sandbox repeats ${kind}`).toBe(false);
     }
-    for (const kind of ["result", "error", "progress", "chunk", "selection"]) {
+    for (const kind of [
+      "result",
+      "error",
+      "progress",
+      "chunk",
+      "selection",
+      "preview",
+      "write_result",
+    ]) {
       expect(ui.includes(`"${kind}"`), `the interface repeats ${kind}`).toBe(false);
     }
   });

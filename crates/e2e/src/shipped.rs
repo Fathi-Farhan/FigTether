@@ -363,6 +363,15 @@ impl ShortLivedPairingDaemon {
         self.state.registry.len()
     }
 
+    /// The audit trail of the applied write plans.
+    ///
+    /// The daemon keeps the trail in its own state and does not expose it
+    /// over the wire, so a test that proves the daemon audits a write reads
+    /// the state of the running daemon.
+    pub fn write_audit_records(&self) -> Vec<figtether_core::write::AuditRecord> {
+        self.state.writes.audit_records()
+    }
+
     /// Wait until the health endpoint answers.
     pub async fn wait_healthy(&self, timeout: Duration) -> Result<(), HarnessError> {
         let addr = self.addr();

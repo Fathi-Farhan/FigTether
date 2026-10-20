@@ -10,7 +10,9 @@
 
 FigTether connects a running Figma Design plugin to your coding agent through a local Rust
 daemon and the Model Context Protocol (MCP). Select the frames you want to share; the agent
-requests their structure, layout, text, styles, and assets through read-only tools.
+requests their structure, layout, text, styles, and assets through read-only tools. A write path
+is proposed on top of them: the agent proposes a change, the plugin shows the user what would
+happen, and only an approved change reaches the document.
 
 The design-reading path uses the documented Figma Plugin API, not the Figma REST API or the
 official Figma MCP server. It does not need a personal access token. Figma permissions, editor
@@ -92,11 +94,26 @@ actions, and limitations. No installer or Community plugin release is available 
 | Read a design                   | `list_nodes`, `get_nodes`, `inspect_design`, `get_design_tokens` |
 | Request PNG or SVG export       | `export_assets`                                                  |
 | Inspect a queued job            | `get_job_status`                                                 |
+| Propose an edit (proposed)      | `preview_write`, `get_write_approval`, `apply_write`             |
 
 The server also advertises `get_snapshot_info`, `watch_scope`, and `get_changes`. **Snapshot
 storage, offline bundles, and watch/resync are not available in the shipped daemon.** These
 entries are not a promise that those workflows work. Asset download/resource delivery and
 large chunked transfers also need further end-to-end work.
+
+The write path is proposed and pending product approval (`ADR-013`), and it is implemented across
+the Rust crates and the plugin. It needs a write grant, which is a separate user action in the
+plugin UI, and a per plan approval that the user gives after seeing a preview of the change. The
+applied plan is committed as a single step in the editor undo history. The tool set is therefore no
+longer uniformly read only: `apply_write` changes the document, and the read tools are unchanged.
+
+The editor behaviour is unverified. The automated suites use a simulated editor, so no write has
+run in a Figma Desktop session and the undo step, the version checkpoint, and the approval panel
+in a real session are not claimed. Treat the three write tools as unavailable for production use:
+the write path is proposed and pending product approval. The
+[implementation status](docs/10-implementation/01-implementation-status.md) records what is
+implemented and what is not, the [write path design](docs/11-write-path/01-write-path-design.md)
+describes the intended contract, and `schemas/` publishes its wire shapes.
 
 The default budget is one editor operation per session, 50 IDs per batch, depth 32, and a
 64 KiB JSON response. Traversals are bounded and report truncation. The

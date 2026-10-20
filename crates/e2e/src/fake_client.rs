@@ -121,6 +121,9 @@ impl FakeLocalClient {
             | ClientRequest::ExportAssets { request_id, .. }
             | ClientRequest::GetSelection { request_id, .. }
             | ClientRequest::GetSnapshotInfo { request_id, .. }
+            | ClientRequest::PreviewWrite { request_id, .. }
+            | ClientRequest::ApplyWrite { request_id, .. }
+            | ClientRequest::GetWriteApproval { request_id, .. }
             | ClientRequest::WatchScope { request_id, .. }
             | ClientRequest::GetChanges { request_id, .. }
             | ClientRequest::GetJobStatus { request_id, .. }
@@ -226,8 +229,12 @@ impl FakeLocalClient {
     async fn send(&mut self, request: ClientRequest) -> Result<(), HarnessError> {
         let encoded = serde_json::to_string(&request)
             .map_err(|err| HarnessError::Protocol(err.to_string()))?;
+        self.send_text(encoded).await
+    }
+
+    async fn send_text(&mut self, text: String) -> Result<(), HarnessError> {
         self.socket
-            .send(Message::Text(encoded.into()))
+            .send(Message::Text(text.into()))
             .await
             .map_err(|err| HarnessError::Connection(err.to_string()))
     }

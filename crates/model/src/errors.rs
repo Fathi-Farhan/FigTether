@@ -65,6 +65,22 @@ pub enum ErrorCode {
     SessionLimit,
     /// A requested limit is invalid (depth, batch size, scale).
     InvalidLimit,
+    /// The session holds no write grant.
+    WriteNotGranted,
+    /// No valid approval token for this plan.
+    ApprovalRequired,
+    /// The approval expired or was invalidated.
+    ApprovalExpired,
+    /// The plan differs from the approved plan.
+    PlanHashMismatch,
+    /// The plan is structurally invalid.
+    PlanInvalid,
+    /// The plan exceeds a write budget.
+    BudgetExceeded,
+    /// A destructive operation without the required flag or user toggle.
+    DestructiveNotAllowed,
+    /// The editor refused the mutation, for example a reparenting cycle.
+    MutationRefused,
     /// An unexpected internal error.
     InternalError,
 }
@@ -97,6 +113,14 @@ impl ErrorCode {
             Self::FontUnavailable => "FONT_UNAVAILABLE",
             Self::SessionLimit => "SESSION_LIMIT",
             Self::InvalidLimit => "INVALID_LIMIT",
+            Self::WriteNotGranted => "WRITE_NOT_GRANTED",
+            Self::ApprovalRequired => "APPROVAL_REQUIRED",
+            Self::ApprovalExpired => "APPROVAL_EXPIRED",
+            Self::PlanHashMismatch => "PLAN_HASH_MISMATCH",
+            Self::PlanInvalid => "PLAN_INVALID",
+            Self::BudgetExceeded => "BUDGET_EXCEEDED",
+            Self::DestructiveNotAllowed => "DESTRUCTIVE_NOT_ALLOWED",
+            Self::MutationRefused => "MUTATION_REFUSED",
             Self::InternalError => "INTERNAL_ERROR",
         }
     }
@@ -107,7 +131,7 @@ impl ErrorCode {
     /// for example `BUSY` once the advertised delay elapsed.
     pub const fn retryable(self) -> Option<bool> {
         match self {
-            Self::Busy | Self::Timeout => Some(true),
+            Self::Busy | Self::Timeout | Self::MutationRefused => Some(true),
             Self::DocumentChanged
             | Self::PluginOffline
             | Self::CursorExpired
@@ -129,7 +153,14 @@ impl ErrorCode {
             | Self::ExportFailed
             | Self::FontUnavailable
             | Self::SessionLimit
-            | Self::InvalidLimit => Some(false),
+            | Self::InvalidLimit
+            | Self::WriteNotGranted
+            | Self::ApprovalRequired
+            | Self::ApprovalExpired
+            | Self::PlanHashMismatch
+            | Self::PlanInvalid
+            | Self::BudgetExceeded
+            | Self::DestructiveNotAllowed => Some(false),
             Self::InternalError => None,
         }
     }
@@ -171,6 +202,16 @@ impl ErrorCode {
             Self::FontUnavailable => "Use a format that does not require the missing font.",
             Self::SessionLimit => "Close an unused session or raise the configured limit.",
             Self::InvalidLimit => "Use a supported limit value.",
+            Self::WriteNotGranted => "Ask the user for a write grant.",
+            Self::ApprovalRequired => "The user has to approve the plan in the plugin.",
+            Self::ApprovalExpired => "Ask the user to approve the plan again.",
+            Self::PlanHashMismatch => "Submit exactly the approved plan.",
+            Self::PlanInvalid => "Fix the plan and preview it again.",
+            Self::BudgetExceeded => "Split the plan into smaller plans.",
+            Self::DestructiveNotAllowed => "The user has to allow destructive operations.",
+            Self::MutationRefused => {
+                "The editor refused the operation, for example a reparenting cycle."
+            }
             Self::InternalError => {
                 "Report the correlation id; do not retry without classification."
             }

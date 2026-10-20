@@ -1,0 +1,18 @@
+{
+  "$id": "urn:figtether:schema:grant_mode",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "What a session grant allows.\n\nA read grant never authorizes a mutation, and no tool parameter can widen\na grant. The mode is a decision of the user in the plugin UI, and a change\nof the mode increments the grant epoch.",
+  "oneOf": [
+    {
+      "const": "read",
+      "description": "Reads inside the granted roots, no mutation.",
+      "type": "string"
+    },
+    {
+      "const": "write",
+      "description": "Reads inside the granted roots, and approved writes inside them.",
+      "type": "string"
+    }
+  ],
+  "title": "GrantMode"
+}

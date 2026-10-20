@@ -41,12 +41,15 @@ function bootstrap(): void {
     onSelectionChanged: (rootIds): void => controller?.onRootSelectionChanged(rootIds),
     onSelectionRefresh: (): void => controller?.onSelectionRefreshRequested(),
     onAllow: (): void => controller?.onAllowRequested(),
+    onWriteGrant: (): void => controller?.onWriteGrantRequested(),
     onPause: (): void => controller?.onPauseRequested(),
     onResume: (): void => controller?.onResumeRequested(),
     onCapture: (): void => controller?.onCaptureRequested(),
     onRevoke: (): void => controller?.onRevokeRequested(),
     onRevokeConfirm: (): void => controller?.onRevokeConfirmed(),
     onRevokeCancel: (): void => controller?.onRevokeCancelled(),
+    onApproveWrite: (): void => controller?.onApproveWriteRequested(),
+    onRejectWrite: (reason): void => controller?.onRejectWriteRequested(reason),
   });
 
   controller = new AppController({

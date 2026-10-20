@@ -27,6 +27,8 @@
 //!   routing;
 //! - [`control`] owns the pairing secret, the sanitized status, and the
 //!   revocation;
+//! - [`write_path`] owns the approvals, the approval tokens, and the audit
+//!   trail of the write path;
 //! - [`server`] owns the router and the loopback listener;
 //! - [`logging`] owns the sanitized diagnostic log.
 
@@ -40,6 +42,7 @@ pub mod logging;
 pub mod runtime_dir;
 pub mod secrets;
 pub mod server;
+pub mod write_path;
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -109,6 +112,8 @@ pub struct DaemonState {
     pub cursors: Arc<cursor::CursorStore>,
     /// The grants the daemon issued for the sessions.
     pub grants: Arc<grants::GrantLedger>,
+    /// The write path: the approvals, the tokens, and the audit trail.
+    pub writes: Arc<write_path::WritePath>,
     /// Signal of the graceful shutdown.
     shutdown_tx: watch::Sender<bool>,
     /// Signal that the daemon stopped serving.
@@ -149,6 +154,7 @@ impl DaemonState {
             jobs: Arc::new(JobLedger::new()),
             cursors: Arc::new(cursor::CursorStore::new()),
             grants: Arc::new(grants::GrantLedger::new()),
+            writes: Arc::new(write_path::WritePath::new(limits.clone())),
             shutdown_tx: watch::channel(false).0,
             stopped_tx: watch::channel(false).0,
             work_notify: Arc::new(Notify::new()),
