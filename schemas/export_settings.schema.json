@@ -1,0 +1,27 @@
+{
+  "$id": "urn:figtether:schema:export_settings",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Export settings of an asset.",
+  "properties": {
+    "format": {
+      "description": "Export format.",
+      "type": "string"
+    },
+    "scale": {
+      "description": "Export scale factor.",
+      "format": "double",
+      "type": "number"
+    },
+    "svg_suffix": {
+      "description": "Whether the export uses the SVG suffix.",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "format",
+    "scale",
+    "svg_suffix"
+  ],
+  "title": "ExportSettings",
+  "type": "object"
+}

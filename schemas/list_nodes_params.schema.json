@@ -1,0 +1,111 @@
+{
+  "$defs": {
+    "ConsistencyRequest": {
+      "description": "Which consistency lane a read may use.",
+      "oneOf": [
+        {
+          "const": "fresh",
+          "description": "The default: the request must reach the plugin.",
+          "type": "string"
+        },
+        {
+          "const": "cached",
+          "description": "Serve from the cache when the entry is younger than `max_age_ms`.",
+          "type": "string"
+        }
+      ]
+    },
+    "SessionId": {
+      "description": "Identity of one plugin run or tab.",
+      "format": "uuid",
+      "type": "string"
+    },
+    "SnapshotId": {
+      "description": "Identity of one immutable capture.",
+      "format": "uuid",
+      "type": "string"
+    }
+  },
+  "$id": "urn:figtether:schema:list_nodes_params",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Parameters of `list_nodes`.",
+  "properties": {
+    "consistency": {
+      "$ref": "#/$defs/ConsistencyRequest",
+      "default": "fresh",
+      "description": "Consistency lane."
+    },
+    "cursor": {
+      "description": "Cursor returned by a previous truncated traversal.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "depth": {
+      "description": "Maximum depth to traverse.",
+      "format": "uint32",
+      "minimum": 0,
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "fields": {
+      "description": "Fields to project onto the response.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "limit": {
+      "description": "Maximum number of nodes to return.",
+      "format": "uint32",
+      "minimum": 0,
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "max_age_ms": {
+      "description": "Maximum age of a cached answer, in milliseconds.",
+      "format": "uint64",
+      "minimum": 0,
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "root_id": {
+      "description": "Root node to list from.",
+      "type": "string"
+    },
+    "session_id": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SessionId"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Live session to read. Mutually exclusive with `snapshot_id`."
+    },
+    "snapshot_id": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SnapshotId"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Snapshot to read. Mutually exclusive with `session_id`."
+    }
+  },
+  "required": [
+    "root_id"
+  ],
+  "title": "ListNodesParams",
+  "type": "object"
+}

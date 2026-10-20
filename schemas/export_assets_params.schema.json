@@ -1,0 +1,81 @@
+{
+  "$defs": {
+    "AssetFormat": {
+      "description": "Export format of an asset.",
+      "oneOf": [
+        {
+          "const": "png",
+          "description": "Portable Network Graphics.",
+          "type": "string"
+        },
+        {
+          "const": "svg",
+          "description": "Scalable Vector Graphics.",
+          "type": "string"
+        }
+      ]
+    },
+    "SessionId": {
+      "description": "Identity of one plugin run or tab.",
+      "format": "uuid",
+      "type": "string"
+    },
+    "SnapshotId": {
+      "description": "Identity of one immutable capture.",
+      "format": "uuid",
+      "type": "string"
+    }
+  },
+  "$id": "urn:figtether:schema:export_assets_params",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Parameters of `export_assets`.",
+  "properties": {
+    "format": {
+      "$ref": "#/$defs/AssetFormat",
+      "description": "Output format."
+    },
+    "node_ids": {
+      "description": "Nodes to export.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "scale": {
+      "description": "Export scale factor, between 0.25 and 2.0.",
+      "format": "double",
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "session_id": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SessionId"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Live session to read. Mutually exclusive with `snapshot_id`."
+    },
+    "snapshot_id": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SnapshotId"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Snapshot to read. Mutually exclusive with `session_id`."
+    }
+  },
+  "required": [
+    "node_ids",
+    "format"
+  ],
+  "title": "ExportAssetsParams",
+  "type": "object"
+}

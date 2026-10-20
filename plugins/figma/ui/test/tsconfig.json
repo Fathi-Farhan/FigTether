@@ -1,0 +1,34 @@
+{
+  // Typecheck configuration for the user interface and its tests.
+  //
+  // It mirrors ui/tsconfig.json and stays free of project references on
+  // purpose: the tests must run even when the shared declarations are not
+  // built yet.
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+    "strict": true,
+    "noImplicitAny": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "useUnknownInCatchVariables": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "baseUrl": "../..",
+    "paths": {
+      "@figtether/shared": ["./shared/src/index.ts"],
+      "@figtether/shared/*": ["./shared/src/*"]
+    }
+  },
+  "include": ["**/*", "../src/**/*", "../types/**/*"]
+}

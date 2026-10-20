@@ -1,0 +1,44 @@
+{
+  "$id": "urn:figtether:schema:coverage",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "How much of the request the payload actually covers.",
+  "properties": {
+    "next_cursor": {
+      "description": "Cursor that continues a truncated traversal.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "returned_nodes": {
+      "default": 0,
+      "description": "Number of nodes returned.",
+      "format": "uint32",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "root_ids": {
+      "default": [],
+      "description": "Roots the read was scoped to.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "truncated": {
+      "default": false,
+      "description": "Whether the result was cut short.",
+      "type": "boolean"
+    },
+    "unavailable_fields": {
+      "default": [],
+      "description": "Fields that could not be provided, with the reason appended.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "title": "Coverage",
+  "type": "object"
+}

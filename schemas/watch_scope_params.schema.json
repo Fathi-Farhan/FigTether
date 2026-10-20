@@ -1,0 +1,28 @@
+{
+  "$defs": {
+    "SessionId": {
+      "description": "Identity of one plugin run or tab.",
+      "format": "uuid",
+      "type": "string"
+    }
+  },
+  "$id": "urn:figtether:schema:watch_scope_params",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Parameters of `watch_scope`.",
+  "properties": {
+    "root_id": {
+      "description": "Root node that bounds the watch.",
+      "type": "string"
+    },
+    "session_id": {
+      "$ref": "#/$defs/SessionId",
+      "description": "Live session to watch."
+    }
+  },
+  "required": [
+    "session_id",
+    "root_id"
+  ],
+  "title": "WatchScopeParams",
+  "type": "object"
+}

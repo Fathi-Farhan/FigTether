@@ -1,0 +1,29 @@
+# Cargo configuration for the FigTether workspace.
+#
+# Everything in this file is stable Cargo configuration. No nightly toolchain,
+# no unstable feature, and no `-Z` flag is required to build, test, lint, or
+# release the workspace. The toolchain itself is pinned in `rust-toolchain.toml`
+# and the Cargo features are pinned in `Cargo.toml`.
+#
+# The values here only make local and CI runs predictable. Override any of them
+# from the environment, for example with `CARGO_TARGET_DIR`, without editing
+# this file.
+
+[build]
+# Keep the compiler output in one predictable place inside the repository so
+# that the `.gitignore` rule for `target/` covers all of it and so that a
+# single cache entry can be reused between runs.
+target-dir = "target"
+# Incremental compilation for the development profile. Release builds are
+# unaffected because they set `codegen-units = 1` in the workspace profile.
+incremental = true
+
+[net]
+# A registry that is briefly unreachable should not fail a fresh clone.
+retry = 3
+
+[term]
+# Keep the Cargo output colored when the terminal supports it and plain when
+# it does not, so that a CI log stays readable.
+color = "auto"
+verbose = false

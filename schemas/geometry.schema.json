@@ -1,0 +1,126 @@
+{
+  "$defs": {
+    "Constraints": {
+      "description": "Layout constraints of a node.",
+      "properties": {
+        "horizontal": {
+          "description": "Horizontal behaviour: `FIXED`, `SCALE`, `LEFT`, `RIGHT`, `CENTER`.",
+          "type": "string"
+        },
+        "vertical": {
+          "description": "Vertical behaviour.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "horizontal",
+        "vertical"
+      ],
+      "type": "object"
+    },
+    "Rect": {
+      "description": "A rectangle.",
+      "properties": {
+        "height": {
+          "description": "Height.",
+          "format": "double",
+          "type": "number"
+        },
+        "width": {
+          "description": "Width.",
+          "format": "double",
+          "type": "number"
+        },
+        "x": {
+          "description": "Left edge.",
+          "format": "double",
+          "type": "number"
+        },
+        "y": {
+          "description": "Top edge.",
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "width",
+        "height"
+      ],
+      "type": "object"
+    },
+    "Transform": {
+      "description": "An affine transform.",
+      "properties": {
+        "rotation": {
+          "description": "Rotation in degrees.",
+          "format": "double",
+          "type": "number"
+        },
+        "scale_x": {
+          "description": "Horizontal scale.",
+          "format": "double",
+          "type": "number"
+        },
+        "scale_y": {
+          "description": "Vertical scale.",
+          "format": "double",
+          "type": "number"
+        },
+        "x": {
+          "description": "Horizontal translation.",
+          "format": "double",
+          "type": "number"
+        },
+        "y": {
+          "description": "Vertical translation.",
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "rotation",
+        "scale_x",
+        "scale_y"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "urn:figtether:schema:geometry",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Geometry of a node.",
+  "properties": {
+    "absolute_transform": {
+      "$ref": "#/$defs/Transform",
+      "description": "Transform relative to the canvas."
+    },
+    "bounding_box": {
+      "$ref": "#/$defs/Rect",
+      "description": "Bounding box in the declared coordinate space."
+    },
+    "constraints": {
+      "$ref": "#/$defs/Constraints",
+      "description": "Layout constraints."
+    },
+    "coordinate_space": {
+      "description": "The coordinate system the numbers above are expressed in.",
+      "type": "string"
+    },
+    "local_transform": {
+      "$ref": "#/$defs/Transform",
+      "description": "Transform relative to the parent."
+    }
+  },
+  "required": [
+    "local_transform",
+    "absolute_transform",
+    "bounding_box",
+    "constraints",
+    "coordinate_space"
+  ],
+  "title": "Geometry",
+  "type": "object"
+}

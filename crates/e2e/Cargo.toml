@@ -1,0 +1,35 @@
+[package]
+name = "figtether-e2e"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "FigTether end-to-end and contract test harness: fake plugin client, fake MCP client, acceptance flows"
+publish = false
+
+[features]
+default = []
+
+[dependencies]
+figtether-model = { workspace = true }
+figtether-protocol = { workspace = true }
+figtether-core = { workspace = true }
+figtether-assets = { workspace = true }
+figtether-daemon = { workspace = true }
+figtether-mcp = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+tracing = { workspace = true }
+tempfile = { workspace = true }
+axum = { workspace = true }
+base64 = "0.23.1"
+futures-util = "0.3.34"
+tokio-tungstenite = "0.29.0"
+
+[dev-dependencies]
+serde_json = { workspace = true }
+tokio = { workspace = true }

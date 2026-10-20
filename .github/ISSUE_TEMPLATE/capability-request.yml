@@ -1,0 +1,75 @@
+name: Capability request
+description: Ask for a capability that the editor or the platform does not expose yet.
+title: "[capability] "
+labels:
+  - enhancement
+  - needs-triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A capability request asks for something the platform does not expose yet, for example
+        a variable mode that the editor build does not return. It is not a place to report a
+        defect: use the bug report form for that.
+  - type: input
+    id: capability
+    attributes:
+      label: Capability name
+      description: The name as it would appear in the capability report.
+      placeholder: "variables.aliasResolution"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: FigTether version
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system and version
+    validations:
+      required: true
+  - type: input
+    id: figma-version
+    attributes:
+      label: Figma Desktop version
+    validations:
+      required: true
+  - type: textarea
+    id: seat-context
+    attributes:
+      label: Seat context
+      description: >-
+        The plan and seat context without personal identity, for example "Starter seat with
+        Design plugin support". Do not include an account name or an email address.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: current-state
+    attributes:
+      label: Current state
+      description: What the capability report says today.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use case
+      description: What a user could do with the capability, and why the current state is not enough.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: >-
+        A public or synthetic fixture, a sanitized log, or a public documentation link.
+        Never attach a private design.
+      render: text
+    validations:
+      required: false

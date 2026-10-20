@@ -1,0 +1,124 @@
+{
+  "$defs": {
+    "Color": {
+      "description": "A colour with alpha.",
+      "properties": {
+        "a": {
+          "description": "Alpha channel in `0.0..=1.0`.",
+          "format": "double",
+          "type": "number"
+        },
+        "b": {
+          "description": "Blue channel in `0.0..=1.0`.",
+          "format": "double",
+          "type": "number"
+        },
+        "g": {
+          "description": "Green channel in `0.0..=1.0`.",
+          "format": "double",
+          "type": "number"
+        },
+        "r": {
+          "description": "Red channel in `0.0..=1.0`.",
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "r",
+        "g",
+        "b",
+        "a"
+      ],
+      "type": "object"
+    },
+    "GradientStop": {
+      "description": "One gradient stop.",
+      "properties": {
+        "color": {
+          "$ref": "#/$defs/Color",
+          "description": "Colour at the stop."
+        },
+        "position": {
+          "description": "Position of the stop in `0.0..=1.0`.",
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "position",
+        "color"
+      ],
+      "type": "object"
+    },
+    "PaintKind": {
+      "description": "Kind of a paint.",
+      "oneOf": [
+        {
+          "const": "solid",
+          "description": "Solid colour.",
+          "type": "string"
+        },
+        {
+          "const": "gradient",
+          "description": "Linear or radial gradient.",
+          "type": "string"
+        },
+        {
+          "const": "image",
+          "description": "Image fill.",
+          "type": "string"
+        },
+        {
+          "const": "unknown",
+          "description": "Any paint the platform did not classify.",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "$id": "urn:figtether:schema:paint",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "A fill or stroke.",
+  "properties": {
+    "color": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Color"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Solid colour, when applicable."
+    },
+    "gradient_stops": {
+      "default": [],
+      "description": "Gradient stops, when applicable.",
+      "items": {
+        "$ref": "#/$defs/GradientStop"
+      },
+      "type": "array"
+    },
+    "kind": {
+      "$ref": "#/$defs/PaintKind",
+      "description": "Kind of the paint."
+    },
+    "opacity": {
+      "description": "Opacity of the paint in `0.0..=1.0`.",
+      "format": "double",
+      "type": "number"
+    },
+    "visible": {
+      "description": "Whether the paint is visible.",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "kind",
+    "opacity",
+    "visible"
+  ],
+  "title": "Paint",
+  "type": "object"
+}

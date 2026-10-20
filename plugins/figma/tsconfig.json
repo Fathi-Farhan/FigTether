@@ -1,0 +1,54 @@
+{
+  // Solution configuration for the FigTether Figma plugin.
+  //
+  // This file holds the compiler options every project of the plugin shares and
+  // the project references that tie the three projects together:
+  //
+  //   shared -> plugins/figma/shared   (the wire contract, mirrors crates/protocol)
+  //   main   -> plugins/figma/main     (the Figma main sandbox, no DOM)
+  //   ui     -> plugins/figma/ui       (the UI iframe, DOM available)
+  //
+  // The main and UI folders extend this file, so a change here reaches both
+  // of them. The main folder must keep "lib": ["ES2020"] and add
+  // "types": ["@figma/plugin-typings"], the UI folder must add the DOM lib.
+  // The shared package keeps its own copy of the options, so that the
+  // contract stays typecheckable on its own.
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    // No DOM in the base: the main sandbox has no browser API. The UI folder
+    // adds "DOM" and "DOM.Iterable" in its own project file.
+    "lib": ["ES2020"],
+    // No ambient @types packages by default. The main sandbox gets the Figma
+    // globals through "types": ["@figma/plugin-typings"] in its own project.
+    "types": [],
+    "strict": true,
+    "noImplicitAny": true,
+    "noUncheckedIndexedAccess": true,
+    // Optional properties are "absent or present", never "present and
+    // undefined". A project that cannot live with it overrides this flag.
+    "exactOptionalPropertyTypes": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "useUnknownInCatchVariables": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    // The shared package is consumed from source, so the editor, esbuild and
+    // the tests all see the same files.
+    "baseUrl": ".",
+    "paths": {
+      "@figtether/shared": ["./shared/src/index.ts"],
+      "@figtether/shared/*": ["./shared/src/*"]
+    }
+  },
+  "files": [],
+  "references": [
+    { "path": "./shared/tsconfig.json" },
+    { "path": "./main/tsconfig.json" },
+    { "path": "./ui/tsconfig.json" }
+  ]
+}

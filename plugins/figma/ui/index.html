@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FigTether</title>
+    <!--
+      The single stylesheet of the user interface. The bundler emits it next to
+      the bundle as ui.css, the source of truth is plugins/figma/ui/styles.css.
+      The palette blocks are marked so that the contrast test can read both
+      themes.
+    -->
+    <link rel="stylesheet" href="./ui.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to the main content</a>
+
+    <header class="app-header">
+      <h1>FigTether</h1>
+      <p id="connection-summary" class="app-header__status" role="status" aria-live="polite">
+        Connection: Not paired.
+      </p>
+    </header>
+
+    <main id="main-content">
+      <section class="panel" aria-labelledby="pair-heading">
+        <h2 id="pair-heading">Pair with the local daemon</h2>
+        <form id="pair-form" novalidate>
+          <div class="field">
+            <label for="pairing-secret">Pairing secret</label>
+            <input
+              id="pairing-secret"
+              name="pairing-secret"
+              type="password"
+              autocomplete="off"
+              autocapitalize="off"
+              spellcheck="false"
+              aria-describedby="pairing-secret-help"
+            />
+            <p id="pairing-secret-help" class="help">
+              Paste the one time secret that <code>figtether pair</code> prints. The secret is held
+              in memory only, it is never stored and it is cleared as soon as the handshake used it.
+            </p>
+          </div>
+          <button id="pair-button" type="submit" class="button button--primary">Pair</button>
+        </form>
+        <p id="pair-error" class="message message--error" role="alert" hidden></p>
+        <p id="pair-feedback" class="message" role="status" aria-live="polite"></p>
+        <dl class="facts">
+          <div class="facts__item">
+            <dt>Session</dt>
+            <dd id="session-name">Not paired</dd>
+          </div>
+          <div class="facts__item">
+            <dt>Session fingerprint</dt>
+            <dd id="session-fingerprint">Not available</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section class="panel" aria-labelledby="grant-heading">
+        <h2 id="grant-heading">Shared scope</h2>
+        <p id="grant-empty" class="empty">
+          No candidate root in the current selection. Select a node in the editor and press Refresh.
+        </p>
+        <fieldset class="fieldset">
+          <legend>Candidate roots in the current selection</legend>
+          <ul id="candidate-roots" class="candidate-list"></ul>
+        </fieldset>
+        <div class="controls">
+          <button id="refresh-button" type="button" class="button">Refresh candidates</button>
+          <button id="allow-button" type="button" class="button button--primary" disabled>
+            Allow read session
+          </button>
+        </div>
+        <p class="note">
+          The grant binds the roots you check now. A later selection change never widens the grant.
+        </p>
+        <p id="grant-feedback" class="message" role="status" aria-live="polite"></p>
+      </section>
+
+      <section class="panel" aria-labelledby="status-heading">
+        <h2 id="status-heading">Read session</h2>
+        <dl class="status-strip">
+          <div class="status-strip__item">
+            <dt>Connection</dt>
+            <dd id="status-connection">Not paired</dd>
+          </div>
+          <div class="status-strip__item">
+            <dt>Granted roots</dt>
+            <dd id="status-roots">0</dd>
+          </div>
+          <div class="status-strip__item">
+            <dt>Mode</dt>
+            <dd id="status-mode">Unknown</dd>
+          </div>
+          <div class="status-strip__item">
+            <dt>Last read</dt>
+            <dd id="status-last-read">No read yet</dd>
+          </div>
+          <div class="status-strip__item">
+            <dt>Queue depth</dt>
+            <dd id="status-queue">Not reported by the daemon</dd>
+          </div>
+        </dl>
+        <h3 id="capability-heading">Available capabilities</h3>
+        <ul id="capability-list" class="capability-list" aria-labelledby="capability-heading"></ul>
+      </section>
+
+      <section class="panel" aria-labelledby="controls-heading">
+        <h2 id="controls-heading">Controls</h2>
+        <div class="controls">
+          <button id="pause-button" type="button" class="button" disabled>Pause</button>
+          <button id="resume-button" type="button" class="button" disabled>Resume</button>
+          <button id="capture-button" type="button" class="button" disabled>
+            Capture snapshot
+          </button>
+          <button id="revoke-button" type="button" class="button button--danger" disabled>
+            Revoke
+          </button>
+        </div>
+        <div
+          id="revoke-confirm"
+          class="confirm"
+          role="group"
+          aria-labelledby="revoke-confirm-heading"
+          hidden
+        >
+          <h3 id="revoke-confirm-heading">Revoke this read session?</h3>
+          <p>
+            Revoke stops further reads, drops the queue and clears the grant. Data the client
+            already received cannot be recalled.
+          </p>
+          <div class="controls">
+            <button id="revoke-confirm-button" type="button" class="button button--danger">
+              Confirm revoke
+            </button>
+            <button id="revoke-cancel-button" type="button" class="button">Cancel</button>
+          </div>
+        </div>
+        <p id="control-feedback" class="message" role="status" aria-live="polite"></p>
+      </section>
+
+      <section class="panel" aria-labelledby="log-heading">
+        <h2 id="log-heading">Activity log</h2>
+        <p class="note">
+          The log shows the operation, the count, the duration and the error code only. Layer names,
+          text content and file identifiers are never logged.
+        </p>
+        <ol id="log-list" class="log-list" role="log" aria-labelledby="log-heading"></ol>
+      </section>
+    </main>
+
+    <footer class="app-footer">
+      <p>
+        The bridge is local. Data that the connected client reads can still be forwarded to its
+        model provider, depending on the configuration of that client.
+      </p>
+    </footer>
+
+    <!--
+      The build step of the plugin bundle writes the bundled module next to
+      this file and points the script tag at it.
+    -->
+    <script type="module" src="./dist/ui.js"></script>
+  </body>
+</html>

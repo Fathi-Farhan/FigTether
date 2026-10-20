@@ -1,0 +1,99 @@
+{
+  "$defs": {
+    "TextRun": {
+      "description": "One styled run inside a text node.",
+      "properties": {
+        "end": {
+          "description": "End character offset.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "font_available": {
+          "description": "Whether the run's font is available in this environment.",
+          "type": "boolean"
+        },
+        "font_family": {
+          "description": "Font family of the run.",
+          "type": "string"
+        },
+        "font_size": {
+          "description": "Font size of the run.",
+          "format": "double",
+          "type": "number"
+        },
+        "font_style": {
+          "description": "Font style of the run.",
+          "type": "string"
+        },
+        "font_weight": {
+          "description": "Font weight of the run.",
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "letter_spacing": {
+          "description": "Letter spacing of the run.",
+          "format": "double",
+          "type": "number"
+        },
+        "line_height": {
+          "description": "Line height of the run.",
+          "format": "double",
+          "type": "number"
+        },
+        "start": {
+          "description": "Start character offset.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "start",
+        "end",
+        "font_family",
+        "font_style",
+        "font_weight",
+        "font_size",
+        "line_height",
+        "letter_spacing",
+        "font_available"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "urn:figtether:schema:typography",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Typography of a text node.",
+  "properties": {
+    "runs": {
+      "description": "Styled runs covering the text.",
+      "items": {
+        "$ref": "#/$defs/TextRun"
+      },
+      "type": "array"
+    },
+    "text": {
+      "description": "Full text content.",
+      "type": "string"
+    },
+    "text_align": {
+      "description": "Text alignment.",
+      "type": "string"
+    },
+    "truncated": {
+      "description": "Whether the text is truncated in the layout.",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "text",
+    "runs",
+    "text_align",
+    "truncated"
+  ],
+  "title": "Typography",
+  "type": "object"
+}

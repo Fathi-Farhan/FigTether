@@ -1,0 +1,38 @@
+[package]
+name = "figtether-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "FigTether command line interface: doctor, daemon, mcp, status, pair, config, manifest, revoke"
+
+[[bin]]
+name = "figtether"
+path = "src/main.rs"
+
+[dependencies]
+figtether-model = { workspace = true }
+figtether-protocol = { workspace = true }
+figtether-core = { workspace = true }
+figtether-daemon = { workspace = true }
+figtether-mcp = { workspace = true }
+clap = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+rand = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+tempfile = { workspace = true }
+futures-util = { workspace = true, features = ["sink"] }
+tokio-tungstenite = "0.29.0"

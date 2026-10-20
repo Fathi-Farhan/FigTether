@@ -1,0 +1,104 @@
+{
+  "$defs": {
+    "ConsistencyRequest": {
+      "description": "Which consistency lane a read may use.",
+      "oneOf": [
+        {
+          "const": "fresh",
+          "description": "The default: the request must reach the plugin.",
+          "type": "string"
+        },
+        {
+          "const": "cached",
+          "description": "Serve from the cache when the entry is younger than `max_age_ms`.",
+          "type": "string"
+        }
+      ]
+    },
+    "DetailLevel": {
+      "description": "How much detail an inspection returns.",
+      "oneOf": [
+        {
+          "const": "summary",
+          "description": "Structure and layout only.",
+          "type": "string"
+        },
+        {
+          "const": "layout",
+          "description": "Layout, typography, and paints.",
+          "type": "string"
+        },
+        {
+          "const": "full",
+          "description": "Everything the API exposes, within the response budget.",
+          "type": "string"
+        }
+      ]
+    },
+    "SessionId": {
+      "description": "Identity of one plugin run or tab.",
+      "format": "uuid",
+      "type": "string"
+    },
+    "SnapshotId": {
+      "description": "Identity of one immutable capture.",
+      "format": "uuid",
+      "type": "string"
+    }
+  },
+  "$id": "urn:figtether:schema:inspect_design_params",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Parameters of `inspect_design`.",
+  "properties": {
+    "consistency": {
+      "$ref": "#/$defs/ConsistencyRequest",
+      "default": "fresh",
+      "description": "Consistency lane."
+    },
+    "detail": {
+      "$ref": "#/$defs/DetailLevel",
+      "default": "summary",
+      "description": "How much detail to return."
+    },
+    "max_age_ms": {
+      "description": "Maximum age of a cached answer, in milliseconds.",
+      "format": "uint64",
+      "minimum": 0,
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "root_id": {
+      "description": "Root node to inspect.",
+      "type": "string"
+    },
+    "session_id": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SessionId"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Live session to read. Mutually exclusive with `snapshot_id`."
+    },
+    "snapshot_id": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SnapshotId"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Snapshot to read. Mutually exclusive with `session_id`."
+    }
+  },
+  "required": [
+    "root_id"
+  ],
+  "title": "InspectDesignParams",
+  "type": "object"
+}

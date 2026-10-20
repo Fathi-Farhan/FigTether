@@ -1,0 +1,70 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/model",
+    "crates/protocol",
+    "crates/core",
+    "crates/assets",
+    "crates/daemon",
+    "crates/mcp",
+    "crates/cli",
+    "crates/e2e",
+    "crates/bench",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.88"
+license = "MIT OR Apache-2.0"
+authors = ["FigTether maintainers"]
+description = "Local Figma context for AI agents: local MCP server plus Figma plugin bridge"
+
+[workspace.dependencies]
+figtether-model = { path = "crates/model" }
+figtether-protocol = { path = "crates/protocol" }
+figtether-core = { path = "crates/core" }
+figtether-assets = { path = "crates/assets" }
+figtether-daemon = { path = "crates/daemon" }
+figtether-mcp = { path = "crates/mcp" }
+
+anyhow = "1.0.104"
+thiserror = "2.0.21"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+schemars = "1.2.3"
+tokio = { version = "1.54.0", features = ["full"] }
+axum = { version = "0.8.9", features = ["ws"] }
+clap = { version = "4.6.7", features = ["derive", "env"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+uuid = { version = "1.28.0", features = ["v4", "serde"] }
+sha2 = "0.11.1"
+hex = "0.4.3"
+base64 = "0.23.1"
+rand = "0.10.3"
+subtle = "2.6.1"
+zeroize = { version = "1.9.1", features = ["derive"] }
+chrono = { version = "0.4.45", features = ["serde"] }
+futures-util = "0.3.34"
+async-trait = "0.1.92"
+bytes = "1.12.1"
+tempfile = "3.27.0"
+criterion = "0.8.2"
+proptest = "1.12.0"
+rmcp = { version = "3.6.0", default-features = false, features = [
+    "server",
+    "macros",
+    "base64",
+    "transport-io",
+] }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
+panic = "abort"
+
+[profile.bench]
+opt-level = 3

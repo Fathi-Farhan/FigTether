@@ -1,0 +1,57 @@
+{
+  "$id": "urn:figtether:schema:variable_ref",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Reference to a variable or style.",
+  "properties": {
+    "alias_target": {
+      "description": "Alias target, when the variable aliases another variable.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "collection": {
+      "description": "Collection the variable belongs to.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "id": {
+      "description": "Id of the variable or style.",
+      "type": "string"
+    },
+    "mode": {
+      "description": "Mode the value was read in.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "name": {
+      "description": "Display name.",
+      "type": "string"
+    },
+    "resolved": {
+      "description": "Whether the reference resolved inside the granted scope.",
+      "type": "boolean"
+    },
+    "unresolved_reason": {
+      "description": "Why the reference did not resolve, when it did not.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "value": {
+      "description": "Resolved value, when the reference could be resolved."
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "resolved"
+  ],
+  "title": "VariableRef",
+  "type": "object"
+}

@@ -1,0 +1,21 @@
+{
+  "$id": "urn:figtether:schema:warning",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "A non-fatal caveat attached to a result.",
+  "properties": {
+    "code": {
+      "description": "Stable warning code.",
+      "type": "string"
+    },
+    "message": {
+      "description": "Human readable explanation.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "code",
+    "message"
+  ],
+  "title": "Warning",
+  "type": "object"
+}

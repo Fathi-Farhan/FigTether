@@ -1,0 +1,96 @@
+{
+  "$defs": {
+    "Consistency": {
+      "description": "How consistent the observed data is with the document.",
+      "oneOf": [
+        {
+          "const": "fresh",
+          "description": "The request reached the plugin and observed the document directly.",
+          "type": "string"
+        },
+        {
+          "const": "cached",
+          "description": "Served from the cache under an explicit age bound.",
+          "type": "string"
+        },
+        {
+          "const": "best_effort",
+          "description": "Best effort: the document may have changed during the observation.",
+          "type": "string"
+        }
+      ]
+    },
+    "Freshness": {
+      "description": "Which read lane produced the payload.",
+      "oneOf": [
+        {
+          "const": "fresh_read",
+          "description": "The request was executed against the editor.",
+          "type": "string"
+        },
+        {
+          "const": "cache_hit",
+          "description": "The answer came from the local cache.",
+          "type": "string"
+        }
+      ]
+    },
+    "ObservationId": {
+      "description": "Identity of a single observation window.",
+      "format": "uuid",
+      "type": "string"
+    }
+  },
+  "$id": "urn:figtether:schema:observation",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "The observation window of one read.",
+  "properties": {
+    "cache_age_ms": {
+      "description": "Age of the cached payload in milliseconds, when the lane was a cache hit.",
+      "format": "uint64",
+      "minimum": 0,
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "consistency": {
+      "$ref": "#/$defs/Consistency",
+      "description": "Consistency of the observation."
+    },
+    "content_hash": {
+      "description": "Hash of the canonical payload.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "freshness": {
+      "$ref": "#/$defs/Freshness",
+      "description": "Which lane produced the payload."
+    },
+    "observation_id": {
+      "$ref": "#/$defs/ObservationId",
+      "description": "Identity of this observation."
+    },
+    "observed_at": {
+      "description": "When the data was observed.",
+      "format": "date-time",
+      "type": "string"
+    },
+    "started_at": {
+      "description": "When the read started.",
+      "format": "date-time",
+      "type": "string"
+    }
+  },
+  "required": [
+    "observation_id",
+    "started_at",
+    "observed_at",
+    "consistency",
+    "freshness"
+  ],
+  "title": "Observation",
+  "type": "object"
+}

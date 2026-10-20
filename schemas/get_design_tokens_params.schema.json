@@ -1,0 +1,107 @@
+{
+  "$defs": {
+    "ConsistencyRequest": {
+      "description": "Which consistency lane a read may use.",
+      "oneOf": [
+        {
+          "const": "fresh",
+          "description": "The default: the request must reach the plugin.",
+          "type": "string"
+        },
+        {
+          "const": "cached",
+          "description": "Serve from the cache when the entry is younger than `max_age_ms`.",
+          "type": "string"
+        }
+      ]
+    },
+    "SessionId": {
+      "description": "Identity of one plugin run or tab.",
+      "format": "uuid",
+      "type": "string"
+    },
+    "SnapshotId": {
+      "description": "Identity of one immutable capture.",
+      "format": "uuid",
+      "type": "string"
+    },
+    "TokenKind": {
+      "description": "Kinds of design tokens to return.",
+      "oneOf": [
+        {
+          "const": "variables",
+          "description": "Variables.",
+          "type": "string"
+        },
+        {
+          "const": "styles",
+          "description": "Styles.",
+          "type": "string"
+        },
+        {
+          "const": "all",
+          "description": "Both.",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "$id": "urn:figtether:schema:get_design_tokens_params",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Parameters of `get_design_tokens`.",
+  "properties": {
+    "consistency": {
+      "$ref": "#/$defs/ConsistencyRequest",
+      "default": "fresh",
+      "description": "Consistency lane."
+    },
+    "kinds": {
+      "default": [],
+      "description": "Which token kinds to return.",
+      "items": {
+        "$ref": "#/$defs/TokenKind"
+      },
+      "type": "array"
+    },
+    "max_age_ms": {
+      "description": "Maximum age of a cached answer, in milliseconds.",
+      "format": "uint64",
+      "minimum": 0,
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "root_id": {
+      "description": "Root node whose scope bounds the token search.",
+      "type": "string"
+    },
+    "session_id": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SessionId"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Live session to read. Mutually exclusive with `snapshot_id`."
+    },
+    "snapshot_id": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SnapshotId"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Snapshot to read. Mutually exclusive with `session_id`."
+    }
+  },
+  "required": [
+    "root_id"
+  ],
+  "title": "GetDesignTokensParams",
+  "type": "object"
+}

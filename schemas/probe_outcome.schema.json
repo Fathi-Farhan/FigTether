@@ -1,0 +1,83 @@
+{
+  "$defs": {
+    "CapabilityState": {
+      "description": "State of one probed capability.",
+      "oneOf": [
+        {
+          "description": "The capability is usable in this context.",
+          "properties": {
+            "status": {
+              "const": "available",
+              "type": "string"
+            }
+          },
+          "required": [
+            "status"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "The capability is not usable; `reason` explains why.",
+          "properties": {
+            "reason": {
+              "description": "Why the capability is unavailable.",
+              "type": "string"
+            },
+            "status": {
+              "const": "unavailable",
+              "type": "string"
+            }
+          },
+          "required": [
+            "status",
+            "reason"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "The capability exists in the product but not in this platform or seat.",
+          "properties": {
+            "reason": {
+              "description": "Where the capability would be supported.",
+              "type": "string"
+            },
+            "status": {
+              "const": "unsupported",
+              "type": "string"
+            }
+          },
+          "required": [
+            "status",
+            "reason"
+          ],
+          "type": "object"
+        }
+      ]
+    }
+  },
+  "$id": "urn:figtether:schema:probe_outcome",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Outcome of one probe.",
+  "properties": {
+    "name": {
+      "description": "Name of the probed capability.",
+      "type": "string"
+    },
+    "observed_at": {
+      "description": "When the probe ran.",
+      "format": "date-time",
+      "type": "string"
+    },
+    "state": {
+      "$ref": "#/$defs/CapabilityState",
+      "description": "Resulting state."
+    }
+  },
+  "required": [
+    "name",
+    "state",
+    "observed_at"
+  ],
+  "title": "ProbeOutcome",
+  "type": "object"
+}

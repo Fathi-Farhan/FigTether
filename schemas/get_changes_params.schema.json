@@ -1,0 +1,35 @@
+{
+  "$defs": {
+    "SessionId": {
+      "description": "Identity of one plugin run or tab.",
+      "format": "uuid",
+      "type": "string"
+    }
+  },
+  "$id": "urn:figtether:schema:get_changes_params",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Parameters of `get_changes`.",
+  "properties": {
+    "cursor": {
+      "description": "Cursor returned by a previous call.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "session_id": {
+      "$ref": "#/$defs/SessionId",
+      "description": "Live session to watch."
+    },
+    "watch_id": {
+      "description": "Watch created by `watch_scope`.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "session_id",
+    "watch_id"
+  ],
+  "title": "GetChangesParams",
+  "type": "object"
+}

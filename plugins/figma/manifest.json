@@ -1,0 +1,13 @@
+{
+  "name": "FigTether Bridge",
+  "id": "figtether-dev",
+  "api": "1.0.0",
+  "main": "dist/main.js",
+  "ui": "dist/ui.html",
+  "editorType": ["figma"],
+  "documentAccess": "dynamic-page",
+  "networkAccess": {
+    "allowedDomains": ["http://127.0.0.1"],
+    "reason": "The plugin talks to the FigTether daemon on the local loopback interface only. No request ever leaves this machine, and no wildcard domain is reachable from the plugin."
+  }
+}

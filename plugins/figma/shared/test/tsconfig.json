@@ -1,0 +1,32 @@
+{
+  // Typecheck configuration for the shared package and its tests.
+  //
+  // It mirrors shared/tsconfig.json and the root solution and stays free of
+  // project references on purpose: the tests must run even when the main and
+  // UI projects are not present yet.
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2020"],
+    // The tests of the shared package read the sources of the three packages
+    // to guard the contract against a drift. The package itself stays free of
+    // Node.js, only the tests use the file system.
+    "types": ["node"],
+    "strict": true,
+    "noImplicitAny": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "useUnknownInCatchVariables": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true
+  },
+  "include": ["**/*", "../src/**/*"]
+}

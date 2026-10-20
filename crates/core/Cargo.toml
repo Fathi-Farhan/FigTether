@@ -1,0 +1,27 @@
+[package]
+name = "figtether-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "FigTether core domain: session and grant registry, scheduler, cache, asset store, normalization"
+
+[dependencies]
+figtether-model = { workspace = true }
+figtether-protocol = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+rand = { workspace = true }
+subtle = { workspace = true }
+zeroize = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+tokio = { workspace = true }

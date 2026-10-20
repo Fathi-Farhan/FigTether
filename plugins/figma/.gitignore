@@ -1,0 +1,15 @@
+# Build output
+dist/
+
+# Dependencies
+node_modules/
+
+# Test and tool caches
+coverage/
+.vitest/
+*.tsbuildinfo
+
+# Local editor and OS noise
+.DS_Store
+Thumbs.db
+*.log

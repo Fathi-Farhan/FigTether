@@ -1,0 +1,45 @@
+# Node / docs tooling
+node_modules/
+.prettier-cache/
+.npm/
+
+# Rust build output
+/target/
+**/target/
+
+# Plugin and frontend build output
+dist/
+build/
+out/
+coverage/
+plugins/figma/dist/
+plugins/figma/coverage/
+
+# Generated SBOM and release artifacts
+*.cdx.json
+*.cdx.xml
+artifacts/
+runs/
+
+# Experiment runs and scratch data
+tmp/
+*.log
+
+# Environment and secrets
+.env
+.env.*
+*.pem
+*.key
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
+*.swp
+
+# Lockfiles are tracked on purpose. Do not add them here.
+#   Cargo.lock
+#   package-lock.json
+#   plugins/figma/package-lock.json

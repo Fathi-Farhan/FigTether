@@ -1,0 +1,83 @@
+{
+  "$defs": {
+    "AssetId": {
+      "description": "Opaque identifier of one exported asset.",
+      "format": "uuid",
+      "type": "string"
+    },
+    "ExportSettings": {
+      "description": "Export settings of an asset.",
+      "properties": {
+        "format": {
+          "description": "Export format.",
+          "type": "string"
+        },
+        "scale": {
+          "description": "Export scale factor.",
+          "format": "double",
+          "type": "number"
+        },
+        "svg_suffix": {
+          "description": "Whether the export uses the SVG suffix.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "format",
+        "scale",
+        "svg_suffix"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "urn:figtether:schema:asset_ref",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Reference to an exported asset.",
+  "properties": {
+    "asset_id": {
+      "$ref": "#/$defs/AssetId",
+      "description": "Opaque asset id."
+    },
+    "bytes": {
+      "description": "Size in bytes.",
+      "format": "uint64",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "export_settings": {
+      "$ref": "#/$defs/ExportSettings",
+      "description": "Settings used for the export."
+    },
+    "hash": {
+      "description": "Content hash.",
+      "type": "string"
+    },
+    "height": {
+      "description": "Pixel height.",
+      "format": "uint32",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "mime": {
+      "description": "MIME type of the asset.",
+      "type": "string"
+    },
+    "width": {
+      "description": "Pixel width.",
+      "format": "uint32",
+      "minimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "asset_id",
+    "mime",
+    "width",
+    "height",
+    "bytes",
+    "hash",
+    "export_settings"
+  ],
+  "title": "AssetRef",
+  "type": "object"
+}

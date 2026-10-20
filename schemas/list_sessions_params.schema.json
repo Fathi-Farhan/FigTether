@@ -1,0 +1,16 @@
+{
+  "$id": "urn:figtether:schema:list_sessions_params",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Parameters of `list_sessions`.",
+  "properties": {
+    "cursor": {
+      "description": "Cursor for the next page of sessions.",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "title": "ListSessionsParams",
+  "type": "object"
+}

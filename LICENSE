@@ -1,0 +1,38 @@
+FigTether is licensed under either of the following licenses, at your option.
+
+  * Apache License, Version 2.0 (the "Apache-2.0"), see `LICENSE-APACHE`
+  * MIT License (the "MIT"), see `LICENSE-MIT`
+
+This is the "MIT OR Apache-2.0" dual license SPDX expression used by every
+crate in the `figtether` workspace (`license = "MIT OR Apache-2.0"` in
+`Cargo.toml`). You may choose either license, and you may not use the
+work under both licenses at the same time.
+
+SPDX-License-Identifier: MIT OR Apache-2.0
+
+Why dual licensing
+------------------
+
+MIT is the shortest permissive license that most contributors already know,
+and it keeps embedding FigTether in other tools simple. Apache-2.0 adds an
+express patent grant and defined contribution terms, which matters for a tool
+that touches third-party editor APIs. Offering both lets a downstream user
+pick the terms that fit their own distribution model. The rationale is
+recorded in `docs/02-architecture/adr/ADR-009-licensing.md`.
+
+Third-party material
+--------------------
+
+Third-party dependencies keep their own licenses. Their attributions are
+collected in `NOTICE`, and the exact inventory for a release is shipped in the
+CycloneDX SBOM. Nothing in this file changes or narrows the license of any
+dependency.
+
+Full texts
+----------
+
+  * `LICENSE-MIT`: the complete MIT license text.
+  * `LICENSE-APACHE`: the complete Apache License, Version 2.0 text.
+
+Both files must be included, unmodified, in any redistribution of this
+software, in source or binary form.

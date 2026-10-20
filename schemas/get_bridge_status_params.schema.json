@@ -1,0 +1,16 @@
+{
+  "$id": "urn:figtether:schema:get_bridge_status_params",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Parameters of `get_bridge_status`.",
+  "properties": {
+    "verbose": {
+      "description": "Reserved for future use; no parameter is accepted today.",
+      "type": [
+        "boolean",
+        "null"
+      ]
+    }
+  },
+  "title": "GetBridgeStatusParams",
+  "type": "object"
+}

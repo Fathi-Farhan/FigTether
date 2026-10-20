@@ -1,0 +1,347 @@
+name: Release
+
+# Release candidate builder for FigTether.
+#
+# The workflow is build only. It never creates a GitHub release, never pushes
+# to a registry, never publishes a package, and never signs anything. Every
+# output is uploaded as a workflow artifact so that the release maintainer can
+# inspect it and copy it into the channel archive by hand.
+#
+# Rules enforced here (PRD 8.11, docs/07-ops/04-release-process.md):
+#   - the build comes from the tagged commit and from nothing else;
+#   - every shipped file has a SHA-256 checksum;
+#   - the release carries an SBOM and a provenance record;
+#   - archives stay immutable, so a tag is never rebuilt over an existing one.
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+-*"
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Existing tag to build (for example v0.1.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.ref || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  verify:
+    name: verify the tagged commit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+      commit: ${{ steps.resolve.outputs.commit }}
+      version: ${{ steps.resolve.outputs.version }}
+    steps:
+      - name: Checkout the tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+          fetch-depth: 0
+      - name: Resolve and check the tag
+        id: resolve
+        run: |
+          set -euo pipefail
+          tag="${{ inputs.ref || github.ref_name }}"
+          if ! git rev-parse --verify --quiet "refs/tags/$tag" >/dev/null; then
+            echo "tag $tag does not exist in the repository" >&2
+            exit 1
+          fi
+          tagged="$(git rev-list -n 1 "$tag")"
+          head="$(git rev-parse HEAD)"
+          if [ "$tagged" != "$head" ]; then
+            echo "the checkout is not the tagged commit" >&2
+            echo "tag:    $tagged" >&2
+            echo "checkout: $head" >&2
+            exit 1
+          fi
+          version="$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -n 1)"
+          expected="${tag#v}"
+          case "$expected" in
+            *-*) expected="${expected%%-*}" ;;
+          esac
+          if [ "$version" != "$expected" ]; then
+            echo "the workspace version $version does not match the tag $tag" >&2
+            exit 1
+          fi
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "the tagged tree is not clean" >&2
+            git status --porcelain >&2
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "commit=$head" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "building $tag at $head"
+
+  build:
+    name: build ${{ matrix.target }}
+    needs: verify
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            binary: figtether.exe
+            archive: zip
+          - target: x86_64-apple-darwin
+            os: macos-13
+            binary: figtether
+            archive: tar.gz
+          - target: aarch64-apple-darwin
+            os: macos-14
+            binary: figtether
+            archive: tar.gz
+    steps:
+      - name: Checkout the tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.verify.outputs.tag }}
+          fetch-depth: 0
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          target: ${{ matrix.target }}
+          cache: true
+      - name: Confirm the commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$(git rev-parse HEAD)" != "${{ needs.verify.outputs.commit }}" ]; then
+            echo "the checkout is not the tagged commit" >&2
+            exit 1
+          fi
+      - name: Build the CLI
+        run: cargo build --release --locked --bin figtether --target ${{ matrix.target }}
+      - name: Package the release bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${{ needs.verify.outputs.version }}"
+          target="${{ matrix.target }}"
+          bundle="figtether-$version-$target"
+          mkdir -p "dist/$bundle"
+          cp "target/$target/release/${{ matrix.binary }}" "dist/$bundle/"
+          cp LICENSE LICENSE-MIT LICENSE-APACHE NOTICE "dist/$bundle/"
+          if [ "${{ matrix.archive }}" = "zip" ]; then
+            (cd dist && tar -a -c -f "$bundle.zip" "$bundle")
+          else
+            (cd dist && tar -czf "$bundle.tar.gz" "$bundle")
+          fi
+          ls -l dist
+      - name: Upload the bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: figtether-${{ needs.verify.outputs.version }}-${{ matrix.target }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 90
+
+  plugin:
+    name: plugin bundle
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout the tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.verify.outputs.tag }}
+          fetch-depth: 0
+      - name: Detect the plugin workspace
+        id: plugin
+        run: |
+          set -euo pipefail
+          if [ -f plugins/figma/package.json ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "plugins/figma/package.json is not present, no plugin bundle is produced" >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Install Node.js
+        if: steps.plugin.outputs.present == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+      - name: Build the plugin
+        if: steps.plugin.outputs.present == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd plugins/figma
+          npm ci
+          npm run typecheck
+          npm run lint
+          npm run build
+          npm test
+      - name: Package the plugin bundle
+        if: steps.plugin.outputs.present == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${{ needs.verify.outputs.version }}"
+          mkdir -p dist/plugin
+          if [ -d plugins/figma/dist ]; then
+            cp -R plugins/figma/dist "dist/plugin/figtether-plugin-$version"
+          fi
+          cp LICENSE LICENSE-MIT LICENSE-APACHE NOTICE "dist/plugin/"
+          (cd dist/plugin && tar -czf "../figtether-plugin-$version.tar.gz" .)
+          ls -l dist
+      - name: Upload the plugin bundle
+        if: steps.plugin.outputs.present == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: figtether-plugin-${{ needs.verify.outputs.version }}
+          path: dist/figtether-plugin-*.tar.gz
+          if-no-files-found: error
+          retention-days: 90
+
+  sbom:
+    name: sbom
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout the tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.verify.outputs.tag }}
+          fetch-depth: 0
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          cache: true
+      - name: Install cargo-cyclonedx
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-cyclonedx@0.5.9
+      - name: Generate the CycloneDX SBOM
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/sbom
+          cargo cyclonedx --all-features --format json --license-accept-named "MIT/Apache-2.0"
+          find crates -name '*.cdx.json' -exec cp {} artifacts/sbom/ \;
+          ls -l artifacts/sbom
+      - name: Upload the SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: figtether-${{ needs.verify.outputs.version }}-sbom
+          path: artifacts/sbom/
+          if-no-files-found: error
+          retention-days: 90
+
+  checksums:
+    name: checksums
+    needs: [verify, build, plugin, sbom]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Download the release bundles
+        uses: actions/download-artifact@v4
+        with:
+          pattern: figtether-${{ needs.verify.outputs.version }}-*
+          path: artifacts/bundles
+      - name: Compute the SHA-256 checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd artifacts/bundles
+          find . -type f ! -name 'SHA256SUMS.txt' -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+      - name: Upload the checksums
+        uses: actions/upload-artifact@v4
+        with:
+          name: figtether-${{ needs.verify.outputs.version }}-checksums
+          path: artifacts/bundles/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 90
+
+  provenance:
+    name: provenance
+    needs: [verify, build, plugin, sbom, checksums]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout the tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.verify.outputs.tag }}
+          fetch-depth: 0
+      - name: Download the release bundles
+        uses: actions/download-artifact@v4
+        with:
+          pattern: figtether-${{ needs.verify.outputs.version }}-*
+          path: artifacts/bundles
+      - name: Write the provenance record
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${{ needs.verify.outputs.version }}"
+          schema_version="$(sed -n 's/^pub const SCHEMA_VERSION: &str = "\(.*\)";$/\1/p' crates/model/src/lib.rs | head -n 1)"
+          schema_version="${schema_version:-unknown}"
+          mkdir -p artifacts/provenance
+          {
+            echo "{"
+            echo "  \"project\": \"FigTether\","
+            echo "  \"version\": \"$version\","
+            echo "  \"tag\": \"${{ needs.verify.outputs.tag }}\","
+            echo "  \"commit\": \"${{ needs.verify.outputs.commit }}\","
+            echo "  \"schema_version\": \"$schema_version\","
+            echo "  \"built_at\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\","
+            echo "  \"workflow_run_id\": \"${{ github.run_id }}\","
+            echo "  \"workflow_run_attempt\": \"${{ github.run_attempt }}\","
+            echo "  \"workflow\": \"${{ github.workflow }}\","
+            echo "  \"repository\": \"${{ github.repository }}\","
+            echo "  \"artifacts\": ["
+            first=1
+            while IFS= read -r -d '' file; do
+              hash="$(sha256sum "$file" | cut -d' ' -f1)"
+              size="$(wc -c < "$file" | tr -d ' ')"
+              escaped="${file//\\/\\\\}"
+              escaped="${escaped//\"/\\\"}"
+              if [ "$first" -eq 1 ]; then
+                first=0
+              else
+                printf ',\n'
+              fi
+              printf '    { "path": "%s", "sha256": "%s", "size_bytes": %s }' "$escaped" "$hash" "$size"
+            done < <(find artifacts/bundles -type f ! -name 'SHA256SUMS.txt' -print0 | sort -z)
+            printf '\n'
+            echo "  ]"
+            echo "}"
+          } > artifacts/provenance/provenance.json
+          cat artifacts/provenance/provenance.json
+      - name: Upload the provenance record
+        uses: actions/upload-artifact@v4
+        with:
+          name: figtether-${{ needs.verify.outputs.version }}-provenance
+          path: artifacts/provenance/provenance.json
+          if-no-files-found: error
+          retention-days: 90

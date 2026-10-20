@@ -1,0 +1,13 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/<owner>/<repo>/security/advisories/new
+    about: >-
+      Report a vulnerability privately. Never open a public issue for a security problem, and
+      never attach a design, a token, or a credential. The acknowledgement target is three
+      working days. See SECURITY.md.
+  - name: Discussion
+    url: https://github.com/<owner>/<repo>/discussions
+    about: >-
+      Ask about the roadmap, the architecture, or the release plan. Do not post private design
+      data, tokens, or credentials in a discussion.

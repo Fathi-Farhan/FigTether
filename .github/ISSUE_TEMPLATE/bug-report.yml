@@ -1,0 +1,114 @@
+name: Bug report
+description: Report a defect in the daemon, the MCP adapter, the CLI, or the plugin.
+title: "[bug] "
+labels:
+  - bug
+  - needs-triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Fill in every field that you can.
+
+        Never attach a private design, a screenshot of a private design, an exported node
+        tree, a token, a pairing secret, a session credential, or the contents of the
+        runtime directory. Reproduce the problem with a public fixture from `fixtures/` or
+        with a synthetic fixture you created for the report.
+
+        If you think this is a security issue, do not use this form. Follow `SECURITY.md`.
+  - type: input
+    id: version
+    attributes:
+      label: FigTether version
+      description: The version or commit that `figtether doctor` reports.
+      placeholder: "0.1.0 or the commit hash"
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system and version
+      description: "For example Windows 11 23H2, macOS 14.5, Ubuntu 24.04."
+      placeholder: "Windows 11 23H2 x64"
+    validations:
+      required: true
+  - type: input
+    id: figma-version
+    attributes:
+      label: Figma Desktop version
+      description: The editor build number, not only the marketing version.
+      placeholder: "124.3.4"
+    validations:
+      required: true
+  - type: textarea
+    id: capability-report
+    attributes:
+      label: Capability report
+      description: >-
+        The sanitized capability output of the affected session. It names the
+        capabilities and their state and never contains design content.
+      render: text
+    validations:
+      required: true
+  - type: input
+    id: error-id
+    attributes:
+      label: Error id and correlation id
+      description: >-
+        The stable error code, for example PLUGIN_OFFLINE or OUT_OF_SCOPE, plus the
+        correlation id from the diagnostic output.
+      placeholder: "OUT_OF_SCOPE, correlation id 3f9c..."
+    validations:
+      required: true
+  - type: textarea
+    id: fixture
+    attributes:
+      label: Public fixture
+      description: >-
+        The fixture from `fixtures/` that reproduces the problem, or a synthetic fixture
+        with the steps to build it.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: The exact steps, starting from a fresh session.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened
+      description: The exact error text, with any design content removed.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized diagnostic output
+      description: >-
+        The diagnostic output with the design content removed. Do not include
+        credentials, layer names, text content, or file ids.
+      render: text
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I removed every design content, token, and credential from this report.
+          required: true
+        - label: I ran `figtether doctor` and included its relevant output.
+          required: false

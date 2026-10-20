@@ -1,0 +1,841 @@
+{
+  "$defs": {
+    "AssetId": {
+      "description": "Opaque identifier of one exported asset.",
+      "format": "uuid",
+      "type": "string"
+    },
+    "AssetRef": {
+      "description": "Reference to an exported asset.",
+      "properties": {
+        "asset_id": {
+          "$ref": "#/$defs/AssetId",
+          "description": "Opaque asset id."
+        },
+        "bytes": {
+          "description": "Size in bytes.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "export_settings": {
+          "$ref": "#/$defs/ExportSettings",
+          "description": "Settings used for the export."
+        },
+        "hash": {
+          "description": "Content hash.",
+          "type": "string"
+        },
+        "height": {
+          "description": "Pixel height.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "mime": {
+          "description": "MIME type of the asset.",
+          "type": "string"
+        },
+        "width": {
+          "description": "Pixel width.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "asset_id",
+        "mime",
+        "width",
+        "height",
+        "bytes",
+        "hash",
+        "export_settings"
+      ],
+      "type": "object"
+    },
+    "Color": {
+      "description": "A colour with alpha.",
+      "properties": {
+        "a": {
+          "description": "Alpha channel in `0.0..=1.0`.",
+          "format": "double",
+          "type": "number"
+        },
+        "b": {
+          "description": "Blue channel in `0.0..=1.0`.",
+          "format": "double",
+          "type": "number"
+        },
+        "g": {
+          "description": "Green channel in `0.0..=1.0`.",
+          "format": "double",
+          "type": "number"
+        },
+        "r": {
+          "description": "Red channel in `0.0..=1.0`.",
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "r",
+        "g",
+        "b",
+        "a"
+      ],
+      "type": "object"
+    },
+    "ComponentRef": {
+      "description": "Reference to a component instance.",
+      "properties": {
+        "instance_id": {
+          "description": "Id of the instance node.",
+          "type": "string"
+        },
+        "main_component_id": {
+          "description": "Id of the main component.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "resolved": {
+          "description": "Whether the main component was resolved inside the granted scope.",
+          "type": "boolean"
+        },
+        "variant_properties": {
+          "default": [],
+          "description": "Variant properties of the instance.",
+          "items": {
+            "$ref": "#/$defs/VariantProperty"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "instance_id",
+        "resolved"
+      ],
+      "type": "object"
+    },
+    "Constraints": {
+      "description": "Layout constraints of a node.",
+      "properties": {
+        "horizontal": {
+          "description": "Horizontal behaviour: `FIXED`, `SCALE`, `LEFT`, `RIGHT`, `CENTER`.",
+          "type": "string"
+        },
+        "vertical": {
+          "description": "Vertical behaviour.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "horizontal",
+        "vertical"
+      ],
+      "type": "object"
+    },
+    "Effect": {
+      "description": "One visual effect.",
+      "properties": {
+        "color": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Color"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Shadow colour, when applicable."
+        },
+        "kind": {
+          "$ref": "#/$defs/EffectKind",
+          "description": "Kind of the effect."
+        },
+        "radius": {
+          "description": "Radius of the blur or shadow.",
+          "format": "double",
+          "type": "number"
+        },
+        "visible": {
+          "description": "Whether the effect is visible.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "visible",
+        "radius"
+      ],
+      "type": "object"
+    },
+    "EffectKind": {
+      "description": "Kind of an effect.",
+      "oneOf": [
+        {
+          "const": "drop_shadow",
+          "description": "Drop shadow.",
+          "type": "string"
+        },
+        {
+          "const": "inner_shadow",
+          "description": "Inner shadow.",
+          "type": "string"
+        },
+        {
+          "const": "blur",
+          "description": "Layer blur.",
+          "type": "string"
+        },
+        {
+          "const": "background_blur",
+          "description": "Background blur.",
+          "type": "string"
+        },
+        {
+          "const": "unknown",
+          "description": "Any effect the platform did not classify.",
+          "type": "string"
+        }
+      ]
+    },
+    "ExportSettings": {
+      "description": "Export settings of an asset.",
+      "properties": {
+        "format": {
+          "description": "Export format.",
+          "type": "string"
+        },
+        "scale": {
+          "description": "Export scale factor.",
+          "format": "double",
+          "type": "number"
+        },
+        "svg_suffix": {
+          "description": "Whether the export uses the SVG suffix.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "format",
+        "scale",
+        "svg_suffix"
+      ],
+      "type": "object"
+    },
+    "Geometry": {
+      "description": "Geometry of a node.",
+      "properties": {
+        "absolute_transform": {
+          "$ref": "#/$defs/Transform",
+          "description": "Transform relative to the canvas."
+        },
+        "bounding_box": {
+          "$ref": "#/$defs/Rect",
+          "description": "Bounding box in the declared coordinate space."
+        },
+        "constraints": {
+          "$ref": "#/$defs/Constraints",
+          "description": "Layout constraints."
+        },
+        "coordinate_space": {
+          "description": "The coordinate system the numbers above are expressed in.",
+          "type": "string"
+        },
+        "local_transform": {
+          "$ref": "#/$defs/Transform",
+          "description": "Transform relative to the parent."
+        }
+      },
+      "required": [
+        "local_transform",
+        "absolute_transform",
+        "bounding_box",
+        "constraints",
+        "coordinate_space"
+      ],
+      "type": "object"
+    },
+    "GradientStop": {
+      "description": "One gradient stop.",
+      "properties": {
+        "color": {
+          "$ref": "#/$defs/Color",
+          "description": "Colour at the stop."
+        },
+        "position": {
+          "description": "Position of the stop in `0.0..=1.0`.",
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "position",
+        "color"
+      ],
+      "type": "object"
+    },
+    "Layout": {
+      "description": "Auto layout description.",
+      "properties": {
+        "auto_layout": {
+          "description": "Whether auto layout is enabled.",
+          "type": "boolean"
+        },
+        "axis": {
+          "description": "Primary axis: `HORIZONTAL`, `VERTICAL`, or `NONE`.",
+          "type": "string"
+        },
+        "counter_axis_align": {
+          "description": "Main axis alignment.",
+          "type": "string"
+        },
+        "gap": {
+          "description": "Gap between children.",
+          "format": "double",
+          "type": "number"
+        },
+        "padding": {
+          "$ref": "#/$defs/Padding",
+          "description": "Padding around children."
+        },
+        "primary_axis_align": {
+          "description": "Counter axis alignment.",
+          "type": "string"
+        },
+        "sizing": {
+          "$ref": "#/$defs/SizingMode",
+          "description": "Sizing of this node."
+        },
+        "wraps": {
+          "description": "Whether text wraps.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "auto_layout",
+        "axis",
+        "gap",
+        "padding",
+        "primary_axis_align",
+        "counter_axis_align",
+        "sizing",
+        "wraps"
+      ],
+      "type": "object"
+    },
+    "NodeSummary": {
+      "description": "Identity and tree position of a node.",
+      "properties": {
+        "child_count": {
+          "description": "Number of children inside the granted scope.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "id": {
+          "description": "Figma node id, opaque string.",
+          "type": "string"
+        },
+        "locked": {
+          "description": "Whether the node is locked.",
+          "type": "boolean"
+        },
+        "name": {
+          "description": "Display name.",
+          "type": "string"
+        },
+        "node_type": {
+          "description": "Node type, for example `FRAME` or `TEXT`. Unknown types are preserved.",
+          "type": "string"
+        },
+        "visible": {
+          "description": "Whether the node is visible.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "node_type",
+        "name",
+        "visible",
+        "locked",
+        "child_count"
+      ],
+      "type": "object"
+    },
+    "Padding": {
+      "description": "Padding of a layout container.",
+      "properties": {
+        "bottom": {
+          "description": "Bottom padding.",
+          "format": "double",
+          "type": "number"
+        },
+        "left": {
+          "description": "Left padding.",
+          "format": "double",
+          "type": "number"
+        },
+        "right": {
+          "description": "Right padding.",
+          "format": "double",
+          "type": "number"
+        },
+        "top": {
+          "description": "Top padding.",
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "top",
+        "right",
+        "bottom",
+        "left"
+      ],
+      "type": "object"
+    },
+    "Paint": {
+      "description": "A fill or stroke.",
+      "properties": {
+        "color": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Color"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Solid colour, when applicable."
+        },
+        "gradient_stops": {
+          "default": [],
+          "description": "Gradient stops, when applicable.",
+          "items": {
+            "$ref": "#/$defs/GradientStop"
+          },
+          "type": "array"
+        },
+        "kind": {
+          "$ref": "#/$defs/PaintKind",
+          "description": "Kind of the paint."
+        },
+        "opacity": {
+          "description": "Opacity of the paint in `0.0..=1.0`.",
+          "format": "double",
+          "type": "number"
+        },
+        "visible": {
+          "description": "Whether the paint is visible.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "opacity",
+        "visible"
+      ],
+      "type": "object"
+    },
+    "PaintKind": {
+      "description": "Kind of a paint.",
+      "oneOf": [
+        {
+          "const": "solid",
+          "description": "Solid colour.",
+          "type": "string"
+        },
+        {
+          "const": "gradient",
+          "description": "Linear or radial gradient.",
+          "type": "string"
+        },
+        {
+          "const": "image",
+          "description": "Image fill.",
+          "type": "string"
+        },
+        {
+          "const": "unknown",
+          "description": "Any paint the platform did not classify.",
+          "type": "string"
+        }
+      ]
+    },
+    "Rect": {
+      "description": "A rectangle.",
+      "properties": {
+        "height": {
+          "description": "Height.",
+          "format": "double",
+          "type": "number"
+        },
+        "width": {
+          "description": "Width.",
+          "format": "double",
+          "type": "number"
+        },
+        "x": {
+          "description": "Left edge.",
+          "format": "double",
+          "type": "number"
+        },
+        "y": {
+          "description": "Top edge.",
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "width",
+        "height"
+      ],
+      "type": "object"
+    },
+    "SizingMode": {
+      "description": "Sizing mode of a node inside auto layout.",
+      "oneOf": [
+        {
+          "const": "fixed",
+          "description": "Fixed size.",
+          "type": "string"
+        },
+        {
+          "const": "hug",
+          "description": "Hug contents.",
+          "type": "string"
+        },
+        {
+          "const": "fill",
+          "description": "Fill the container.",
+          "type": "string"
+        }
+      ]
+    },
+    "TextRun": {
+      "description": "One styled run inside a text node.",
+      "properties": {
+        "end": {
+          "description": "End character offset.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "font_available": {
+          "description": "Whether the run's font is available in this environment.",
+          "type": "boolean"
+        },
+        "font_family": {
+          "description": "Font family of the run.",
+          "type": "string"
+        },
+        "font_size": {
+          "description": "Font size of the run.",
+          "format": "double",
+          "type": "number"
+        },
+        "font_style": {
+          "description": "Font style of the run.",
+          "type": "string"
+        },
+        "font_weight": {
+          "description": "Font weight of the run.",
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "letter_spacing": {
+          "description": "Letter spacing of the run.",
+          "format": "double",
+          "type": "number"
+        },
+        "line_height": {
+          "description": "Line height of the run.",
+          "format": "double",
+          "type": "number"
+        },
+        "start": {
+          "description": "Start character offset.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "start",
+        "end",
+        "font_family",
+        "font_style",
+        "font_weight",
+        "font_size",
+        "line_height",
+        "letter_spacing",
+        "font_available"
+      ],
+      "type": "object"
+    },
+    "Transform": {
+      "description": "An affine transform.",
+      "properties": {
+        "rotation": {
+          "description": "Rotation in degrees.",
+          "format": "double",
+          "type": "number"
+        },
+        "scale_x": {
+          "description": "Horizontal scale.",
+          "format": "double",
+          "type": "number"
+        },
+        "scale_y": {
+          "description": "Vertical scale.",
+          "format": "double",
+          "type": "number"
+        },
+        "x": {
+          "description": "Horizontal translation.",
+          "format": "double",
+          "type": "number"
+        },
+        "y": {
+          "description": "Vertical translation.",
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "rotation",
+        "scale_x",
+        "scale_y"
+      ],
+      "type": "object"
+    },
+    "Typography": {
+      "description": "Typography of a text node.",
+      "properties": {
+        "runs": {
+          "description": "Styled runs covering the text.",
+          "items": {
+            "$ref": "#/$defs/TextRun"
+          },
+          "type": "array"
+        },
+        "text": {
+          "description": "Full text content.",
+          "type": "string"
+        },
+        "text_align": {
+          "description": "Text alignment.",
+          "type": "string"
+        },
+        "truncated": {
+          "description": "Whether the text is truncated in the layout.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "text",
+        "runs",
+        "text_align",
+        "truncated"
+      ],
+      "type": "object"
+    },
+    "VariableRef": {
+      "description": "Reference to a variable or style.",
+      "properties": {
+        "alias_target": {
+          "description": "Alias target, when the variable aliases another variable.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "collection": {
+          "description": "Collection the variable belongs to.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "description": "Id of the variable or style.",
+          "type": "string"
+        },
+        "mode": {
+          "description": "Mode the value was read in.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "name": {
+          "description": "Display name.",
+          "type": "string"
+        },
+        "resolved": {
+          "description": "Whether the reference resolved inside the granted scope.",
+          "type": "boolean"
+        },
+        "unresolved_reason": {
+          "description": "Why the reference did not resolve, when it did not.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "value": {
+          "description": "Resolved value, when the reference could be resolved."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "resolved"
+      ],
+      "type": "object"
+    },
+    "VariantProperty": {
+      "description": "One variant property.",
+      "properties": {
+        "name": {
+          "description": "Property name.",
+          "type": "string"
+        },
+        "value": {
+          "description": "Property value.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "value"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "urn:figtether:schema:normalized_node",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "A normalized node with all available domains.",
+  "properties": {
+    "assets": {
+      "default": [],
+      "description": "Exported assets of the node.",
+      "items": {
+        "$ref": "#/$defs/AssetRef"
+      },
+      "type": "array"
+    },
+    "component": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ComponentRef"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Component reference, when the node is an instance."
+    },
+    "effects": {
+      "default": [],
+      "description": "Effects.",
+      "items": {
+        "$ref": "#/$defs/Effect"
+      },
+      "type": "array"
+    },
+    "fills": {
+      "default": [],
+      "description": "Fills.",
+      "items": {
+        "$ref": "#/$defs/Paint"
+      },
+      "type": "array"
+    },
+    "geometry": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Geometry"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Geometry, when available."
+    },
+    "layout": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Layout"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Auto layout, when available."
+    },
+    "strokes": {
+      "default": [],
+      "description": "Strokes.",
+      "items": {
+        "$ref": "#/$defs/Paint"
+      },
+      "type": "array"
+    },
+    "styles": {
+      "default": [],
+      "description": "Style references used by the node.",
+      "items": {
+        "$ref": "#/$defs/VariableRef"
+      },
+      "type": "array"
+    },
+    "summary": {
+      "$ref": "#/$defs/NodeSummary",
+      "description": "Identity and tree position."
+    },
+    "typography": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Typography"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Typography, when the node is text."
+    },
+    "unavailable_fields": {
+      "default": [],
+      "description": "Fields that could not be provided.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "variables": {
+      "default": [],
+      "description": "Variable references used by the node.",
+      "items": {
+        "$ref": "#/$defs/VariableRef"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "summary"
+  ],
+  "title": "NormalizedNode",
+  "type": "object"
+}

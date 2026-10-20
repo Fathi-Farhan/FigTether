@@ -1,0 +1,23 @@
+{
+  "$defs": {
+    "JobId": {
+      "description": "Identity of one scheduled job.",
+      "format": "uuid",
+      "type": "string"
+    }
+  },
+  "$id": "urn:figtether:schema:get_job_status_params",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Parameters of `get_job_status`.",
+  "properties": {
+    "job_id": {
+      "$ref": "#/$defs/JobId",
+      "description": "Job to describe."
+    }
+  },
+  "required": [
+    "job_id"
+  ],
+  "title": "GetJobStatusParams",
+  "type": "object"
+}

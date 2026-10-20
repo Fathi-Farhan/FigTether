@@ -1,0 +1,39 @@
+{
+  "$id": "urn:figtether:schema:field_availability",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Availability of one field.",
+  "oneOf": [
+    {
+      "description": "The field is present and meaningful.",
+      "properties": {
+        "status": {
+          "const": "available",
+          "type": "string"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "type": "object"
+    },
+    {
+      "description": "The field exists but the platform did not expose a value for it.",
+      "properties": {
+        "reason": {
+          "description": "Why the value is unavailable.",
+          "type": "string"
+        },
+        "status": {
+          "const": "unavailable",
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "reason"
+      ],
+      "type": "object"
+    }
+  ],
+  "title": "FieldAvailability"
+}

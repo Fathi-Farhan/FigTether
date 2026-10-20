@@ -1,0 +1,102 @@
+{
+  "$defs": {
+    "Color": {
+      "description": "A colour with alpha.",
+      "properties": {
+        "a": {
+          "description": "Alpha channel in `0.0..=1.0`.",
+          "format": "double",
+          "type": "number"
+        },
+        "b": {
+          "description": "Blue channel in `0.0..=1.0`.",
+          "format": "double",
+          "type": "number"
+        },
+        "g": {
+          "description": "Green channel in `0.0..=1.0`.",
+          "format": "double",
+          "type": "number"
+        },
+        "r": {
+          "description": "Red channel in `0.0..=1.0`.",
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "r",
+        "g",
+        "b",
+        "a"
+      ],
+      "type": "object"
+    },
+    "EffectKind": {
+      "description": "Kind of an effect.",
+      "oneOf": [
+        {
+          "const": "drop_shadow",
+          "description": "Drop shadow.",
+          "type": "string"
+        },
+        {
+          "const": "inner_shadow",
+          "description": "Inner shadow.",
+          "type": "string"
+        },
+        {
+          "const": "blur",
+          "description": "Layer blur.",
+          "type": "string"
+        },
+        {
+          "const": "background_blur",
+          "description": "Background blur.",
+          "type": "string"
+        },
+        {
+          "const": "unknown",
+          "description": "Any effect the platform did not classify.",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "$id": "urn:figtether:schema:effect",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "One visual effect.",
+  "properties": {
+    "color": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Color"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Shadow colour, when applicable."
+    },
+    "kind": {
+      "$ref": "#/$defs/EffectKind",
+      "description": "Kind of the effect."
+    },
+    "radius": {
+      "description": "Radius of the blur or shadow.",
+      "format": "double",
+      "type": "number"
+    },
+    "visible": {
+      "description": "Whether the effect is visible.",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "kind",
+    "visible",
+    "radius"
+  ],
+  "title": "Effect",
+  "type": "object"
+}

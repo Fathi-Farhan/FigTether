@@ -1,0 +1,23 @@
+{
+  "$defs": {
+    "SessionId": {
+      "description": "Identity of one plugin run or tab.",
+      "format": "uuid",
+      "type": "string"
+    }
+  },
+  "$id": "urn:figtether:schema:get_selection_params",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Parameters of `get_selection`.",
+  "properties": {
+    "session_id": {
+      "$ref": "#/$defs/SessionId",
+      "description": "Live session to read."
+    }
+  },
+  "required": [
+    "session_id"
+  ],
+  "title": "GetSelectionParams",
+  "type": "object"
+}

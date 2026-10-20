@@ -1,0 +1,276 @@
+name: CI
+
+# Pull request and push pipeline for the FigTether workspace.
+#
+# Job map (mirrors the CI gate list in docs/01-agile/01-sdlc-process.md):
+#   rust-fmt          CI-01  cargo fmt --all --check
+#   rust-clippy       CI-02  cargo clippy --workspace --all-targets -- -D warnings
+#   rust-test         CI-03  cargo test --workspace
+#   schema-contract   CI-04  generated schemas must equal the committed ones
+#   plugin-typescript CI-05/06/07  typecheck, lint, test (skipped until the plugin lands)
+#   docs-format       CI-13  npm run format:check plus the em dash scan
+#   dependency-audit  CI-09  cargo deny plus cargo audit
+#   sbom              CI-10  CycloneDX SBOM artifact
+#   license-check     license files plus the dependency license policy
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+# Least privilege by default: every job only needs to read the repository.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: "1"
+
+jobs:
+  rust-fmt:
+    name: rust fmt
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          components: rustfmt
+          cache: true
+      - name: cargo fmt --all --check
+        run: cargo fmt --all --check
+
+  rust-clippy:
+    name: rust clippy
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          components: clippy
+          cache: true
+      - name: cargo clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+  rust-test:
+    name: rust test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          cache: true
+      - name: cargo test --workspace
+        run: cargo test --workspace
+
+  schema-contract:
+    name: schema contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          cache: true
+      - name: Check the committed schemas against the generated ones
+        run: sh scripts/schema-check.sh
+
+  plugin-typescript:
+    name: plugin typescript
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      # The plugin workspace does not exist yet. The detection runs as a step
+      # so the job stays out of the way until plugins/figma/package.json lands
+      # and then runs the full loop.
+      - name: Detect the plugin workspace
+        id: plugin
+        run: |
+          set -euo pipefail
+          if [ -f plugins/figma/package.json ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "plugins/figma/package.json is not present, the TypeScript job is skipped" >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Install Node.js
+        if: steps.plugin.outputs.present == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+      - name: Verify the plugin lockfile
+        if: steps.plugin.outputs.present == 'true'
+        run: test -f plugins/figma/package-lock.json
+      - name: Install plugin dependencies
+        if: steps.plugin.outputs.present == 'true'
+        run: npm ci
+        working-directory: plugins/figma
+      - name: Typecheck
+        if: steps.plugin.outputs.present == 'true'
+        run: npm run typecheck
+        working-directory: plugins/figma
+      - name: Lint
+        if: steps.plugin.outputs.present == 'true'
+        run: npm run lint
+        working-directory: plugins/figma
+      - name: Build
+        if: steps.plugin.outputs.present == 'true'
+        run: npm run build
+        working-directory: plugins/figma
+      - name: Test
+        if: steps.plugin.outputs.present == 'true'
+        run: npm test
+        working-directory: plugins/figma
+
+  docs-format:
+    name: docs format
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install documentation tooling
+        run: npm ci
+      - name: Prettier check
+        run: npm run format:check
+      - name: Em dash scan
+        run: sh scripts/scan-em-dash.sh
+
+  dependency-audit:
+    name: dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          cache: true
+      - name: Install the audit tools
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny@0.20.2,cargo-audit@0.22.2
+      - name: cargo deny check
+        run: cargo deny check
+      - name: cargo audit
+        run: cargo audit
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install documentation tooling
+        run: npm ci
+      - name: Frontend lockfile audit
+        run: npm audit --audit-level=high
+
+  sbom:
+    name: sbom
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          cache: true
+      - name: Install cargo-cyclonedx
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-cyclonedx@0.5.9
+      - name: Generate the CycloneDX SBOM
+        run: |
+          mkdir -p artifacts/sbom
+          cargo cyclonedx --all-features --format json --license-accept-named "MIT/Apache-2.0"
+          find crates -name '*.cdx.json' -exec cp {} artifacts/sbom/ \;
+          ls -l artifacts/sbom
+      - name: Upload the SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-cyclonedx
+          path: artifacts/sbom/
+          if-no-files-found: error
+          retention-days: 30
+
+  license-check:
+    name: license check
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          cache: true
+      - name: Install cargo-deny
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny@0.20.2
+      - name: Verify the license files
+        run: |
+          set -euo pipefail
+          for file in LICENSE LICENSE-MIT LICENSE-APACHE NOTICE; do
+            if [ ! -s "$file" ]; then
+              echo "missing or empty: $file" >&2
+              exit 1
+            fi
+          done
+          grep -q "MIT OR Apache-2.0" LICENSE
+          grep -q "SPDX-License-Identifier: MIT OR Apache-2.0" LICENSE
+          grep -q "Apache License" LICENSE-APACHE
+          grep -q "MIT License" LICENSE-MIT
+      - name: Dependency license policy
+        run: cargo deny check licenses
+      - name: Workspace license metadata
+        run: |
+          set -euo pipefail
+          if ! grep -q 'license = "MIT OR Apache-2.0"' Cargo.toml; then
+            echo "the workspace license expression drifted from MIT OR Apache-2.0" >&2
+            exit 1
+          fi

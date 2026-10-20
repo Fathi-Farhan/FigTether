@@ -1,0 +1,56 @@
+{
+  "$defs": {
+    "VariantProperty": {
+      "description": "One variant property.",
+      "properties": {
+        "name": {
+          "description": "Property name.",
+          "type": "string"
+        },
+        "value": {
+          "description": "Property value.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "value"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "urn:figtether:schema:component_ref",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Reference to a component instance.",
+  "properties": {
+    "instance_id": {
+      "description": "Id of the instance node.",
+      "type": "string"
+    },
+    "main_component_id": {
+      "description": "Id of the main component.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "resolved": {
+      "description": "Whether the main component was resolved inside the granted scope.",
+      "type": "boolean"
+    },
+    "variant_properties": {
+      "default": [],
+      "description": "Variant properties of the instance.",
+      "items": {
+        "$ref": "#/$defs/VariantProperty"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "instance_id",
+    "resolved"
+  ],
+  "title": "ComponentRef",
+  "type": "object"
+}

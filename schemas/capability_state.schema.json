@@ -1,0 +1,57 @@
+{
+  "$id": "urn:figtether:schema:capability_state",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "State of one probed capability.",
+  "oneOf": [
+    {
+      "description": "The capability is usable in this context.",
+      "properties": {
+        "status": {
+          "const": "available",
+          "type": "string"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "type": "object"
+    },
+    {
+      "description": "The capability is not usable; `reason` explains why.",
+      "properties": {
+        "reason": {
+          "description": "Why the capability is unavailable.",
+          "type": "string"
+        },
+        "status": {
+          "const": "unavailable",
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "reason"
+      ],
+      "type": "object"
+    },
+    {
+      "description": "The capability exists in the product but not in this platform or seat.",
+      "properties": {
+        "reason": {
+          "description": "Where the capability would be supported.",
+          "type": "string"
+        },
+        "status": {
+          "const": "unsupported",
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "reason"
+      ],
+      "type": "object"
+    }
+  ],
+  "title": "CapabilityState"
+}

@@ -1,0 +1,151 @@
+{
+  "schema_version": "1.0",
+  "revision": "r1",
+  "license": "MIT",
+  "shape": "figtether_plugin_document",
+  "generator": "fixtures/tools/generate.mjs",
+  "fixtures": [
+    {
+      "id": "FX-SMALL",
+      "file": "fx-small.json",
+      "revision": "r1",
+      "origin": "hand-authored",
+      "purpose": "Baseline fresh reads, install checks and throttling free runs: 100 nodes, simple frames, text, one image fill and one variant instance.",
+      "node_count": 100,
+      "size_bytes": 45629,
+      "sha256": "7ab7ce41605dff8950a90e3161a74ca256cb3ff5f0aba08e05352cbb1022747c",
+      "attributes": [
+        "simple frames",
+        "text nodes",
+        "solid fills",
+        "strokes",
+        "image fill",
+        "variant instance",
+        "auto layout",
+        "drop shadow effect",
+        "geometry"
+      ],
+      "expected": {
+        "file": "expected/fx-small.normalized.json",
+        "size_bytes": 54010,
+        "sha256": "9f19af13d841ee4b46616d17fef737e196c10486343a9b9992eb3994bb13c52b"
+      }
+    },
+    {
+      "id": "FX-MEDIUM",
+      "file": "fx-medium.json",
+      "revision": "r1",
+      "origin": "generated",
+      "purpose": "Steady state traversal, cache behaviour and pagination at moderate size: 1,000 nodes with nested auto layout, mixed style text runs, gradients, masks, aliases and modes, hidden and locked nodes and non Latin text.",
+      "node_count": 1000,
+      "size_bytes": 582386,
+      "sha256": "9f3ee0511118fc99e88419d98e4b2db941e5c2e5013354a6c7c27edd1297c318",
+      "attributes": [
+        "nested auto layout",
+        "mixed style text runs",
+        "gradients",
+        "masks",
+        "variable aliases",
+        "variable modes",
+        "hidden nodes",
+        "locked nodes",
+        "non-Latin text",
+        "component instances",
+        "unavailable fields",
+        "traversal scale"
+      ]
+    },
+    {
+      "id": "FX-LARGE",
+      "file": "fx-large.json",
+      "revision": "r1",
+      "origin": "generated",
+      "purpose": "Pagination limits, cursor binding and truncation: 10,000 nodes in scope with deep nesting and a wide fan out.",
+      "node_count": 10000,
+      "size_bytes": 4714798,
+      "sha256": "d09032dcb59cd8810d115c59f83a583b02aafbfc6329b096929997392126d2d1",
+      "attributes": [
+        "traversal scale",
+        "deep nesting",
+        "wide fan out",
+        "auto layout",
+        "text nodes",
+        "gradients",
+        "component instances",
+        "hidden nodes"
+      ]
+    },
+    {
+      "id": "FX-CROSSPAGE",
+      "file": "fx-crosspage.json",
+      "revision": "r1",
+      "origin": "generated",
+      "purpose": "Lazy loading and per page traversal: 10,000 nodes spread over ten pages, one tree per page, so that no page has to be loaded up front.",
+      "node_count": 10000,
+      "size_bytes": 4681730,
+      "sha256": "5d53ea14dc1608a1c8f11aca40a1efeb7c496c212bebb4875f3deb5004208bcd",
+      "attributes": [
+        "multi page document",
+        "lazy loading",
+        "per page roots",
+        "traversal scale",
+        "auto layout",
+        "text nodes",
+        "gradients"
+      ]
+    },
+    {
+      "id": "FX-MIXED",
+      "file": "fx-mixed.json",
+      "revision": "r1",
+      "origin": "hand-authored",
+      "purpose": "Normalization and export fidelity: one document that carries every unknown and edge case of the attribute checklist, used as the ground truth of the normalized output.",
+      "node_count": 201,
+      "size_bytes": 106839,
+      "sha256": "490ccf3b3a9059a40c514721cdb48e4df268e18b327dbcbcfa9a53965660bbda",
+      "attributes": [
+        "unknown node type",
+        "missing node reference",
+        "unresolved alias",
+        "unresolved mode",
+        "unsupported effect",
+        "unknown paint kind",
+        "non-Latin text",
+        "missing font",
+        "nested layout",
+        "mixed text",
+        "variants",
+        "gradients",
+        "masks",
+        "image fills",
+        "hidden nodes",
+        "locked nodes",
+        "unavailable fields",
+        "geometry edge cases",
+        "long names"
+      ]
+    },
+    {
+      "id": "FX-ADVERSARIAL",
+      "file": "fx-adversarial.json",
+      "revision": "r1",
+      "origin": "hand-authored",
+      "purpose": "Parser and limit hardening: inputs for the negative tests, among them a node id that does not exist, a cycle in the parent relation, a very deep chain, a node that claims more than 10,000 descendants and a text node with empty runs.",
+      "node_count": 312,
+      "size_bytes": 233165,
+      "sha256": "b6009567c6d852ed2b9b7141340e7e468a794ef5c5904781422375e98740dc9b",
+      "attributes": [
+        "missing node reference",
+        "missing parent reference",
+        "parent cycle",
+        "deep chain",
+        "over budget descendant claim",
+        "empty text runs",
+        "unknown node type",
+        "long names",
+        "large text",
+        "all fields unavailable"
+      ]
+    }
+  ]
+}

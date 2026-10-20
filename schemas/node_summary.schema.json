@@ -1,0 +1,43 @@
+{
+  "$id": "urn:figtether:schema:node_summary",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Identity and tree position of a node.",
+  "properties": {
+    "child_count": {
+      "description": "Number of children inside the granted scope.",
+      "format": "uint32",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "id": {
+      "description": "Figma node id, opaque string.",
+      "type": "string"
+    },
+    "locked": {
+      "description": "Whether the node is locked.",
+      "type": "boolean"
+    },
+    "name": {
+      "description": "Display name.",
+      "type": "string"
+    },
+    "node_type": {
+      "description": "Node type, for example `FRAME` or `TEXT`. Unknown types are preserved.",
+      "type": "string"
+    },
+    "visible": {
+      "description": "Whether the node is visible.",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "id",
+    "node_type",
+    "name",
+    "visible",
+    "locked",
+    "child_count"
+  ],
+  "title": "NodeSummary",
+  "type": "object"
+}

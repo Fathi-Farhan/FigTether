@@ -1,0 +1,109 @@
+# cargo-deny configuration for FigTether.
+#
+# Scope: the Rust workspace under `crates/`. The allow lists below are derived
+# from the real dependency tree (`cargo metadata --all-features`), so they track
+# what the project actually links, not a guess.
+#
+# Project license: `MIT OR Apache-2.0` (ADR-009). License families that conflict
+# with that choice (GPL, AGPL, SSPL, BUSL, and the proprietary/closed-source set)
+# are deliberately absent from `licenses.allow`; cargo-deny denies any license
+# expression that is not covered by the allow list, so a new copyleft dependency
+# fails the audit job instead of passing silently.
+#
+# Local run: `cargo deny check` (see `just audit`).
+
+[graph]
+# Targets the project ships for: Windows x64, macOS x64, macOS arm64.
+# Linux is listed because the core CLI and fixtures are built there in CI.
+targets = [
+  "x86_64-pc-windows-msvc",
+  "x86_64-apple-darwin",
+  "aarch64-apple-darwin",
+  "x86_64-unknown-linux-gnu",
+]
+all-features = true
+
+[output]
+feature-depth = 1
+
+# Advisory database configuration (RustSec). The database is fetched into
+# `db-path` and cached between runs.
+[advisories]
+db-urls = ["https://github.com/rustsec/advisory-db"]
+db-path = "$CARGO_HOME/advisory-dbs"
+# No advisory is ignored today. Every entry needs an id, a reason, and a review
+# date, and it is reviewed again at each gate.
+ignore = []
+git-fetch-with-cli = false
+
+# License policy. The allow list is the union of the individual SPDX ids that
+# cargo-deny resolves from the real tree (`cargo deny list`, verified against
+# `Cargo.lock` with `--all-features` for the Windows, macOS x64, macOS arm64 and
+# Linux targets):
+#   Apache-2.0, Apache-2.0 WITH LLVM-exception, BSD-2-Clause, BSD-3-Clause,
+#   BSL-1.0, MIT, Unicode-3.0, Unlicense.
+#
+# cargo-deny denies every license expression that the allow list does not
+# cover, so the allow list is the ban list. The families that conflict with
+# `MIT OR Apache-2.0` and that are therefore denied by omission:
+#
+#   GPL family        GPL-1.0, GPL-2.0, GPL-3.0 and every -only or -or-later
+#                     variant, including GPL-2.0-with-classpath-exception
+#   AGPL family      AGPL-1.0, AGPL-3.0 and every variant
+#   LGPL family      LGPL-2.0, LGPL-2.1, LGPL-3.0 and every variant
+#   Other copyleft   SSPL-1.0, BUSL-1.1, OSL-3.0, CDDL-1.0, EPL-2.0, CPL-1.0
+#   Proprietary       every license that is not in the allow list, including
+#                     the commercial licenses of the Figma platform
+#
+# A new dependency that needs one of those licenses fails the audit job and
+# needs an ADR plus a maintainer decision before the allow list changes.
+[licenses]
+allow = [
+  "MIT",
+  "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "BSL-1.0",
+  "Unlicense",
+  "Unicode-3.0",
+]
+confidence-threshold = 0.8
+exceptions = []
+
+# The workspace crates carry the project SPDX expression, so private crates are
+# checked as well. `crates/e2e` is `publish = false` but still licensed.
+[licenses.private]
+ignore = false
+registries = []
+
+# Dependency bans. Duplicated versions are a warning because the tree currently
+# carries a few parallel major lines (rand 0.9 and 0.10, base64 0.22 and 0.23,
+# digest 0.10 and 0.11).
+#
+# `wildcards` stays a warning on purpose: cargo-deny reports the Cargo
+# `{ workspace = true }` inheritance form as a wildcard dependency, which is a
+# false positive for this workspace. A real `version = "*"` requirement is
+# still surfaced by the report and is reviewed by the release owner.
+[bans]
+multiple-versions = "warn"
+wildcards = "warn"
+highlight = "all"
+allow = []
+allow-workspace = true
+deny = []
+skip = []
+skip-tree = []
+
+# Sources: only the crates.io registry is accepted. Git dependencies need an
+# explicit entry with a reason, otherwise the audit job fails.
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []
+
+[sources.allow-org]
+github = []
+gitlab = []
+bitbucket = []

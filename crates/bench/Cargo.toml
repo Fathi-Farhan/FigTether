@@ -1,0 +1,48 @@
+[package]
+name = "figtether-bench"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "FigTether offline domain benchmarks: Criterion workloads W1 to W5 plus the release evidence report generator"
+publish = false
+
+[dependencies]
+figtether-model = { workspace = true }
+figtether-protocol = { workspace = true }
+figtether-core = { workspace = true }
+figtether-daemon = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+tempfile = { workspace = true }
+clap = { workspace = true }
+anyhow = { workspace = true }
+
+[dev-dependencies]
+# Criterion 0.8 (the workspace pins 0.8.2) drives the workload profiles.
+criterion = { workspace = true }
+
+[[bench]]
+name = "w1_cached"
+harness = false
+
+[[bench]]
+name = "w2_fresh"
+harness = false
+
+[[bench]]
+name = "w3_export"
+harness = false
+
+[[bench]]
+name = "w4_soak"
+harness = false
+
+[[bench]]
+name = "w5_decomposition"
+harness = false

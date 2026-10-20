@@ -1,0 +1,283 @@
+{
+  "$defs": {
+    "Consistency": {
+      "description": "How consistent the observed data is with the document.",
+      "oneOf": [
+        {
+          "const": "fresh",
+          "description": "The request reached the plugin and observed the document directly.",
+          "type": "string"
+        },
+        {
+          "const": "cached",
+          "description": "Served from the cache under an explicit age bound.",
+          "type": "string"
+        },
+        {
+          "const": "best_effort",
+          "description": "Best effort: the document may have changed during the observation.",
+          "type": "string"
+        }
+      ]
+    },
+    "Coverage": {
+      "description": "How much of the request the payload actually covers.",
+      "properties": {
+        "next_cursor": {
+          "description": "Cursor that continues a truncated traversal.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "returned_nodes": {
+          "default": 0,
+          "description": "Number of nodes returned.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "root_ids": {
+          "default": [],
+          "description": "Roots the read was scoped to.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "truncated": {
+          "default": false,
+          "description": "Whether the result was cut short.",
+          "type": "boolean"
+        },
+        "unavailable_fields": {
+          "default": [],
+          "description": "Fields that could not be provided, with the reason appended.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "Freshness": {
+      "description": "Which read lane produced the payload.",
+      "oneOf": [
+        {
+          "const": "fresh_read",
+          "description": "The request was executed against the editor.",
+          "type": "string"
+        },
+        {
+          "const": "cache_hit",
+          "description": "The answer came from the local cache.",
+          "type": "string"
+        }
+      ]
+    },
+    "Observation": {
+      "description": "The observation window of one read.",
+      "properties": {
+        "cache_age_ms": {
+          "description": "Age of the cached payload in milliseconds, when the lane was a cache hit.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "consistency": {
+          "$ref": "#/$defs/Consistency",
+          "description": "Consistency of the observation."
+        },
+        "content_hash": {
+          "description": "Hash of the canonical payload.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "freshness": {
+          "$ref": "#/$defs/Freshness",
+          "description": "Which lane produced the payload."
+        },
+        "observation_id": {
+          "$ref": "#/$defs/ObservationId",
+          "description": "Identity of this observation."
+        },
+        "observed_at": {
+          "description": "When the data was observed.",
+          "format": "date-time",
+          "type": "string"
+        },
+        "started_at": {
+          "description": "When the read started.",
+          "format": "date-time",
+          "type": "string"
+        }
+      },
+      "required": [
+        "observation_id",
+        "started_at",
+        "observed_at",
+        "consistency",
+        "freshness"
+      ],
+      "type": "object"
+    },
+    "ObservationId": {
+      "description": "Identity of a single observation window.",
+      "format": "uuid",
+      "type": "string"
+    },
+    "SessionId": {
+      "description": "Identity of one plugin run or tab.",
+      "format": "uuid",
+      "type": "string"
+    },
+    "SnapshotId": {
+      "description": "Identity of one immutable capture.",
+      "format": "uuid",
+      "type": "string"
+    },
+    "SourceKind": {
+      "description": "Where a payload originated.",
+      "oneOf": [
+        {
+          "const": "plugin_live",
+          "description": "A live read that reached the running plugin.",
+          "type": "string"
+        },
+        {
+          "const": "plugin_snapshot",
+          "description": "An immutable capture taken earlier.",
+          "type": "string"
+        },
+        {
+          "const": "offline_bundle",
+          "description": "A bundle imported from disk, never a live session.",
+          "type": "string"
+        }
+      ]
+    },
+    "SourceRef": {
+      "description": "Provenance of one result.",
+      "properties": {
+        "connection_epoch": {
+          "description": "Connection epoch in force when the data was read.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "grant_epoch": {
+          "description": "Authorization epoch in force when the data was read.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "kind": {
+          "$ref": "#/$defs/SourceKind",
+          "description": "Origin of the data."
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SessionId"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Live session the data came from."
+        },
+        "snapshot_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SnapshotId"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Capture the data came from."
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "type": "object"
+    },
+    "Warning": {
+      "description": "A non-fatal caveat attached to a result.",
+      "properties": {
+        "code": {
+          "description": "Stable warning code.",
+          "type": "string"
+        },
+        "message": {
+          "description": "Human readable explanation.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "urn:figtether:schema:envelope",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "The common response envelope.",
+  "properties": {
+    "coverage": {
+      "$ref": "#/$defs/Coverage",
+      "description": "Coverage of the request."
+    },
+    "data": {
+      "description": "The payload itself."
+    },
+    "observation": {
+      "$ref": "#/$defs/Observation",
+      "description": "Observation window."
+    },
+    "request_id": {
+      "description": "Correlation id of the request.",
+      "type": "string"
+    },
+    "schema_version": {
+      "description": "Contract version of this envelope.",
+      "type": "string"
+    },
+    "source": {
+      "$ref": "#/$defs/SourceRef",
+      "description": "Provenance of the payload."
+    },
+    "warnings": {
+      "default": [],
+      "description": "Non-fatal caveats.",
+      "items": {
+        "$ref": "#/$defs/Warning"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "request_id",
+    "source",
+    "observation",
+    "coverage",
+    "data"
+  ],
+  "title": "Envelope",
+  "type": "object"
+}

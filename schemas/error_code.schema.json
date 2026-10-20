@@ -1,0 +1,133 @@
+{
+  "$id": "urn:figtether:schema:error_code",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Canonical error codes.",
+  "oneOf": [
+    {
+      "const": "AUTH_REQUIRED",
+      "description": "Credential missing, expired, or replayed.",
+      "type": "string"
+    },
+    {
+      "const": "AUTH_EXPIRED",
+      "description": "Credential was valid but has expired.",
+      "type": "string"
+    },
+    {
+      "const": "PERMISSION_DENIED",
+      "description": "Platform permission or organization policy denied the operation.",
+      "type": "string"
+    },
+    {
+      "const": "OUT_OF_SCOPE",
+      "description": "The requested node is outside the granted scope.",
+      "type": "string"
+    },
+    {
+      "const": "PLUGIN_OFFLINE",
+      "description": "The plugin is not connected; the editor is closed or asleep.",
+      "type": "string"
+    },
+    {
+      "const": "SESSION_NOT_FOUND",
+      "description": "The requested session does not exist or is no longer valid.",
+      "type": "string"
+    },
+    {
+      "const": "PAUSED",
+      "description": "The user paused the session; new reads are refused.",
+      "type": "string"
+    },
+    {
+      "const": "REVOKED",
+      "description": "The user revoked the grant.",
+      "type": "string"
+    },
+    {
+      "const": "NODE_NOT_FOUND",
+      "description": "The node does not exist in this session.",
+      "type": "string"
+    },
+    {
+      "const": "CAPABILITY_UNAVAILABLE",
+      "description": "The API, editor version, or seat does not expose this capability.",
+      "type": "string"
+    },
+    {
+      "const": "PAYLOAD_TOO_LARGE",
+      "description": "A payload exceeded the byte budget.",
+      "type": "string"
+    },
+    {
+      "const": "SCOPE_TOO_LARGE",
+      "description": "The requested scope is larger than the traversal budget.",
+      "type": "string"
+    },
+    {
+      "const": "BUSY",
+      "description": "The queue is saturated; retry after the given delay.",
+      "type": "string"
+    },
+    {
+      "const": "TIMEOUT",
+      "description": "The operation exceeded its deadline.",
+      "type": "string"
+    },
+    {
+      "const": "CANCELLED",
+      "description": "The operation was cancelled.",
+      "type": "string"
+    },
+    {
+      "const": "DOCUMENT_CHANGED",
+      "description": "The document changed during the observation window.",
+      "type": "string"
+    },
+    {
+      "const": "CURSOR_EXPIRED",
+      "description": "The pagination cursor is no longer valid.",
+      "type": "string"
+    },
+    {
+      "const": "RESYNC_REQUIRED",
+      "description": "A resynchronisation is required before reading again.",
+      "type": "string"
+    },
+    {
+      "const": "UNSUPPORTED_SCHEMA",
+      "description": "The client, daemon, and plugin versions are incompatible.",
+      "type": "string"
+    },
+    {
+      "const": "PROTOCOL_MISMATCH",
+      "description": "The wire protocol version is incompatible.",
+      "type": "string"
+    },
+    {
+      "const": "EXPORT_FAILED",
+      "description": "The export failed for the requested node or format.",
+      "type": "string"
+    },
+    {
+      "const": "FONT_UNAVAILABLE",
+      "description": "A font required by the export is unavailable.",
+      "type": "string"
+    },
+    {
+      "const": "SESSION_LIMIT",
+      "description": "The session limit is reached.",
+      "type": "string"
+    },
+    {
+      "const": "INVALID_LIMIT",
+      "description": "A requested limit is invalid (depth, batch size, scale).",
+      "type": "string"
+    },
+    {
+      "const": "INTERNAL_ERROR",
+      "description": "An unexpected internal error.",
+      "type": "string"
+    }
+  ],
+  "title": "ErrorCode"
+}

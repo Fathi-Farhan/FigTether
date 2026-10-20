@@ -1,0 +1,329 @@
+/*
+ * FigTether plugin user interface.
+ *
+ * One stylesheet, no external asset and no remote font. The system font stack
+ * is used on purpose so that the interface renders offline. The focus outline
+ * is never removed and the status colors are always paired with text, so no
+ * state depends on color alone.
+ */
+
+/* palette: light */
+:root {
+  color-scheme: light;
+  --figtether-bg: #ffffff;
+  --figtether-bg-raised: #f2f4f7;
+  --figtether-fg: #16191d;
+  --figtether-fg-muted: #4a5058;
+  --figtether-border: #767f8a;
+  --figtether-accent: #0b5fd0;
+  --figtether-accent-fg: #ffffff;
+  --figtether-danger: #a3160f;
+  --figtether-danger-bg: #fdeceb;
+  --figtether-ok: #14622f;
+  --figtether-ok-bg: #e8f4ec;
+  --figtether-focus: #0b5fd0;
+  --figtether-radius: 6px;
+  --figtether-gap: 12px;
+  --figtether-font:
+    system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  --figtether-mono:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+/* palette: dark */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --figtether-bg: #14171a;
+    --figtether-bg-raised: #1d2226;
+    --figtether-fg: #f2f4f7;
+    --figtether-fg-muted: #a8b0ba;
+    --figtether-border: #6b7787;
+    --figtether-accent: #7fb3ff;
+    --figtether-accent-fg: #0b1220;
+    --figtether-danger: #ff9a92;
+    --figtether-danger-bg: #2b1a19;
+    --figtether-ok: #7ee2a8;
+    --figtether-ok-bg: #12241a;
+    --figtether-focus: #7fb3ff;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--figtether-bg);
+  color: var(--figtether-fg);
+  font-family: var(--figtether-font);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0 0 8px;
+  line-height: 1.25;
+}
+
+h1 {
+  font-size: 18px;
+}
+
+h2 {
+  font-size: 15px;
+}
+
+h3 {
+  font-size: 14px;
+}
+
+p {
+  margin: 0 0 8px;
+}
+
+code {
+  font-family: var(--figtether-mono);
+  font-size: 0.95em;
+}
+
+:focus-visible {
+  outline: 3px solid var(--figtether-focus);
+  outline-offset: 2px;
+}
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  background: var(--figtether-accent);
+  color: var(--figtether-accent-fg);
+  padding: 8px 12px;
+  border-radius: var(--figtether-radius);
+  z-index: 10;
+}
+
+.skip-link:focus {
+  left: 8px;
+  top: 8px;
+}
+
+.app-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--figtether-border);
+  background: var(--figtether-bg-raised);
+}
+
+.app-header__status {
+  margin: 4px 0 0;
+  color: var(--figtether-fg-muted);
+}
+
+main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--figtether-gap);
+  padding: 16px;
+}
+
+.panel {
+  border: 1px solid var(--figtether-border);
+  border-radius: var(--figtether-radius);
+  padding: 12px;
+  background: var(--figtether-bg);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+label {
+  font-weight: 600;
+}
+
+input[type="password"] {
+  font-family: var(--figtether-mono);
+  padding: 6px 8px;
+  border: 1px solid var(--figtether-border);
+  border-radius: var(--figtether-radius);
+  background: var(--figtether-bg);
+  color: var(--figtether-fg);
+  max-width: 320px;
+}
+
+input[type="password"]:disabled {
+  background: var(--figtether-bg-raised);
+  color: var(--figtether-fg-muted);
+}
+
+.fieldset {
+  border: 1px solid var(--figtether-border);
+  border-radius: var(--figtether-radius);
+  margin: 0 0 10px;
+  padding: 8px 10px;
+}
+
+.fieldset legend {
+  font-weight: 600;
+  padding: 0 4px;
+}
+
+.candidate-list,
+.capability-list,
+.log-list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.candidate-list li,
+.capability-list li,
+.log-list li {
+  margin: 2px 0;
+}
+
+.candidate {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 400;
+  cursor: pointer;
+}
+
+.candidate input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+
+.help,
+.note,
+.empty {
+  color: var(--figtether-fg-muted);
+  font-size: 13px;
+}
+
+.message {
+  margin: 8px 0 0;
+  font-size: 13px;
+}
+
+.message--error {
+  color: var(--figtether-danger);
+  background: var(--figtether-danger-bg);
+  border: 1px solid var(--figtether-danger);
+  border-radius: var(--figtether-radius);
+  padding: 6px 8px;
+}
+
+.message[data-state="ok"] {
+  color: var(--figtether-ok);
+}
+
+.message[data-state="error"] {
+  color: var(--figtether-danger);
+}
+
+.button {
+  font: inherit;
+  padding: 6px 12px;
+  border: 1px solid var(--figtether-border);
+  border-radius: var(--figtether-radius);
+  background: var(--figtether-bg-raised);
+  color: var(--figtether-fg);
+  cursor: pointer;
+}
+
+.button:hover:not(:disabled) {
+  border-color: var(--figtether-accent);
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  color: var(--figtether-fg-muted);
+}
+
+.button--primary {
+  background: var(--figtether-accent);
+  color: var(--figtether-accent-fg);
+  border-color: var(--figtether-accent);
+}
+
+.button--primary:disabled {
+  background: var(--figtether-bg-raised);
+  color: var(--figtether-fg-muted);
+  border-color: var(--figtether-border);
+}
+
+.button--danger {
+  border-color: var(--figtether-danger);
+  color: var(--figtether-danger);
+  background: var(--figtether-bg);
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.confirm {
+  margin-top: 12px;
+  padding: 10px;
+  border: 1px solid var(--figtether-danger);
+  border-radius: var(--figtether-radius);
+  background: var(--figtether-danger-bg);
+}
+
+.facts,
+.status-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 12px 0 0;
+}
+
+.facts__item,
+.status-strip__item {
+  min-width: 140px;
+}
+
+.facts dt,
+.status-strip dt {
+  font-size: 12px;
+  color: var(--figtether-fg-muted);
+}
+
+.facts dd,
+.status-strip dd {
+  margin: 0;
+  font-weight: 600;
+  word-break: break-all;
+}
+
+.log-list {
+  font-family: var(--figtether-mono);
+  font-size: 12px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.app-footer {
+  padding: 0 16px 16px;
+  color: var(--figtether-fg-muted);
+  font-size: 12px;
+}
+
+[hidden] {
+  display: none !important;
+}

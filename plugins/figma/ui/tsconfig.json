@@ -1,0 +1,53 @@
+{
+  // The user interface project of the FigTether Figma plugin.
+  //
+  // It mirrors the compiler options of the root solution
+  // (plugins/figma/tsconfig.json) on purpose. It does not extend the root,
+  // because the root is a solution that references this project and the
+  // shared package, and a tool that follows the extends chain would have to
+  // resolve those references as well.
+  //
+  // The differences to the root are the DOM libraries, the project reference
+  // to the shared package and the emitted declaration files.
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    // The user interface runs in the plugin iframe, so it has the DOM.
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "types": [],
+    "strict": true,
+    "noImplicitAny": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "useUnknownInCatchVariables": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    // The user interface is a referenced project of the root solution, so it
+    // has to emit declarations.
+    "composite": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "noEmit": false,
+    "rootDir": ".",
+    "outDir": "types-dist",
+    "tsBuildInfoFile": "types-dist/tsconfig.tsbuildinfo",
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    // The shared package is consumed through the same path mapping that the
+    // root solution uses, so the editor, esbuild and the tests all see the
+    // same contract.
+    "baseUrl": "..",
+    "paths": {
+      "@figtether/shared": ["./shared/src/index.ts"],
+      "@figtether/shared/*": ["./shared/src/*"]
+    }
+  },
+  "include": ["src/**/*", "types/**/*"],
+  "references": [{ "path": "../shared/tsconfig.json" }]
+}

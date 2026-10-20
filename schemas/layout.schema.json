@@ -1,0 +1,106 @@
+{
+  "$defs": {
+    "Padding": {
+      "description": "Padding of a layout container.",
+      "properties": {
+        "bottom": {
+          "description": "Bottom padding.",
+          "format": "double",
+          "type": "number"
+        },
+        "left": {
+          "description": "Left padding.",
+          "format": "double",
+          "type": "number"
+        },
+        "right": {
+          "description": "Right padding.",
+          "format": "double",
+          "type": "number"
+        },
+        "top": {
+          "description": "Top padding.",
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "top",
+        "right",
+        "bottom",
+        "left"
+      ],
+      "type": "object"
+    },
+    "SizingMode": {
+      "description": "Sizing mode of a node inside auto layout.",
+      "oneOf": [
+        {
+          "const": "fixed",
+          "description": "Fixed size.",
+          "type": "string"
+        },
+        {
+          "const": "hug",
+          "description": "Hug contents.",
+          "type": "string"
+        },
+        {
+          "const": "fill",
+          "description": "Fill the container.",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "$id": "urn:figtether:schema:layout",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Auto layout description.",
+  "properties": {
+    "auto_layout": {
+      "description": "Whether auto layout is enabled.",
+      "type": "boolean"
+    },
+    "axis": {
+      "description": "Primary axis: `HORIZONTAL`, `VERTICAL`, or `NONE`.",
+      "type": "string"
+    },
+    "counter_axis_align": {
+      "description": "Main axis alignment.",
+      "type": "string"
+    },
+    "gap": {
+      "description": "Gap between children.",
+      "format": "double",
+      "type": "number"
+    },
+    "padding": {
+      "$ref": "#/$defs/Padding",
+      "description": "Padding around children."
+    },
+    "primary_axis_align": {
+      "description": "Counter axis alignment.",
+      "type": "string"
+    },
+    "sizing": {
+      "$ref": "#/$defs/SizingMode",
+      "description": "Sizing of this node."
+    },
+    "wraps": {
+      "description": "Whether text wraps.",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "auto_layout",
+    "axis",
+    "gap",
+    "padding",
+    "primary_axis_align",
+    "counter_axis_align",
+    "sizing",
+    "wraps"
+  ],
+  "title": "Layout",
+  "type": "object"
+}

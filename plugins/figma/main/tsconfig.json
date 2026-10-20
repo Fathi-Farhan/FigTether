@@ -1,0 +1,29 @@
+{
+  // The main sandbox project of the FigTether Figma plugin.
+  //
+  // It extends the solution configuration of plugins/figma/tsconfig.json and
+  // adds the two differences of the sandbox: no DOM library, because the
+  // sandbox has no browser API, and the Figma globals through the typings
+  // package.
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    // The sandbox is a referenced project of the solution, so it has to emit
+    // declarations and to keep its build information.
+    "composite": true,
+    "noEmit": false,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "rootDir": ".",
+    "outDir": "types-dist",
+    "tsBuildInfoFile": "types-dist/tsconfig.tsbuildinfo",
+    // No DOM in the sandbox.
+    "lib": ["ES2020"],
+    // The Figma globals: figma, console, setTimeout and clearTimeout.
+    "types": ["@figma/plugin-typings"],
+    "noUnusedLocals": true,
+    "noUnusedParameters": true
+  },
+  "include": ["src/**/*"],
+  "references": [{ "path": "../shared/tsconfig.json" }]
+}

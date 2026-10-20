@@ -1,0 +1,75 @@
+# Dependabot keeps the lockfiles and the pinned actions current.
+#
+# The update policy is part of the supply chain rules of PRD 8.11: the lockfiles
+# are tracked, the actions are pinned to a major version tag, and every update
+# has to pass the audit, the license check, and the SBOM job before it lands.
+
+version: 2
+
+updates:
+  - package-ecosystem: cargo
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 5
+    groups:
+      cargo-patch-and-minor:
+        update-types:
+          - minor
+          - patch
+    labels:
+      - dependencies
+      - rust
+    commit-message:
+      prefix: "build(cargo)"
+    ignore:
+      # A major version of a dependency needs an ADR and a review, not an
+      # automatic pull request.
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-major
+
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - docs
+    commit-message:
+      prefix: "build(docs)"
+
+  - package-ecosystem: npm
+    directory: "/plugins/figma"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - plugin
+    commit-message:
+      prefix: "build(plugin)"
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - ci
+    commit-message:
+      prefix: "build(ci)"

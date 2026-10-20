@@ -1,0 +1,47 @@
+name: Question
+description: Ask how to use FigTether or how to set it up.
+title: "[question] "
+labels:
+  - question
+  - needs-triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before you open this form, run `figtether doctor`. The output is sanitized and it
+        answers most setup questions.
+
+        Never attach a private design, a token, a pairing secret, or a session credential.
+  - type: textarea
+    id: question
+    attributes:
+      label: What do you want to know
+      render: text
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: FigTether version
+    validations:
+      required: false
+  - type: input
+    id: os
+    attributes:
+      label: Operating system and version
+    validations:
+      required: false
+  - type: input
+    id: figma-version
+    attributes:
+      label: Figma Desktop version
+    validations:
+      required: false
+  - type: textarea
+    id: doctor-output
+    attributes:
+      label: Output of `figtether doctor`
+      description: The sanitized report, with the design content removed.
+      render: text
+    validations:
+      required: false

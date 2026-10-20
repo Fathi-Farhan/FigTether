@@ -1,0 +1,88 @@
+{
+  "$defs": {
+    "SessionId": {
+      "description": "Identity of one plugin run or tab.",
+      "format": "uuid",
+      "type": "string"
+    },
+    "SnapshotId": {
+      "description": "Identity of one immutable capture.",
+      "format": "uuid",
+      "type": "string"
+    },
+    "SourceKind": {
+      "description": "Where a payload originated.",
+      "oneOf": [
+        {
+          "const": "plugin_live",
+          "description": "A live read that reached the running plugin.",
+          "type": "string"
+        },
+        {
+          "const": "plugin_snapshot",
+          "description": "An immutable capture taken earlier.",
+          "type": "string"
+        },
+        {
+          "const": "offline_bundle",
+          "description": "A bundle imported from disk, never a live session.",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "$id": "urn:figtether:schema:source_ref",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Provenance of one result.",
+  "properties": {
+    "connection_epoch": {
+      "description": "Connection epoch in force when the data was read.",
+      "format": "uint64",
+      "minimum": 0,
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "grant_epoch": {
+      "description": "Authorization epoch in force when the data was read.",
+      "format": "uint64",
+      "minimum": 0,
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "kind": {
+      "$ref": "#/$defs/SourceKind",
+      "description": "Origin of the data."
+    },
+    "session_id": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SessionId"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Live session the data came from."
+    },
+    "snapshot_id": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SnapshotId"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Capture the data came from."
+    }
+  },
+  "required": [
+    "kind"
+  ],
+  "title": "SourceRef",
+  "type": "object"
+}

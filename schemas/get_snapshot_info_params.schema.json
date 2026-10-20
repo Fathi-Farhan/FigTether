@@ -1,0 +1,23 @@
+{
+  "$defs": {
+    "SnapshotId": {
+      "description": "Identity of one immutable capture.",
+      "format": "uuid",
+      "type": "string"
+    }
+  },
+  "$id": "urn:figtether:schema:get_snapshot_info_params",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Parameters of `get_snapshot_info`.",
+  "properties": {
+    "snapshot_id": {
+      "$ref": "#/$defs/SnapshotId",
+      "description": "Snapshot to describe."
+    }
+  },
+  "required": [
+    "snapshot_id"
+  ],
+  "title": "GetSnapshotInfoParams",
+  "type": "object"
+}

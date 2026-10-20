@@ -1,0 +1,32 @@
+# Build and dependency artifacts
+node_modules/
+dist/
+build/
+target/
+coverage/
+out/
+
+# Generated artifacts: the schemas are produced by the model generator and are
+# verified byte for byte by the schema contract job, so they are never
+# reformatted by hand.
+schemas/
+plugins/figma/dist/
+plugins/figma/*/dist/
+
+# Experiment and run artifacts
+runs/
+artifacts/
+tmp/
+
+# Binary and vendor assets
+*.docx
+*.pdf
+*.png
+*.gif
+*.woff
+*.woff2
+
+# Secrets and logs
+.env
+.env.*
+*.log
