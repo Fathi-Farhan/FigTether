@@ -111,7 +111,27 @@ impl ControlClient {
 }
 
 /// The port the daemon is expected to use.
+///
+/// A port that the user names wins. The runtime file names the port of the
+/// running daemon. Without it, the local plugin manifest names the port this
+/// machine uses, because the plugin reads its port from that manifest. The
+/// default port is the last resort.
 pub fn expected_port(port: Option<u16>, runtime_dir: Option<&Path>) -> u16 {
+    expected_port_from(
+        port,
+        runtime_dir,
+        crate::commands::manifest::local_manifest_port,
+    )
+}
+
+/// The port, with the manifest lookup kept separate.
+///
+/// The separation keeps the rule testable without a checkout next to the test.
+pub fn expected_port_from(
+    port: Option<u16>,
+    runtime_dir: Option<&Path>,
+    manifest_port: impl FnOnce() -> Option<u16>,
+) -> u16 {
     if let Some(port) = port {
         return port;
     }
@@ -119,6 +139,7 @@ pub fn expected_port(port: Option<u16>, runtime_dir: Option<&Path>) -> u16 {
         .ok()
         .and_then(|dir| runtime::daemon_file(&dir))
         .map(|file| file.port)
+        .or_else(manifest_port)
         .unwrap_or(DEFAULT_PORT)
 }
 
@@ -196,8 +217,23 @@ mod tests {
     #[test]
     fn the_expected_port_falls_back_to_the_bridge_port() {
         let temp = tempfile::tempdir().expect("temp dir");
-        assert_eq!(expected_port(None, Some(temp.path())), DEFAULT_PORT);
-        assert_eq!(expected_port(Some(1234), Some(temp.path())), 1234);
+        assert_eq!(
+            expected_port_from(None, Some(temp.path()), || None),
+            DEFAULT_PORT
+        );
+        assert_eq!(
+            expected_port_from(Some(1234), Some(temp.path()), || None),
+            1234
+        );
+    }
+
+    #[test]
+    fn the_manifest_port_is_used_before_the_default_port() {
+        let temp = tempfile::tempdir().expect("temp dir");
+        assert_eq!(
+            expected_port_from(None, Some(temp.path()), || Some(39029)),
+            39029
+        );
     }
 
     #[test]

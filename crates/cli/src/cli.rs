@@ -137,9 +137,11 @@ pub struct DoctorArgs {
 /// Arguments of `figtether daemon`.
 #[derive(Debug, Args)]
 pub struct DaemonArgs {
-    /// Loopback port to bind. The port is never changed silently.
-    #[arg(long, default_value_t = DEFAULT_PORT, value_name = "PORT")]
-    pub port: u16,
+    /// Loopback port to bind. Without it the port of the local plugin manifest
+    /// is used, because the plugin reads its port from that manifest. The
+    /// port is never changed silently.
+    #[arg(long, value_name = "PORT")]
+    pub port: Option<u16>,
     /// Runtime directory that holds the owner only runtime files.
     #[arg(long, value_name = "PATH")]
     pub runtime_dir: Option<PathBuf>,
@@ -151,7 +153,7 @@ pub struct DaemonArgs {
 impl Default for DaemonArgs {
     fn default() -> Self {
         Self {
-            port: DEFAULT_PORT,
+            port: None,
             runtime_dir: None,
             log_level: LogLevel::Info,
         }
@@ -237,10 +239,12 @@ pub struct ManifestArgs {
     /// account. Without it the id of the existing manifest is kept.
     #[arg(long, value_name = "ID")]
     pub plugin_id: Option<String>,
-    /// Loopback port the plugin is allowed to reach. Use `auto` to pick a free one.
+    /// Loopback port the plugin is allowed to reach. Use `auto` to keep the
+    /// port that the machine and the plugin already agree on, or to pick a
+    /// free one.
     #[arg(
         long,
-        default_value_t = PortSelection::Fixed(DEFAULT_PORT),
+        default_value_t = PortSelection::Auto,
         value_name = "PORT",
         value_parser = parse_port_selection
     )]
@@ -248,6 +252,10 @@ pub struct ManifestArgs {
     /// Editor the plugin runs in.
     #[arg(long, value_enum, default_value_t = EditorType::Figma, value_name = "EDITOR")]
     pub editor_type: EditorType,
+    /// Runtime directory that holds the owner only runtime files. It is read
+    /// to keep the port of the running daemon.
+    #[arg(long, value_name = "PATH")]
+    pub runtime_dir: Option<PathBuf>,
 }
 
 /// Arguments of `figtether revoke`.
@@ -484,7 +492,7 @@ mod tests {
         .expect("parses");
         match cli.into_command() {
             Command::Daemon(args) => {
-                assert_eq!(args.port, 38948);
+                assert_eq!(args.port, Some(38948));
                 assert_eq!(args.runtime_dir, Some(PathBuf::from("runtime")));
                 assert_eq!(args.log_level, LogLevel::Debug);
             }
@@ -493,10 +501,10 @@ mod tests {
     }
 
     #[test]
-    fn the_daemon_port_defaults_to_the_bridge_port() {
+    fn the_daemon_port_is_not_set_without_the_flag() {
         let cli = Cli::try_parse_from(["figtether", "daemon"]).expect("parses");
         match cli.into_command() {
-            Command::Daemon(args) => assert_eq!(args.port, DEFAULT_PORT),
+            Command::Daemon(args) => assert_eq!(args.port, None),
             other => panic!("unexpected command: {other:?}"),
         }
     }
@@ -584,11 +592,11 @@ mod tests {
     }
 
     #[test]
-    fn the_manifest_port_defaults_to_the_bridge_port() {
+    fn the_manifest_port_defaults_to_the_agreed_port() {
         let cli = Cli::try_parse_from(["figtether", "manifest", "--plugin-id", "123456789"])
             .expect("parses");
         match cli.into_command() {
-            Command::Manifest(args) => assert_eq!(args.port, PortSelection::Fixed(DEFAULT_PORT)),
+            Command::Manifest(args) => assert_eq!(args.port, PortSelection::Auto),
             other => panic!("unexpected command: {other:?}"),
         }
     }

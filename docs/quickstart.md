@@ -174,17 +174,19 @@ to load the updated bundle.
 
 The default port is `38947`. If the daemon reports error 10013, Windows has reserved that port
 range for the hypervisor and nothing listens on it. Run `figtether doctor` for the diagnosis; the
-port check names the reserved range and the free port to use. Then let the CLI pick that port and
-write it into the manifest:
+port check names the reserved range and the free port to use. Then let the CLI write the manifest
+for that port:
 
 ```sh
 figtether manifest --plugin-id YOUR_PLUGIN_ID --port auto --out plugins/figma/manifest.local.json
 ```
 
-The command prints the matching `figtether daemon --port <port>` command. Rebuild the plugin and
-start the daemon with that port, because the plugin manifest and the daemon have to agree on it.
-The port is never changed silently. See
-[Windows reserved-port recovery](agent-setup.md#windows-error-10013-reserved-port).
+`--port auto` keeps the port that the machine and the plugin already agree on, and picks a free
+port only when there is no agreement. That is the port of the running daemon, or the port of the
+manifest that already exists when it can still be bound. The command prints the matching
+`figtether daemon --port <port>` command. Rebuild the plugin and start the daemon with that port,
+because the plugin manifest and the daemon have to agree on it. The port is never changed
+silently. See [Windows reserved-port recovery](agent-setup.md#windows-error-10013-reserved-port).
 
 ## 3. Start the daemon
 
@@ -195,6 +197,29 @@ figtether
 With no subcommand, `figtether` starts the daemon in this terminal. `figtether daemon`
 still works; use that form for daemon flags such as `--runtime-dir`. Starting the daemon
 does not generate a pairing secret or grant access to any Figma frame.
+
+#### Which port the daemon binds
+
+One command has to be enough, so the port is resolved instead of asked for:
+
+1. A port that you name with `--port` wins.
+2. The port of the local plugin manifest wins over the default, because the plugin reads
+   its port from that manifest and the two have to agree.
+3. The default bridge port `38947` is used when nothing names another one.
+4. When the default port cannot be bound and no manifest names a port, a free port is
+   picked. The daemon says so, and prints the command that writes the manifest for the
+   same port. The change is announced, never silent.
+
+The daemon prints the port and its source on startup:
+
+```text
+FigTether daemon 0.1.0
+  bridge address           127.0.0.1:39029
+  port source              plugins/figma/manifest.local.json
+```
+
+`figtether doctor` shows the same port, so the daemon and the doctor never disagree about
+where the bridge is.
 
 Leave this terminal open. In a second terminal, with the same `PATH`:
 

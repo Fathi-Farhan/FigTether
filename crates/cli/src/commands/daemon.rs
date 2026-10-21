@@ -21,10 +21,13 @@ pub const DAEMON_VERSION: &str = figtether_daemon::DAEMON_VERSION;
 
 /// Run the daemon in the foreground.
 pub fn run(args: DaemonArgs) -> anyhow::Result<CommandOutcome> {
-    ensure_port_is_free(args.port)?;
+    let start = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+    let choice = resolve_port(args.port, &start);
+    let port = choice.port();
+    ensure_port_is_free(port)?;
 
     let mut config = DaemonConfig::new()
-        .with_port(args.port)
+        .with_port(port)
         .with_log_level(args.log_level.as_str());
     if let Some(runtime_dir) = args.runtime_dir.clone() {
         config = config.with_runtime_dir(runtime_dir);
@@ -32,11 +35,15 @@ pub fn run(args: DaemonArgs) -> anyhow::Result<CommandOutcome> {
 
     output::blank();
     output::line(&format!("FigTether daemon {DAEMON_VERSION}"));
-    output::field("bridge address", &format!("127.0.0.1:{}", args.port));
+    output::field("bridge address", &format!("127.0.0.1:{port}"));
+    if let Some(source) = choice.source() {
+        output::field("port source", &source.display().to_string());
+    }
     if let Some(runtime_dir) = &args.runtime_dir {
         output::field("runtime directory", &runtime_dir.display().to_string());
     }
     output::blank();
+    choice.explain();
     output::note("press Ctrl+C to stop the daemon");
     output::note(
         "leave this terminal open; run figtether pair in another terminal to pair the Figma plugin",
@@ -60,13 +67,137 @@ pub fn run(args: DaemonArgs) -> anyhow::Result<CommandOutcome> {
             })),
             Err(DaemonError::Bind(err)) if err.kind() == ErrorKind::AddrInUse => {
                 Err(anyhow::Error::new(port_unavailable(
-                    args.port,
+                    port,
                     figtether_daemon::port::PortProblem::InUse,
                 )))
             }
             Err(err) => Err(anyhow::anyhow!("the daemon could not start: {err}")),
         }
     })
+}
+
+/// The port the daemon binds.
+///
+/// The default port stays the default, so that `figtether` alone is the whole
+/// command an end user needs. Two rules keep the plugin and the daemon in
+/// agreement:
+///
+/// - A port that the user names wins.
+/// - The port of the local plugin manifest wins over the default, because the
+///   plugin reads its port from that manifest.
+///
+/// Only when no manifest names a port, and the default cannot be bound, is a
+/// free port picked. The choice is announced with the command that moves the
+/// plugin to the same port, so it is never a silent change.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum PortChoice {
+    /// The user named the port.
+    Named(u16),
+    /// The local plugin manifest names the port.
+    Manifest(u16, std::path::PathBuf),
+    /// The default port can be bound.
+    Default(u16),
+    /// The default port cannot be bound, and a free port was picked.
+    Picked {
+        /// The port that could not be bound.
+        default: u16,
+        /// The port the daemon binds.
+        port: u16,
+        /// Why the default could not be bound.
+        problem: figtether_daemon::port::PortProblem,
+    },
+}
+
+impl PortChoice {
+    /// The port the daemon binds.
+    fn port(&self) -> u16 {
+        match self {
+            Self::Named(port) => *port,
+            Self::Manifest(port, _) => *port,
+            Self::Default(port) => *port,
+            Self::Picked { port, .. } => *port,
+        }
+    }
+
+    /// The file that named the port, when a file named it.
+    fn source(&self) -> Option<&std::path::Path> {
+        match self {
+            Self::Manifest(_, source) => Some(source.as_path()),
+            _ => None,
+        }
+    }
+
+    /// Tell the user how the port was chosen.
+    fn explain(&self) {
+        match self {
+            Self::Named(_) => {}
+            Self::Manifest(_, source) => {
+                output::note(&format!(
+                    "the port comes from {}, the file the plugin reads",
+                    source.display()
+                ));
+            }
+            Self::Default(_) => {
+                output::note(&format!(
+                    "the default bridge port {} is used",
+                    crate::cli::DEFAULT_PORT
+                ));
+            }
+            Self::Picked {
+                default,
+                port,
+                problem,
+            } => {
+                output::note(&format!(
+                    "the default bridge port {default} cannot be bound: {}",
+                    problem.message()
+                ));
+                output::note(&format!(
+                    "the daemon listens on {port} instead, so that one command is enough."
+                ));
+                output::note("the plugin needs the same port. Write the manifest for it:");
+                output::blank();
+                output::line(&format!(
+                    "  figtether manifest --port {port} --out plugins/figma/manifest.local.json"
+                ));
+                output::blank();
+                output::note("then import that manifest in Figma with Plugins, Development, Import plugin from manifest.");
+            }
+        }
+    }
+}
+
+/// The port the daemon binds, and the file that named it.
+///
+/// A port that the user names wins. Without one, the port of the local plugin
+/// manifest is used, because the plugin reads its port from that manifest and
+/// the two have to agree. The default port is the last resort, and it is only
+/// replaced by a free port when it cannot be bound and no manifest names one.
+fn resolve_port(requested: Option<u16>, start: &std::path::Path) -> PortChoice {
+    if let Some(port) = requested {
+        return PortChoice::Named(port);
+    }
+    let manifest = crate::commands::manifest::manifest_candidates(start)
+        .into_iter()
+        .find(|path| path.is_file());
+    let named = manifest.as_ref().and_then(|path| {
+        let text = std::fs::read_to_string(path).ok()?;
+        let value: serde_json::Value =
+            serde_json::from_str(text.trim_start_matches('\u{feff}')).ok()?;
+        crate::commands::manifest::manifest_port(&value)
+    });
+    if let (Some(port), Some(source)) = (named, manifest) {
+        return PortChoice::Manifest(port, source);
+    }
+    let default = crate::cli::DEFAULT_PORT;
+    match figtether_daemon::port::diagnose(default) {
+        None => PortChoice::Default(default),
+        Some(problem) => PortChoice::Picked {
+            default,
+            port: figtether_daemon::port::suggest_free_port(default),
+            problem,
+        },
+    }
 }
 
 /// Fail early when the port cannot be bound.
@@ -150,5 +281,54 @@ mod tests {
         let port = listener.local_addr().expect("address").port();
         drop(listener);
         ensure_port_is_free(port).expect("accepted");
+    }
+
+    #[test]
+    fn a_named_port_wins() {
+        let temp = tempfile::tempdir().expect("temp dir");
+        let choice = resolve_port(Some(39123), temp.path());
+        assert_eq!(choice, PortChoice::Named(39123));
+        assert_eq!(choice.port(), 39123);
+    }
+
+    #[test]
+    fn the_manifest_port_is_used_when_the_manifest_names_one() {
+        let temp = tempfile::tempdir().expect("temp dir");
+        let folder = temp.path().join(crate::commands::manifest::PLUGIN_FOLDER);
+        std::fs::create_dir_all(&folder).expect("the plugin folder");
+        let manifest = crate::commands::manifest::build_manifest(
+            "figtether-dev",
+            39124,
+            crate::cli::EditorType::Figma,
+        );
+        std::fs::write(
+            folder.join(crate::commands::manifest::LOCAL_FILE_NAME),
+            serde_json::to_string_pretty(&manifest).expect("serializes"),
+        )
+        .expect("writes");
+        let choice = resolve_port(None, temp.path());
+        assert_eq!(choice.port(), 39124);
+        assert!(
+            choice.source().is_some(),
+            "the manifest is named as the source"
+        );
+    }
+
+    #[test]
+    fn without_a_manifest_the_default_is_used_or_a_free_port_is_picked() {
+        let temp = tempfile::tempdir().expect("temp dir");
+        let choice = resolve_port(None, temp.path());
+        match choice {
+            PortChoice::Default(port) => assert_eq!(port, crate::cli::DEFAULT_PORT),
+            PortChoice::Picked { default, port, .. } => {
+                assert_eq!(default, crate::cli::DEFAULT_PORT);
+                assert_ne!(port, default, "a port that cannot be bound is not used");
+                assert!(
+                    figtether_daemon::port::diagnose(port).is_none(),
+                    "the picked port {port} can be bound"
+                );
+            }
+            other => panic!("unexpected choice: {other:?}"),
+        }
     }
 }

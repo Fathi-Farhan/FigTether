@@ -156,6 +156,11 @@ to use instead:
 figtether doctor
 ```
 
+The bare `figtether` command already handles the reserved range: with no manifest that names a
+port, it picks a free port, starts there, and prints the manifest command for the same port. The
+daemon never moves a port that a manifest already names, because the plugin would lose the
+connection.
+
 Let the CLI pick that free port and write it into the plugin manifest:
 
 ```powershell
@@ -168,6 +173,9 @@ the daemon have to agree on it:
 ```powershell
 figtether daemon --port 39029
 ```
+
+After the manifest exists, the bare `figtether` command uses the port of that manifest on its
+own, so the daemon and the plugin always agree.
 
 Rebuild the plugin for that port, because the build reads the port from the manifest:
 

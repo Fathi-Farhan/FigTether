@@ -17,6 +17,7 @@
 //! the plugin and the daemon have to agree on it.
 
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use serde_json::{json, Value};
 
@@ -47,7 +48,8 @@ pub const PLUGIN_NAME: &str = "FigTether Bridge";
 
 /// Generate a development plugin manifest.
 pub fn run(args: ManifestArgs) -> anyhow::Result<CommandOutcome> {
-    let generated = generate(&args)?;
+    let start = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let generated = generate(&args, &start)?;
     write_manifest(&generated.path, &generated.manifest)?;
     print_summary(
         &generated.path,
@@ -75,20 +77,19 @@ struct Generated {
 ///
 /// The function carries the validation of the action and of the plugin id,
 /// so a refused request never reaches the file system.
-fn generate(args: &ManifestArgs) -> anyhow::Result<Generated> {
+fn generate(args: &ManifestArgs, start: &Path) -> anyhow::Result<Generated> {
     if args.action != "generate" {
         anyhow::bail!(
             "the only manifest action is generate, {} is unknown",
             args.action
         );
     }
-    let start = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-    let plugin_id = resolve_plugin_id(args.plugin_id.as_deref(), &start)?;
+    let plugin_id = resolve_plugin_id(args.plugin_id.as_deref(), start)?;
     let path = args
         .out
         .clone()
-        .unwrap_or_else(|| default_output_path(&start));
-    let (port, automatic) = resolve_port(args.port);
+        .unwrap_or_else(|| default_output_path(start));
+    let (port, automatic) = resolve_port(args.port, start, args.runtime_dir.as_deref());
     let manifest = build_manifest(&plugin_id, port, args.editor_type);
     Ok(Generated {
         path,
@@ -204,19 +205,106 @@ pub fn has_byte_order_mark(bytes: &[u8]) -> bool {
     bytes.starts_with(&[0xEF, 0xBB, 0xBF])
 }
 
+/// The port that a manifest grants to the plugin.
+pub fn manifest_port(manifest: &Value) -> Option<u16> {
+    let domains = manifest["networkAccess"]["devAllowedDomains"].as_array()?;
+    domains
+        .iter()
+        .filter_map(|domain| domain.as_str())
+        .find_map(|text| {
+            let (_, after) = text.rsplit_once(':')?;
+            let digits = after.split('/').next()?.trim();
+            digits.parse::<u16>().ok()
+        })
+}
+
+/// The port of the local plugin manifest.
+///
+/// The manifest is the memory of the port: the plugin reads its port from
+/// that file, so the daemon has to use the same one. The runtime file only
+/// exists while a daemon runs, and it is removed when the daemon stops.
+pub fn local_manifest_port() -> Option<u16> {
+    let start = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    local_manifest_port_from(&start)
+}
+
+/// The port of the local plugin manifest, relative to a directory.
+pub fn local_manifest_port_from(start: &Path) -> Option<u16> {
+    manifest_candidates(start)
+        .into_iter()
+        .find(|path| path.is_file())
+        .and_then(|path| {
+            let text = std::fs::read_to_string(&path).ok()?;
+            let manifest: Value = serde_json::from_str(text.trim_start_matches('\u{feff}')).ok()?;
+            manifest_port(&manifest)
+        })
+}
+
+/// The port that the machine and the plugin already agree on.
+///
+/// The running daemon holds the port of the bridge, and the local manifest
+/// names the port the plugin was built for. A port that the operating system
+/// reserved is not an agreement, so it is not kept.
+pub fn agreed_port_from(start: &Path, running: impl FnOnce() -> Option<u16>) -> Option<u16> {
+    if let Some(port) = running() {
+        return Some(port);
+    }
+    let port = local_manifest_port_from(start)?;
+    match figtether_daemon::port::diagnose(port) {
+        None => Some(port),
+        Some(_) => None,
+    }
+}
+
+/// The port of the running daemon.
+///
+/// The runtime file is written when a daemon starts and removed when it
+/// stops. A daemon that was killed with a signal leaves the file behind, so
+/// the port is only used when something actually answers on it.
+fn running_daemon_port(runtime_dir: Option<&Path>) -> Option<u16> {
+    let port = crate::runtime::resolve(runtime_dir)
+        .ok()
+        .and_then(|dir| crate::runtime::daemon_file(&dir))
+        .map(|file| file.port)?;
+    if daemon_answers(port) {
+        Some(port)
+    } else {
+        None
+    }
+}
+
+/// Whether a daemon answers on the loopback port.
+fn daemon_answers(port: u16) -> bool {
+    let address = std::net::SocketAddr::from((std::net::Ipv4Addr::LOCALHOST, port));
+    std::net::TcpStream::connect_timeout(&address, Duration::from_millis(250)).is_ok()
+}
+
 /// Resolve the port of the manifest.
 ///
-/// A fixed port is used as it is, because the user asked for it. The `auto`
-/// selection asks the port helper for a free port, so a port that another
-/// process holds or that the operating system reserved never reaches the
+/// A fixed port is used as it is, because the user asked for it. The automatic
+/// selection keeps the port that the machine and the plugin already agree on,
+/// and picks a free port only when there is no agreement. The port is never
+/// moved on its own, because the plugin was built for the port of the
 /// manifest.
-fn resolve_port(selection: PortSelection) -> (u16, bool) {
+fn resolve_port(selection: PortSelection, start: &Path, runtime_dir: Option<&Path>) -> (u16, bool) {
+    resolve_port_from(selection, start, || running_daemon_port(runtime_dir))
+}
+
+/// Resolve the port, with the lookup of the running daemon kept separate.
+fn resolve_port_from(
+    selection: PortSelection,
+    start: &Path,
+    running: impl FnOnce() -> Option<u16>,
+) -> (u16, bool) {
     match selection {
         PortSelection::Fixed(port) => (port, false),
-        PortSelection::Auto => (
-            figtether_daemon::port::suggest_free_port(DEFAULT_PORT),
-            true,
-        ),
+        PortSelection::Auto => match agreed_port_from(start, running) {
+            Some(port) => (port, false),
+            None => (
+                figtether_daemon::port::suggest_free_port(DEFAULT_PORT),
+                true,
+            ),
+        },
     }
 }
 
@@ -463,6 +551,7 @@ mod tests {
             plugin_id: Some("   ".to_string()),
             port: PortSelection::Fixed(38947),
             editor_type: EditorType::Figma,
+            runtime_dir: None,
         };
         let result = run(args);
         assert!(result.is_err());
@@ -476,6 +565,7 @@ mod tests {
             plugin_id: Some("../etc/passwd".to_string()),
             port: PortSelection::Fixed(38947),
             editor_type: EditorType::Figma,
+            runtime_dir: None,
         };
         let result = run(args);
         assert!(result.is_err());
@@ -489,6 +579,7 @@ mod tests {
             plugin_id: Some("123456789".to_string()),
             port: PortSelection::Fixed(38947),
             editor_type: EditorType::Figma,
+            runtime_dir: None,
         };
         let result = run(args);
         assert!(result.is_err());
@@ -496,14 +587,15 @@ mod tests {
 
     #[test]
     fn a_fixed_port_is_never_moved() {
-        let (port, automatic) = resolve_port(PortSelection::Fixed(38948));
+        let (port, automatic) = resolve_port(PortSelection::Fixed(38948), Path::new("."), None);
         assert_eq!(port, 38948);
         assert!(!automatic, "a fixed port is not picked automatically");
     }
 
     #[test]
     fn the_auto_selection_picks_a_free_port() {
-        let (port, automatic) = resolve_port(PortSelection::Auto);
+        let temp = tempfile::tempdir().expect("temp dir");
+        let (port, automatic) = resolve_port_from(PortSelection::Auto, temp.path(), || None);
         assert!(automatic);
         assert!(
             port >= DEFAULT_PORT,
@@ -512,8 +604,23 @@ mod tests {
     }
 
     #[test]
+    fn the_auto_selection_keeps_the_port_that_is_already_agreed() {
+        let (temp, folder) = checkout();
+        let manifest = build_manifest("figtether-dev", 39125, EditorType::Figma);
+        std::fs::write(
+            folder.join(LOCAL_FILE_NAME),
+            serde_json::to_string_pretty(&manifest).expect("serializes"),
+        )
+        .expect("writes");
+        let (port, automatic) = resolve_port_from(PortSelection::Auto, temp.path(), || None);
+        assert_eq!(port, 39125, "the agreed port is kept");
+        assert!(!automatic, "an agreed port is not picked");
+    }
+
+    #[test]
     fn the_auto_port_is_written_into_the_manifest() {
         let temp = tempfile::tempdir().expect("temp dir");
+        let runtime = tempfile::tempdir().expect("a runtime dir");
         let path = temp.path().join("manifest.json");
         let args = ManifestArgs {
             action: "generate".to_string(),
@@ -521,9 +628,10 @@ mod tests {
             plugin_id: Some("123456789".to_string()),
             port: PortSelection::Auto,
             editor_type: EditorType::Figma,
+            runtime_dir: Some(runtime.path().to_path_buf()),
         };
-        let generated = generate(&args).expect("generates");
-        assert!(generated.automatic);
+        let generated = generate(&args, temp.path()).expect("generates");
+        assert!(generated.automatic, "no agreement, so the port is picked");
         assert!(generated.port >= DEFAULT_PORT, "the picked port is used");
         write_manifest(&path, &generated.manifest).expect("writes");
         let text = std::fs::read_to_string(&path).expect("reads");
@@ -543,14 +651,16 @@ mod tests {
 
     #[test]
     fn a_fixed_port_reaches_the_manifest_unchanged() {
+        let temp = tempfile::tempdir().expect("temp dir");
         let args = ManifestArgs {
             action: "generate".to_string(),
             out: None,
             plugin_id: Some("123456789".to_string()),
             port: PortSelection::Fixed(38948),
             editor_type: EditorType::Figma,
+            runtime_dir: None,
         };
-        let generated = generate(&args).expect("generates");
+        let generated = generate(&args, temp.path()).expect("generates");
         assert_eq!(generated.port, 38948);
         assert!(!generated.automatic);
         let domains = generated.manifest["networkAccess"]["devAllowedDomains"]
