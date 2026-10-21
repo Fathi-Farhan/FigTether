@@ -226,6 +226,7 @@ export interface FigmaUiApi {
 
 /** The subset of the Plugin API the sandbox relies on. */
 export interface FigmaApi {
+  openExternal?: ((url: string) => void) | undefined;
   /** Document root. */
   readonly root: FigmaNode;
   /** Page the user is looking at. */
@@ -272,15 +273,15 @@ export interface FigmaApi {
    * The Plugin API has no `createGroup`: a group always holds at least one
    * node, so the editor builds it from the nodes it takes over.
    */
-  group?: ((nodes: readonly FigmaNode[], parent: FigmaNode, index?: number) => FigmaNode) | undefined;
+  group?:
+    ((nodes: readonly FigmaNode[], parent: FigmaNode, index?: number) => FigmaNode) | undefined;
   /** Load a font before its properties or its characters can be written. */
   loadFontAsync?: ((font: FigmaFontName) => Promise<void>) | undefined;
   /** Commit the changes of the plugin to the undo history of the editor. */
   commitUndo?: (() => void) | undefined;
   /** Write a version checkpoint of the file. */
   saveVersionHistoryAsync?:
-    | ((title: string, description?: string) => Promise<FigmaVersionResult | null>)
-    | undefined;
+    ((title: string, description?: string) => Promise<FigmaVersionResult | null>) | undefined;
   /** The variables API. */
   readonly variables?: FigmaVariablesApi | undefined;
   /** The team library API. */
@@ -358,6 +359,7 @@ export function resolveFigmaApi(scope: unknown): FigmaApi {
   }
   return {
     root: root as unknown as FigmaNode,
+    openExternal: asFunction<(url: string) => void>(api["openExternal"]),
     currentPage: currentPage as unknown as FigmaNode,
     mixed: api["mixed"],
     getNodeById: asFunction<(id: string) => FigmaNode | null>(api["getNodeById"]),
@@ -391,16 +393,16 @@ export function resolveFigmaApi(scope: unknown): FigmaApi {
     createSection: asFunction<() => FigmaNode>(api["createSection"]),
     createLine: asFunction<() => FigmaNode>(api["createLine"]),
     createEllipse: asFunction<() => FigmaNode>(api["createEllipse"]),
-    group: asFunction<(nodes: readonly FigmaNode[], parent: FigmaNode, index?: number) => FigmaNode>(
-      api["group"],
-    ),
+    group: asFunction<
+      (nodes: readonly FigmaNode[], parent: FigmaNode, index?: number) => FigmaNode
+    >(api["group"]),
     loadFontAsync: asFunction<(font: FigmaFontName) => Promise<void>>(api["loadFontAsync"]),
     commitUndo: asFunction<() => void>(api["commitUndo"]),
     saveVersionHistoryAsync: asFunction<
       (title: string, description?: string) => Promise<FigmaVersionResult | null>
     >(api["saveVersionHistoryAsync"]),
     variables: optionalRecord(api["variables"]) as FigmaVariablesApi | undefined,
-    teamLibrary: optionalRecord(api["teamLibrary"]) as FigmaTeamLibraryApi | undefined,
+    teamLibrary: optionalApiRecord(api, "teamLibrary") as FigmaTeamLibraryApi | undefined,
     ui: optionalRecord(api["ui"]) as FigmaUiApi | undefined,
   };
 }
@@ -414,4 +416,16 @@ function asFunction<T>(value: unknown): T | undefined {
 
 function optionalRecord(value: unknown): Record<string, unknown> | undefined {
   return asRecord(value) ?? undefined;
+}
+
+/** Some optional Figma API getters throw when their manifest permission is absent. */
+function optionalApiRecord(
+  api: Record<string, unknown>,
+  key: string,
+): Record<string, unknown> | undefined {
+  try {
+    return optionalRecord(api[key]);
+  } catch {
+    return undefined;
+  }
 }

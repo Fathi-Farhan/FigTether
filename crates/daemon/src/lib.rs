@@ -21,6 +21,7 @@
 //! - [`config`] holds the configuration of one daemon instance;
 //! - [`runtime_dir`] resolves and protects the owner only runtime directory;
 //! - [`secrets`] mints secrets and compares them in constant time;
+//! - [`port`] diagnoses why a loopback port cannot be bound;
 //! - [`bridge`] owns the plugin connection, the auth window, the heartbeat,
 //!   and the connection epochs;
 //! - [`client_api`] owns the local client connection and the request
@@ -32,6 +33,7 @@
 //! - [`server`] owns the router and the loopback listener;
 //! - [`logging`] owns the sanitized diagnostic log.
 
+mod asset_delivery;
 pub mod bridge;
 pub mod client_api;
 pub mod config;
@@ -39,6 +41,8 @@ pub mod control;
 pub mod cursor;
 pub mod grants;
 pub mod logging;
+pub mod panel;
+pub mod port;
 pub mod runtime_dir;
 pub mod secrets;
 pub mod server;
@@ -59,6 +63,7 @@ use uuid::Uuid;
 
 pub use config::{DaemonConfig, LogFormat};
 pub use control::{DaemonStatus, PairSecretResponse, RevokeOutcome};
+pub use port::PortProblem;
 pub use runtime_dir::{DaemonFile, RuntimeDir, RuntimeDirError};
 pub use secrets::Secret;
 pub use server::DaemonError;
@@ -114,6 +119,8 @@ pub struct DaemonState {
     pub grants: Arc<grants::GrantLedger>,
     /// The write path: the approvals, the tokens, and the audit trail.
     pub writes: Arc<write_path::WritePath>,
+    /// Ephemeral capabilities for user-opened browser companions.
+    pub panels: panel::PanelHub,
     /// Signal of the graceful shutdown.
     shutdown_tx: watch::Sender<bool>,
     /// Signal that the daemon stopped serving.
@@ -155,6 +162,7 @@ impl DaemonState {
             cursors: Arc::new(cursor::CursorStore::new()),
             grants: Arc::new(grants::GrantLedger::new()),
             writes: Arc::new(write_path::WritePath::new(limits.clone())),
+            panels: panel::PanelHub::default(),
             shutdown_tx: watch::channel(false).0,
             stopped_tx: watch::channel(false).0,
             work_notify: Arc::new(Notify::new()),

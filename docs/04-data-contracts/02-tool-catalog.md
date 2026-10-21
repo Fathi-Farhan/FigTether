@@ -1,5 +1,9 @@
 # MCP Tool Catalog
 
+> **Design reference.** Original requirements and approval labels below are historical design
+> records, not a feature-availability list. See [current documentation status](../documentation-status.md)
+> for implemented reads/writes, observed desktop evidence, and remaining gaps.
+
 Status: `Proposed`
 
 Purpose paragraph: This document defines the twelve MCP read tools FigTether exposes to agents with purpose, inputs (types in parentheses), outputs, caps, and one workload example for the tools named required by the contract set. It also records the three write tools proposed by `ADR-013` (sections 3.13 to 3.15): the tool set is no longer uniformly read only, and the read tools are unchanged. Results use the common envelope of `docs/04-data-contracts/01-mcp-envelope.md`. Normative base: PRD 8.5.1 (tool surface), PRD 8.3 (consistency semantics), PRD 8.5.5 (resource budget). Tool and field names are `Proposal contract` names frozen only after Gate `G0`; before that they change through an ADR in `docs/02-architecture/adr/`. The write tools are proposed, not frozen: `ADR-013` is pending product approval (`docs/00-overview/01-prd-analysis.md` section 12).
@@ -61,6 +65,10 @@ Inputs: `cursor` (string or null, optional): opaque continuation cursor.
 Outputs: sessions granted to this client with `session_id`, display document label (never a routing key), grant roots, and runtime capabilities (`FR04`); paused and revoked appear as status (`PAUSED`, `REVOKED`, PRD 8.7).
 Caps: paginated under the 64 KiB response cap (PRD 8.5.5).
 
+The implemented discovery payload includes `granted_root_ids` (actual shared IDs) and
+`grant_mode` (`read`, `write`, or null when no active grant exists). The legacy `root_ids`
+field remains a count for compatibility; agents should use `granted_root_ids` to start reads.
+
 ### 3.3 `get_selection` (P0)
 
 Purpose: show which nodes the user currently selects, so the agent can pick correct roots.
@@ -106,6 +114,10 @@ Inputs:
 - `depth` (integer, optional): at most 32 (PRD 8.5.5 batch row).
 - `fields` (array of strings, optional): projection as in `list_nodes`.
 - `consistency` (string, optional): `fresh` is the live default; `cached` also needs `max_age_ms`; `best_effort` is server-assigned on mid-read change (PRD 8.3).
+
+Without `fields`, live `get_nodes` returns the summary fields plus `parent_id` and `geometry`.
+Normalization respects that projection before resolving fonts, styles or variables. Request
+rich fields explicitly when needed; a lightweight default does not bound every rich request.
 
 Outputs: one record per requested ID plus per-item errors (`NODE_NOT_FOUND`, `OUT_OF_SCOPE`) and batch status `complete`, `partial`, or `failed` (PRD 8.7 batch rule).
 Caps: batch and depth limits above; exceeding either is `INVALID_LIMIT` or a required client-side split into batches (PRD 8.5.5).

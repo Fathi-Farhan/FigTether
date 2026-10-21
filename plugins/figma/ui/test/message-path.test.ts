@@ -213,9 +213,7 @@ describe("the message path from the daemon to the editor and back", () => {
     const chain = await createChain();
     const answer = chain.bridge.awaitAnswer("req-2");
 
-    chain.daemon(
-      bridgeFrame("request", { op: "get_selection", params: {} }, "req-2"),
-    );
+    chain.daemon(bridgeFrame("request", { op: "get_selection", params: {} }, "req-2"));
     await chain.settle();
 
     const data = (await answer) as { selection_count?: unknown };

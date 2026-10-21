@@ -1,5 +1,9 @@
 # UML Use Case Diagrams
 
+> **Design reference.** Original requirements and approval labels below are historical design
+> records, not a feature-availability list. See [current documentation status](../documentation-status.md)
+> for implemented reads/writes, observed desktop evidence, and remaining gaps.
+
 Status: `Proposed`
 
 Purpose: name the actors of FigTether and the value they draw from the system, including the

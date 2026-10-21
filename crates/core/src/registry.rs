@@ -474,10 +474,46 @@ impl SessionRegistry {
         Ok(())
     }
 
-    /// Remove a session.
-    ///
-    /// The session and the scope it held are dropped together, so nothing of
-    /// it can be reached afterwards.
+    /// Atomically learn created descendants under the unchanged active write grant.
+    /// Invalid receipts and stale epochs cannot expand or rewrite the scope index.
+    pub fn record_created_nodes(
+        &self,
+        session_id: &SessionId,
+        grant_epoch: u64,
+        nodes: &[(String, String)],
+    ) -> bool {
+        let mut sessions = self.write_sessions();
+        let Some(session) = sessions.get_mut(session_id) else {
+            return false;
+        };
+        let Some(grant) = session.grant.as_ref() else {
+            return false;
+        };
+        if grant.grant_epoch != grant_epoch
+            || grant.state != GrantState::Active
+            || grant.mode != GrantMode::Write
+        {
+            return false;
+        }
+        let mut seen = std::collections::HashSet::new();
+        for (node, parent) in nodes {
+            if node.is_empty()
+                || node == parent
+                || !seen.insert(node)
+                || grant.root_ids.contains(node)
+                || session.node_index.parent_of(node).is_some()
+                || !session.node_index.in_any_scope(&grant.root_ids, parent)
+            {
+                return false;
+            }
+        }
+        for (node, parent) in nodes {
+            session.node_index.insert(node.clone(), parent.clone());
+        }
+        true
+    }
+
+    /// Remove a session and its learned descendants.
     pub fn remove(&self, session_id: &SessionId) {
         let mut sessions = self.write_sessions();
         if let Some(mut session) = sessions.remove(session_id) {
@@ -598,6 +634,48 @@ mod tests {
             .set_state(&id, SessionState::Paired)
             .expect("authenticates");
         id
+    }
+
+    #[test]
+    fn creation_receipts_learn_descendants_without_expanding_roots() {
+        let registry = registry();
+        let id = paired_session(&registry);
+        let grant = registry
+            .grant(&id, vec!["1:2".to_string()], GrantMode::Write)
+            .expect("grant");
+        let nodes = vec![("1:9".to_string(), "1:2".to_string())];
+        assert!(registry.record_created_nodes(&id, grant.grant_epoch, &nodes));
+        assert!(registry.is_in_scope(&id, "1:9"));
+        assert_eq!(registry.get(&id).expect("session").root_ids(), vec!["1:2"]);
+        assert!(
+            !registry.record_created_nodes(&id, grant.grant_epoch, &nodes),
+            "an existing relation is not rewritten"
+        );
+    }
+
+    #[test]
+    fn creation_receipts_refuse_stale_or_outside_relations_atomically() {
+        let registry = registry();
+        let id = paired_session(&registry);
+        let grant = registry
+            .grant(&id, vec!["1:2".to_string()], GrantMode::Write)
+            .expect("grant");
+        let nodes = vec![
+            ("1:9".to_string(), "1:2".to_string()),
+            ("1:10".to_string(), "outside".to_string()),
+        ];
+        assert!(!registry.record_created_nodes(&id, grant.grant_epoch, &nodes));
+        assert!(!registry.is_in_scope(&id, "1:9"));
+        assert!(!registry.record_created_nodes(&id, grant.grant_epoch + 1, &nodes[..1]));
+        registry
+            .grant(&id, vec!["1:2".to_string()], GrantMode::Read)
+            .expect("read only");
+        let epoch = registry
+            .get(&id)
+            .expect("session")
+            .grant_epoch()
+            .expect("epoch");
+        assert!(!registry.record_created_nodes(&id, epoch, &nodes[..1]));
     }
 
     #[test]

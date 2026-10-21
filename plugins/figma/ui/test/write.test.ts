@@ -789,7 +789,7 @@ describe("the panels of the interface", () => {
     );
     parts.controller.onRootSelectionChanged(["1:2"]);
     parts.controller.onAllowRequested();
-    expect(parts.element("write-grant-state")?.textContent).toContain("not allowed");
+    expect(parts.element("write-grant-state")?.textContent).toContain("Agent editing is off");
     parts.controller.onWriteGrantRequested();
     expect(parts.element("write-grant-state")?.textContent).toContain("approval");
   });

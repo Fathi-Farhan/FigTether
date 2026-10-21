@@ -143,11 +143,11 @@ pub struct WriteOperation {
     pub node_type: Option<String>,
     /// Properties to set on the node. Only the names in
     /// `ALLOWED_WRITE_PROPERTIES` are accepted. Fills and strokes are not
-    /// properties, they are set through the `SetFills` operation.
+    /// properties; use `fills` on create or the `SetFills` operation.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub properties: BTreeMap<String, serde_json::Value>,
-    /// Paints to set on the node. Only the `SetFills` operation reads this
-    /// field. The values are normalized by the plugin before they reach the
+    /// Paints to set on creation or through `SetFills`. The plugin reads this
+    /// field and normalizes the values before they reach the
     /// editor.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fills: Option<Vec<serde_json::Value>>,
@@ -508,6 +508,11 @@ pub enum WriteViolation {
         /// The rejected property name.
         name: String,
     },
+    /// Initial text/font fields are incompatible with the created node.
+    InvalidInitialization {
+        /// The rejected initialization field.
+        field: String,
+    },
 }
 
 impl WriteViolation {
@@ -547,6 +552,9 @@ impl WriteViolation {
             }
             Self::UnknownProperty { name } => {
                 format!("the property {name} is not allowed")
+            }
+            Self::InvalidInitialization { field } => {
+                format!("the create_node initialization field {field} is invalid for this node")
             }
         }
     }
@@ -592,6 +600,20 @@ pub fn validate_plan(plan: &WritePlan, budget: &WriteBudget) -> Result<(), Write
             if !is_allowed_node_type(node_type) {
                 return Err(WriteViolation::UnknownNodeType {
                     node_type: node_type.to_string(),
+                });
+            }
+            if node_type != "TEXT"
+                && (operation.text.is_some()
+                    || operation.font_family.is_some()
+                    || operation.font_style.is_some())
+            {
+                return Err(WriteViolation::InvalidInitialization {
+                    field: "text/font".to_string(),
+                });
+            }
+            if operation.font_family.is_some() != operation.font_style.is_some() {
+                return Err(WriteViolation::InvalidInitialization {
+                    field: "font_family/font_style".to_string(),
                 });
             }
         }
@@ -667,12 +689,28 @@ fn count_text_characters(plan: &WritePlan) -> u32 {
 ///
 /// Every property of an operation is one change, and a text change and a
 /// fill change each count as one change on top of the properties.
-fn count_property_changes(plan: &WritePlan) -> u32 {
+pub fn count_property_changes(plan: &WritePlan) -> u32 {
     let count: usize = plan
         .operations
         .iter()
         .map(|operation| {
+            let initial = if operation.kind == WriteOperationKind::CreateNode {
+                usize::from(operation.fills.is_some()) + usize::from(operation.text.is_some())
+            } else {
+                0
+            };
+            let fonts = if matches!(
+                operation.kind,
+                WriteOperationKind::CreateNode | WriteOperationKind::SetText
+            ) {
+                usize::from(operation.font_family.is_some())
+                    + usize::from(operation.font_style.is_some())
+            } else {
+                0
+            };
             operation.properties.len()
+                + initial
+                + fonts
                 + match operation.kind {
                     WriteOperationKind::SetText | WriteOperationKind::SetFills => 1,
                     _ => 0,
@@ -686,6 +724,57 @@ fn count_property_changes(plan: &WritePlan) -> u32 {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn initial_styling_counts_properties_and_unicode_text() {
+        let operation = WriteOperation {
+            node_type: Some("TEXT".to_string()),
+            parent_id: Some("1:1".to_string()),
+            properties: BTreeMap::from([("name".to_string(), json!("Hero"))]),
+            fills: Some(vec![json!({"type":"SOLID","color":"#1F4E3D"})]),
+            text: Some("Hi 🐈".to_string()),
+            font_family: Some("Inter".to_string()),
+            font_style: Some("Regular".to_string()),
+            ..operation(WriteOperationKind::CreateNode)
+        };
+        let plan = plan(vec![operation]);
+        assert_eq!(count_property_changes(&plan), 5);
+        assert_eq!(count_text_characters(&plan), 4);
+        let mut budget = WriteBudget {
+            max_property_changes_per_plan: 5,
+            ..WriteBudget::default()
+        };
+        assert!(validate_plan(&plan, &budget).is_ok());
+        budget.max_property_changes_per_plan = 4;
+        assert!(matches!(
+            validate_plan(&plan, &budget),
+            Err(WriteViolation::TooManyPropertyChanges { actual: 5, .. })
+        ));
+        budget.max_property_changes_per_plan = 5;
+        budget.max_text_characters_per_plan = 3;
+        assert!(matches!(
+            validate_plan(&plan, &budget),
+            Err(WriteViolation::TooMuchText { actual: 4, .. })
+        ));
+    }
+
+    #[test]
+    fn initial_text_requires_a_text_node_and_complete_font() {
+        let mut operation = operation(WriteOperationKind::CreateNode);
+        operation.parent_id = Some("1:1".to_string());
+        operation.node_type = Some("FRAME".to_string());
+        operation.text = Some("Hello".to_string());
+        assert!(matches!(
+            validate_plan(&plan(vec![operation.clone()]), &WriteBudget::default()),
+            Err(WriteViolation::InvalidInitialization { .. })
+        ));
+        operation.node_type = Some("TEXT".to_string());
+        operation.font_family = Some("Inter".to_string());
+        assert!(matches!(
+            validate_plan(&plan(vec![operation]), &WriteBudget::default()),
+            Err(WriteViolation::InvalidInitialization { .. })
+        ));
+    }
 
     fn operation(kind: WriteOperationKind) -> WriteOperation {
         WriteOperation {

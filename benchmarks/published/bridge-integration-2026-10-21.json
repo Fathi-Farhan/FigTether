@@ -1,0 +1,531 @@
+{
+  "schema_version": 1,
+  "kind": "bridge-integration-verification",
+  "created_at": "2026-10-21T03:18:59.857Z",
+  "source": {
+    "commit": "fc345d0146eb6a617179e9a3fe6e3d590e6dc00b",
+    "dirty": true,
+    "tracked_diff_sha256": "f91dbbc738d721d89279cc756e96124196ee8dca18ad68573ff1c320b784ff41"
+  },
+  "environment": {
+    "platform": "win32 10.0.26200 x64",
+    "node": "v22.14.0",
+    "profile": "debug",
+    "figma_desktop": "126.10.10"
+  },
+  "tests": {
+    "rust": { "passed": 620, "failed": 0, "ignored": 1 },
+    "plugin": { "passed": 475, "failed": 0, "files": 39 },
+    "schemas": { "files": 44, "regeneration_unchanged": true },
+    "skill": { "status": "valid", "validator": "skill-creator quick_validate.py" },
+    "public": { "passed": 5, "failed": 0 },
+    "ci": { "passed": 15, "failed": 0 },
+    "design_evidence": { "passed": 35, "failed": 0 }
+  },
+  "commands": [
+    {
+      "id": "rust-fmt",
+      "command": ["cargo", "fmt", "--all", "--check"],
+      "started_at": "2026-10-21T03:07:42.077Z",
+      "exit_code": 0,
+      "elapsed_ms": 798.8042,
+      "log": "benchmarks/results/bridge-integration-2026-10-21/rust-fmt.log",
+      "superseded": true
+    },
+    {
+      "id": "rust-clippy",
+      "command": [
+        "cargo",
+        "clippy",
+        "--workspace",
+        "--all-targets",
+        "--locked",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "started_at": "2026-10-21T03:07:42.880Z",
+      "exit_code": 0,
+      "elapsed_ms": 14343.9198,
+      "log": "benchmarks/results/bridge-integration-2026-10-21/rust-clippy.log",
+      "superseded": true
+    },
+    {
+      "id": "rust-test",
+      "command": ["cargo", "test", "--workspace", "--locked"],
+      "started_at": "2026-10-21T03:07:57.226Z",
+      "exit_code": 0,
+      "elapsed_ms": 92220.0462,
+      "log": "benchmarks/results/bridge-integration-2026-10-21/rust-test.log",
+      "superseded": true
+    },
+    {
+      "id": "cli-build",
+      "command": ["cargo", "build", "--locked", "-p", "figtether-cli"],
+      "started_at": "2026-10-21T03:09:29.447Z",
+      "exit_code": 0,
+      "elapsed_ms": 11711.3839,
+      "log": "benchmarks/results/bridge-integration-2026-10-21/cli-build.log",
+      "superseded": true
+    },
+    {
+      "id": "cli-pair-help",
+      "command": ["D:/rust/kiln-target/debug/figtether.exe", "pair", "--help"],
+      "started_at": "2026-10-21T03:09:41.159Z",
+      "exit_code": 0,
+      "elapsed_ms": 902.8475000000035,
+      "log": "benchmarks/results/bridge-integration-2026-10-21/cli-pair-help.log",
+      "superseded": true
+    },
+    {
+      "id": "rust-fmt",
+      "command": ["cargo", "fmt", "--all", "--check"],
+      "started_at": "2026-10-21T03:16:58.338Z",
+      "exit_code": 0,
+      "elapsed_ms": 883.9655,
+      "log": "benchmarks/results/bridge-integration-2026-10-21/final-rust-fmt.log"
+    },
+    {
+      "id": "rust-clippy",
+      "command": [
+        "cargo",
+        "clippy",
+        "--workspace",
+        "--all-targets",
+        "--locked",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "started_at": "2026-10-21T03:16:59.225Z",
+      "exit_code": 0,
+      "elapsed_ms": 5517.7421,
+      "log": "benchmarks/results/bridge-integration-2026-10-21/final-rust-clippy.log"
+    },
+    {
+      "id": "rust-test",
+      "command": ["cargo", "test", "--workspace", "--locked"],
+      "started_at": "2026-10-21T03:17:04.744Z",
+      "exit_code": 0,
+      "elapsed_ms": 65032.8577,
+      "log": "benchmarks/results/bridge-integration-2026-10-21/final-rust-test.log"
+    },
+    {
+      "id": "cli-build",
+      "command": ["cargo", "build", "--locked", "-p", "figtether-cli"],
+      "started_at": "2026-10-21T03:18:09.778Z",
+      "exit_code": 0,
+      "elapsed_ms": 11128.3845,
+      "log": "benchmarks/results/bridge-integration-2026-10-21/final-cli-build.log"
+    },
+    {
+      "id": "cli-pair-help",
+      "command": ["D:/rust/kiln-target/debug/figtether.exe", "pair", "--help"],
+      "started_at": "2026-10-21T03:18:20.908Z",
+      "exit_code": 0,
+      "elapsed_ms": 890.5580000000045,
+      "log": "benchmarks/results/bridge-integration-2026-10-21/final-cli-pair-help.log"
+    },
+    {
+      "id": "plugin-types",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "C:/Program Files/nodejs/node_modules/npm/bin/npm-cli.js",
+        "--prefix",
+        "plugins/figma",
+        "run",
+        "build:types"
+      ],
+      "started_at": "2026-10-21T03:07:42.092Z",
+      "exit_code": 0,
+      "elapsed_ms": 1105.1719,
+      "log": "benchmarks/results/bridge-integration-2026-10-21/plugin-types.log",
+      "superseded": false
+    },
+    {
+      "id": "plugin-typecheck",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "C:/Program Files/nodejs/node_modules/npm/bin/npm-cli.js",
+        "--prefix",
+        "plugins/figma",
+        "run",
+        "typecheck"
+      ],
+      "started_at": "2026-10-21T03:07:43.201Z",
+      "exit_code": 0,
+      "elapsed_ms": 6545.5032,
+      "log": "benchmarks/results/bridge-integration-2026-10-21/plugin-typecheck.log",
+      "superseded": false
+    },
+    {
+      "id": "plugin-lint",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "C:/Program Files/nodejs/node_modules/npm/bin/npm-cli.js",
+        "--prefix",
+        "plugins/figma",
+        "run",
+        "lint:all"
+      ],
+      "started_at": "2026-10-21T03:07:49.748Z",
+      "exit_code": 1,
+      "elapsed_ms": 8872.1277,
+      "log": "benchmarks/results/bridge-integration-2026-10-21/plugin-lint.log",
+      "superseded": true
+    },
+    {
+      "id": "plugin-tests",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "C:/Program Files/nodejs/node_modules/npm/bin/npm-cli.js",
+        "--prefix",
+        "plugins/figma",
+        "test",
+        "--",
+        "--reporter=default",
+        "--reporter=junit",
+        "--outputFile=../../benchmarks/results/bridge-integration-2026-10-21/plugin-tests.xml"
+      ],
+      "started_at": "2026-10-21T03:07:58.621Z",
+      "exit_code": 0,
+      "elapsed_ms": 4451.3429,
+      "log": "benchmarks/results/bridge-integration-2026-10-21/plugin-tests.log",
+      "superseded": false
+    },
+    {
+      "id": "plugin-build",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "C:/Program Files/nodejs/node_modules/npm/bin/npm-cli.js",
+        "--prefix",
+        "plugins/figma",
+        "run",
+        "build"
+      ],
+      "started_at": "2026-10-21T03:08:03.074Z",
+      "exit_code": 0,
+      "elapsed_ms": 1073.4845999999998,
+      "log": "benchmarks/results/bridge-integration-2026-10-21/plugin-build.log",
+      "superseded": false
+    },
+    {
+      "id": "plugin-lint",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "C:/Program Files/nodejs/node_modules/npm/bin/npm-cli.js",
+        "--prefix",
+        "plugins/figma",
+        "run",
+        "lint:all"
+      ],
+      "started_at": "2026-10-21T03:09:46.011Z",
+      "exit_code": 0,
+      "elapsed_ms": 4769.287,
+      "log": "benchmarks/results/bridge-integration-2026-10-21/recheck-plugin-lint.log"
+    },
+    {
+      "id": "plugin-tests",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "C:/Program Files/nodejs/node_modules/npm/bin/npm-cli.js",
+        "--prefix",
+        "plugins/figma",
+        "test",
+        "--",
+        "--reporter=default",
+        "--reporter=junit",
+        "--outputFile=../../benchmarks/results/bridge-integration-2026-10-21/plugin-tests.xml"
+      ],
+      "started_at": "2026-10-21T03:09:50.783Z",
+      "exit_code": 0,
+      "elapsed_ms": 3916.8049999999994,
+      "log": "benchmarks/results/bridge-integration-2026-10-21/recheck-plugin-tests.log"
+    },
+    {
+      "id": "public-check",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "C:/Program Files/nodejs/node_modules/npm/bin/npm-cli.js",
+        "run",
+        "public:check"
+      ],
+      "started_at": "2026-10-21T03:12:12.234Z",
+      "exit_code": 0,
+      "elapsed_ms": 1086.9862,
+      "log": "benchmarks/results/bridge-integration-2026-10-21/public-check.log"
+    },
+    {
+      "id": "docs-format",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "C:/Program Files/nodejs/node_modules/npm/bin/npm-cli.js",
+        "run",
+        "format:check"
+      ],
+      "started_at": "2026-10-21T03:12:13.324Z",
+      "exit_code": 0,
+      "elapsed_ms": 4230.6525,
+      "log": "benchmarks/results/bridge-integration-2026-10-21/docs-format.log"
+    },
+    {
+      "id": "public-tests",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "C:/Program Files/nodejs/node_modules/npm/bin/npm-cli.js",
+        "run",
+        "public:test"
+      ],
+      "started_at": "2026-10-21T03:12:17.556Z",
+      "exit_code": 0,
+      "elapsed_ms": 520.7883000000002,
+      "log": "benchmarks/results/bridge-integration-2026-10-21/public-tests.log"
+    },
+    {
+      "id": "ci-tests",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "C:/Program Files/nodejs/node_modules/npm/bin/npm-cli.js",
+        "run",
+        "ci:test"
+      ],
+      "started_at": "2026-10-21T03:12:18.078Z",
+      "exit_code": 0,
+      "elapsed_ms": 3561.8388999999997,
+      "log": "benchmarks/results/bridge-integration-2026-10-21/ci-tests.log"
+    },
+    {
+      "id": "design-tests",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "C:/Program Files/nodejs/node_modules/npm/bin/npm-cli.js",
+        "run",
+        "design:test"
+      ],
+      "started_at": "2026-10-21T03:12:21.641Z",
+      "exit_code": 0,
+      "elapsed_ms": 916.2064000000009,
+      "log": "benchmarks/results/bridge-integration-2026-10-21/design-tests.log"
+    },
+    {
+      "id": "publication-final",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "C:/Program Files/nodejs/node_modules/npm/bin/npm-cli.js",
+        "run",
+        "public:check"
+      ],
+      "exit_code": 0,
+      "elapsed_ms": 1310.4470000000001,
+      "log": "benchmarks/results/bridge-integration-2026-10-21/publication-final.log"
+    },
+    {
+      "id": "format-final",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "C:/Program Files/nodejs/node_modules/npm/bin/npm-cli.js",
+        "run",
+        "format:check"
+      ],
+      "exit_code": 0,
+      "elapsed_ms": 4647.8863,
+      "log": "benchmarks/results/bridge-integration-2026-10-21/format-final.log"
+    },
+    {
+      "id": "smoke-syntax",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "--check",
+        "scripts/validation/bridge-smoke.mjs"
+      ],
+      "exit_code": 0,
+      "elapsed_ms": 74.79890000000069,
+      "log": "benchmarks/results/bridge-integration-2026-10-21/smoke-syntax.log"
+    },
+    {
+      "id": "diff-whitespace",
+      "command": [
+        "git",
+        "-c",
+        "safe.directory=D:/laragon-d/www/Farhan/figtether",
+        "diff",
+        "--check"
+      ],
+      "exit_code": 0,
+      "elapsed_ms": 210.91270000000077,
+      "log": "benchmarks/results/bridge-integration-2026-10-21/diff-whitespace.log"
+    }
+  ],
+  "artifacts": [
+    {
+      "file": "debug/figtether.exe",
+      "bytes": 17851392,
+      "sha256": "b340d02e89fb0caacb77bed61dedb1d153bfbea668200f4ce4400e6c30cbf35c"
+    },
+    {
+      "file": "plugins/figma/dist/main.js",
+      "bytes": 186596,
+      "sha256": "5962c947f4d86feab3c9f558b5237928dac7739eef6c7909ed18ef9fc9f0eee2"
+    },
+    {
+      "file": "plugins/figma/dist/ui.html",
+      "bytes": 139777,
+      "sha256": "c4a764e333bd8ff1bcc6e1ca372dc36e133328e99f801826841cb21fcbbf4742"
+    },
+    {
+      "file": "crates/core/src/write.rs",
+      "bytes": 36970,
+      "sha256": "33023ca640b0ea5cd8ecb775c76632ff7237eb9da97da692e6be7b446e084f0c"
+    },
+    {
+      "file": "crates/model/src/write.rs",
+      "bytes": 43525,
+      "sha256": "b555cf83a1bcee5f44ca905690f25d06e4fa7fb9a77db44cb3dcc1deaacf0b42"
+    },
+    {
+      "file": "crates/daemon/src/bridge.rs",
+      "bytes": 61831,
+      "sha256": "5f86c3c4a3b45efc924e92aec12f266a8cf9cf1a46061bb27595c3ac088fc11e"
+    },
+    {
+      "file": "crates/daemon/src/client_api.rs",
+      "bytes": 114443,
+      "sha256": "9bfea45f6fa0a29004de32d783de4bd3248916fd3dd5d9ec1028bcbb9f0ec078"
+    },
+    {
+      "file": "crates/core/src/registry.rs",
+      "bytes": 39662,
+      "sha256": "7af95de0d4e663a652591bba2ead8829cd9d6089abe87e099a09673ca80f28ba"
+    },
+    {
+      "file": "crates/mcp/src/tools.rs",
+      "bytes": 45144,
+      "sha256": "5b27a730477fa5222776f38ee7aed6d240a1f82e8371f5ba7ee6b1a92bf390d8"
+    },
+    {
+      "file": "plugins/figma/main/src/handlers.ts",
+      "bytes": 30670,
+      "sha256": "250371af2a75782725b0a66ed214727538bb5a8bced0cf492f90785b8b38852f"
+    },
+    {
+      "file": "plugins/figma/main/src/normalize.ts",
+      "bytes": 20369,
+      "sha256": "caa79d826122e5c93934439c48a7ca7eb847c98132c762cba2b1d19074f44bc9"
+    },
+    {
+      "file": "plugins/figma/main/src/write/resolver.ts",
+      "bytes": 27579,
+      "sha256": "eb3d9476257290be7ff95583252eefc2ee8c494c6ec2beac9ba94eed6f55d10d"
+    },
+    {
+      "file": "plugins/figma/main/src/write/apply.ts",
+      "bytes": 14376,
+      "sha256": "60c88e85cd194b25ce6c5f7a7e2472ad9a91bf6cac17e08eee5d4e2d8a0191fb"
+    },
+    {
+      "file": "plugins/figma/ui/src/controller.ts",
+      "bytes": 47798,
+      "sha256": "9e0d375928e74cb5109d98038a0dbc7a5c42df3d9dc419871e7448f3a5e054fe"
+    },
+    {
+      "file": "scripts/validation/figma-window.ps1",
+      "bytes": 12897,
+      "sha256": "0fe42f631d74ac644192998075184c0d022138001a365d841ea3bed30c444c0c"
+    },
+    {
+      "file": ".agents/skills/figtether-design/SKILL.md",
+      "bytes": 3607,
+      "sha256": "25e6f6a2664040860bbbc6d6de61bccc78ad55511024bfc50259f243898310bf"
+    },
+    {
+      "file": "scripts/validation/bridge-smoke.mjs",
+      "bytes": 8792,
+      "sha256": "67a95776dc1a4cb39389ac504cd1562b11d2349b3488b7580e33804827c9b070"
+    }
+  ],
+  "verified": [
+    "Rolling write window expires at the exact 60-second boundary and is per-session.",
+    "Initial text/fills/fonts are one creation operation and count toward budgets; missing font does not leave an orphan.",
+    "Default read projection avoids font and style/variable work; explicit text reads still work.",
+    "Only complete successful creation receipts teach IDs, under known parents and the current write grant.",
+    "Actual loopback socket watchdog closes an unresponsive plugin in approximately 15 seconds; credential authentication recovers the same session with a new connection epoch and renewed grant.",
+    "Resume credentials reject wrong labels, wrong values, replay, rotated values and revoked sessions.",
+    "UI restores the previous roots and write mode, preserves pause, and does not transfer a grant to a new session.",
+    "The forced Default-desktop discovery captured the real Figma window.",
+    "An isolated real-binary smoke test confirmed pair --json, automatic MCP workflow instructions, write tool discovery and granted-root/write-mode discovery without Figma or repository reading."
+  ],
+  "desktop": {
+    "new_build_loaded": false,
+    "live_read_success": false,
+    "note": "The active desktop daemon/plugin remained on the earlier release build. Status and discovery answered, but both bounded frame reads failed with PLUGIN_OFFLINE while UI showed Ready. No canvas edits were attempted in this verification.",
+    "raw_directory": "benchmarks/results/live-feedback-2026-10-21",
+    "calls": [
+      { "tool": "get_bridge_status", "ok": true, "elapsed_ms": 4.165 },
+      { "tool": "list_sessions", "ok": true, "elapsed_ms": 2.373 },
+      { "tool": "list_nodes", "ok": false, "error": "PLUGIN_OFFLINE", "elapsed_ms": 2.198 },
+      { "tool": "list_nodes", "ok": false, "error": "PLUGIN_OFFLINE", "elapsed_ms": 1.726 }
+    ],
+    "screenshots": [
+      {
+        "file": "current-desktop.png",
+        "sha256": "8b0aa1d8e706a1b9a8eacfbf747df72a4dbdecf26159d1278d384434b7ab83d3"
+      },
+      {
+        "file": "default-desktop.png",
+        "sha256": "563580705e53fbbaa41222dbe2282fb797fc5c561d56de17931afb8e350a18cb"
+      }
+    ],
+    "helper_limit": "Fallback was forced from the available desktop. A separate sandbox window station with HWND=0 was not reproduced."
+  },
+  "failures_and_corrections": [
+    "The first live probe referenced a nonexistent repository target binary (ENOENT); corrected to the actual release binary.",
+    "Draft Rust test used an invalid ListSessions field; corrected to cursor before verification.",
+    "Draft traversal test expected depth-two grandchildren; corrected to the existing root-at-depth-one contract.",
+    "Initial final lint run found one unused test variable; corrected and both lint and 475 plugin tests passed again.",
+    "Two formatting command invocations failed or printed files without formatting; corrected working directory and npm run format."
+  ],
+  "cost": {
+    "model_input_tokens": null,
+    "model_output_tokens": null,
+    "billed_cost_usd": null,
+    "status": "unmeasured",
+    "note": "Local build/test commands do not expose the coding session billing. No percentage cost or design-quality improvement is claimed."
+  },
+  "limits": [
+    "Source and simulated-editor verification is not a new Figma Desktop benchmark.",
+    "Native validation of the updated daemon/plugin requires restart, reload, pairing and an explicit frame grant.",
+    "The prior website design has not been redesigned in this verification.",
+    "get_selection, inspect_design and complete asset-resource delivery retain their previously documented integration limits.",
+    "MCP instructions are supplied automatically; installing/loading a full skill depends on the client."
+  ],
+  "raw_directory": "benchmarks/results/bridge-integration-2026-10-21",
+  "smoke": {
+    "ok": true,
+    "kind": "isolated-real-binary-and-MCP-with-simulated-plugin",
+    "build": {
+      "started_at": "2026-10-21T03:18:59.094Z",
+      "node": "v22.14.0",
+      "os": "win32 10.0.26200 x64",
+      "binary_sha256": "b340d02e89fb0caacb77bed61dedb1d153bfbea668200f4ce4400e6c30cbf35c",
+      "harness_sha256": "67a95776dc1a4cb39389ac504cd1562b11d2349b3488b7580e33804827c9b070",
+      "plugin_sha256": "5962c947f4d86feab3c9f558b5237928dac7739eef6c7909ed18ef9fc9f0eee2",
+      "ui_sha256": "c4a764e333bd8ff1bcc6e1ca372dc36e133328e99f801826841cb21fcbbf4742"
+    },
+    "pair_json": {
+      "keys": ["secret", "expires_in_seconds"],
+      "expires_in_seconds": 300,
+      "secret_retained": false
+    },
+    "automatic_instructions": true,
+    "write_tools": ["apply_write", "get_write_approval", "preview_write"],
+    "discoverable_granted_roots": ["synthetic:root"],
+    "grant_mode": "write",
+    "calls": [
+      { "method": "initialize", "elapsed_ms": 22.143899999999974 },
+      { "method": "tools/list", "elapsed_ms": 6.61239999999998 },
+      { "method": "tools/call", "elapsed_ms": 4.3104000000000156 }
+    ],
+    "raw_directory": "benchmarks/results/bridge-integration-2026-10-21/reproducible-smoke-final",
+    "native_figma": false
+  }
+}

@@ -368,6 +368,20 @@ pub async fn dispatch(
     request: ClientRequest,
 ) -> ClientResponse {
     match request {
+        ClientRequest::GetAsset { request_id, params } => {
+            match crate::domain_call(ErrorCode::PermissionDenied, || {
+                crate::asset_delivery::read(state, identity, &params)
+            }) {
+                Ok(data) => ClientResponse::Ok {
+                    envelope: envelope_from_value(&request_id, None, data, Coverage::default()),
+                    request_id,
+                },
+                Err(error) => ClientResponse::Error {
+                    error: error.with_request_id(request_id.clone()),
+                    request_id,
+                },
+            }
+        }
         ClientRequest::Status { request_id } => {
             // The status of a client carries the audit records of the
             // sessions of its own installation only.
@@ -408,13 +422,21 @@ pub async fn dispatch(
                     "grant_epoch": session.grant_epoch,
                     "connection_epoch": session.connection_epoch,
                     "root_ids": session.root_ids.len(),
+                    "granted_root_ids": session.root_ids,
+                    "grant_mode": state.registry.grant_mode(&session.session_id).map(|mode| mode.as_str()),
                 })
             })
             .collect();
             let envelope = envelope_from_value(
                 &request_id,
                 None,
-                serde_json::json!({ "sessions": sessions }),
+                serde_json::json!({ "sessions": sessions, "write_budgets": {
+                    "max_operations_per_plan":state.limits.max_operations_per_plan,
+                    "max_created_nodes_per_plan":state.limits.max_created_nodes_per_plan,
+                    "max_property_changes_per_plan":state.limits.max_property_changes_per_plan,
+                    "max_text_characters_per_plan":state.limits.max_text_characters_per_plan,
+                    "max_plans_per_minute":state.limits.max_write_operations_per_minute
+                } }),
                 Coverage::default(),
             );
             ClientResponse::Ok {
@@ -696,6 +718,7 @@ async fn apply_write(
     };
     let envelope = run_job(state, &identity.label, request_id, plan).await?;
     let result = write_path::result_of(&envelope.data);
+    remember_write_creations(state, &request, grant_epoch, &result);
     state.writes.record_audit(
         &request.session_id,
         write_path::audit_record(&request, &parts.approval_id, &result),
@@ -707,6 +730,47 @@ async fn apply_write(
         "plan_hash": request.plan_hash,
     });
     Ok(with_data(envelope, data))
+}
+
+/// Learn only complete, authenticated creation receipts against the same grant epoch.
+fn remember_write_creations(
+    state: &Arc<DaemonState>,
+    request: &write_path::WriteRequest,
+    grant_epoch: u64,
+    result: &serde_json::Value,
+) {
+    if result.get("status").and_then(serde_json::Value::as_str) != Some("applied") {
+        return;
+    }
+    let Some(created) = result.get("created").and_then(serde_json::Value::as_array) else {
+        return;
+    };
+    let operations: Vec<_> = request
+        .parsed
+        .operations
+        .iter()
+        .filter(|operation| {
+            operation.kind == figtether_model::write::WriteOperationKind::CreateNode
+        })
+        .collect();
+    if operations.len() != created.len() || created.is_empty() {
+        return;
+    }
+    let mut relations = Vec::new();
+    for (operation, id) in operations.iter().zip(created) {
+        let (Some(id), Some(parent)) = (id.as_str(), operation.parent_id.as_deref()) else {
+            return;
+        };
+        // Current daemon contracts require real, already learned parents. Do not
+        // treat a synthetic operation alias as a document parent identifier.
+        if parent.starts_with('#') {
+            return;
+        }
+        relations.push((id.to_string(), parent.to_string()));
+    }
+    state
+        .registry
+        .record_created_nodes(&request.session_id, grant_epoch, &relations);
 }
 
 /// Answer the question about an approval.
@@ -787,6 +851,7 @@ fn request_id_of(request: &ClientRequest) -> String {
         | ClientRequest::InspectDesign { request_id, .. }
         | ClientRequest::GetDesignTokens { request_id, .. }
         | ClientRequest::ExportAssets { request_id, .. }
+        | ClientRequest::GetAsset { request_id, .. }
         | ClientRequest::GetSelection { request_id, .. }
         | ClientRequest::GetSnapshotInfo { request_id, .. }
         | ClientRequest::WatchScope { request_id, .. }
@@ -1195,10 +1260,17 @@ fn plugin_params(plan: &Plan, position: Option<&str>) -> serde_json::Value {
         if plan.op == BridgeOp::ListNodes {
             object.remove("cursor");
             if let Some(position) = position {
-                object.insert(
-                    "after".to_string(),
-                    serde_json::Value::String(position.to_string()),
-                );
+                if let Some(cursor) = position.strip_prefix("plugin:") {
+                    object.insert(
+                        "cursor".into(),
+                        serde_json::Value::String(cursor.to_owned()),
+                    );
+                } else {
+                    object.insert(
+                        "after".into(),
+                        serde_json::Value::String(position.to_owned()),
+                    );
+                }
             }
         }
     }
@@ -1619,9 +1691,14 @@ fn normalize_answer(
                     .and_then(serde_json::Value::as_bool)
                     .unwrap_or(false);
             let (nodes, trimmed) = fit_to_budget(nodes, context.limits.max_json_response_bytes);
-            // The position of the traversal is the last node the client
-            // received, never a node the budget cut away.
-            let position = nodes.last().map(|node| node.summary.id.clone());
+            // Preserve the plugin's opaque traversal stack. A node id is not its cursor.
+            let native_cursor = data.get("next_cursor").and_then(serde_json::Value::as_str);
+            if trimmed && data.get("next_cursor").is_some() {
+                return Err(FigError::new(ErrorCode::PayloadTooLarge,"the requested page exceeds the byte budget; retry with a smaller limit or fewer fields"));
+            }
+            let position = native_cursor
+                .map(|c| format!("plugin:{c}"))
+                .or_else(|| nodes.last().map(|node| node.summary.id.clone()));
             let payload = serde_json::json!({
                 "nodes": nodes.iter().map(flatten_node).collect::<Vec<_>>(),
             });
@@ -1676,43 +1753,53 @@ fn normalize_answer(
             })
         }
         BridgeOp::ExportAssets => {
-            let export: PluginExport = serde_json::from_value(data.clone()).map_err(|err| {
-                FigError::new(
-                    ErrorCode::ProtocolMismatch,
-                    format!("the plugin answer is malformed: {err}"),
-                )
-            })?;
-            if !context.limits.pixels_are_valid(export.width, export.height) {
-                return Err(FigError::new(
-                    ErrorCode::InvalidLimit,
-                    "the export exceeds the pixel budget",
-                ));
+            let exports = export_payloads(data)?;
+            let mut assets = Vec::with_capacity(exports.len());
+            for value in exports {
+                let export: PluginExport = serde_json::from_value(value).map_err(|err| {
+                    FigError::new(
+                        ErrorCode::ProtocolMismatch,
+                        format!("the plugin answer is malformed: {err}"),
+                    )
+                })?;
+                if !context.limits.pixels_are_valid(export.width, export.height) {
+                    return Err(FigError::new(
+                        ErrorCode::InvalidLimit,
+                        "the export exceeds the pixel budget",
+                    ));
+                }
+                let grant_id = context.grant_id.ok_or_else(|| {
+                    FigError::new(
+                        ErrorCode::Revoked,
+                        "the session holds no grant for the export",
+                    )
+                })?;
+                let asset_id = context.assets.put(
+                    grant_id,
+                    &export.mime,
+                    export.width,
+                    export.height,
+                    export.bytes.clone(),
+                )?;
+                assets.push(serde_json::json!({
+                    "node_id": export.node_id,
+                    "asset_id": asset_id,
+                    "mime": export.mime,
+                    "width": export.width,
+                    "height": export.height,
+                    "hash": export.hash,
+                    "size": export.bytes.len(),
+                }));
             }
-            let grant_id = context.grant_id.ok_or_else(|| {
-                FigError::new(
-                    ErrorCode::Revoked,
-                    "the session holds no grant for the export",
-                )
-            })?;
-            let asset_id = context.assets.put(
-                grant_id,
-                &export.mime,
-                export.width,
-                export.height,
-                export.bytes.clone(),
-            )?;
-            let payload = serde_json::json!({
-                "node_id": export.node_id,
-                "asset_id": asset_id,
-                "mime": export.mime,
-                "width": export.width,
-                "height": export.height,
-                "hash": export.hash,
-                "size": export.bytes.len(),
-            });
+            let returned_nodes = assets.len() as u32;
+            let payload = if assets.len() == 1 {
+                assets.remove(0)
+            } else {
+                serde_json::json!({ "assets": assets })
+            };
             let coverage = Coverage {
                 root_ids: context.root_ids.clone(),
-                returned_nodes: 1,
+                returned_nodes,
                 truncated: false,
                 next_cursor: None,
                 unavailable_fields: Vec::new(),
@@ -1740,6 +1827,37 @@ fn normalize_answer(
             })
         }
     }
+}
+
+/// Accept the plugin's batch envelope and the legacy single-export shape.
+/// A failed batch stays a failure instead of becoming a successful empty asset.
+fn export_payloads(data: &serde_json::Value) -> Result<Vec<serde_json::Value>, FigError> {
+    let Some(items) = data.get("items").and_then(serde_json::Value::as_array) else {
+        return Ok(vec![data.clone()]);
+    };
+    if items.is_empty() {
+        return Err(FigError::new(
+            ErrorCode::ExportFailed,
+            "the plugin returned no exports",
+        ));
+    }
+    items
+        .iter()
+        .map(|item| {
+            if item.get("status").and_then(serde_json::Value::as_str) != Some("ok") {
+                return Err(FigError::new(
+                    ErrorCode::ExportFailed,
+                    "a requested asset could not be exported",
+                ));
+            }
+            item.get("export").cloned().ok_or_else(|| {
+                FigError::new(
+                    ErrorCode::ProtocolMismatch,
+                    "the plugin batch item has no export",
+                )
+            })
+        })
+        .collect()
 }
 
 /// Flatten the identity of a node into the top level of the payload.
@@ -1993,6 +2111,33 @@ async fn execute_job(state: &Arc<DaemonState>, job: Job) {
 mod tests {
     use super::*;
 
+    #[test]
+    fn editor_export_batches_reach_the_asset_normalizer() {
+        let export = serde_json::json!({ "node_id": "1:2", "mime": "image/png", "width": 1,
+            "height": 1, "bytes": "AA==", "hash": "sha256:test" });
+        let batch = serde_json::json!({ "batch_status": "complete", "items": [
+            { "node_id": "1:2", "status": "ok", "export": export.clone() }
+        ] });
+        assert_eq!(
+            export_payloads(&batch).expect("batch parses"),
+            vec![export.clone()]
+        );
+        assert_eq!(
+            export_payloads(&export).expect("legacy parses"),
+            vec![export]
+        );
+    }
+
+    #[test]
+    fn failed_editor_export_batches_do_not_report_success() {
+        let batch = serde_json::json!({ "items": [{ "node_id": "1:2", "status": "error" }] });
+        assert_eq!(
+            export_payloads(&batch).expect_err("failure retained").code,
+            ErrorCode::ExportFailed
+        );
+        assert!(export_payloads(&serde_json::json!({ "items": [] })).is_err());
+    }
+
     fn state() -> Arc<DaemonState> {
         Arc::new(DaemonState::new(
             uuid::Uuid::new_v4(),
@@ -2175,6 +2320,9 @@ mod tests {
         assert!(params.get("cursor").is_none());
         assert!(params.get("session_id").is_none());
         assert_eq!(params["root_id"], "1:2");
+        let native = plugin_params(&plan, Some("plugin:opaque-plugin-stack"));
+        assert_eq!(native["cursor"], "opaque-plugin-stack");
+        assert!(native.get("after").is_none());
     }
 
     #[test]
@@ -2449,6 +2597,69 @@ mod tests {
     }
 
     /// The parameters of a write request.
+    #[test]
+    fn complete_creation_receipts_are_learned_but_partial_or_mismatched_ones_are_not() {
+        let (state, session_id) = ready_state_with(
+            Duration::from_secs(2),
+            figtether_model::write::GrantMode::Write,
+        );
+        let request = write_path::parse_plan(
+            &serde_json::json!({
+                "session_id":session_id,"plan":{"plan_id":"create","operations":[
+                    {"kind":"create_node","parent_id":"1:2","node_type":"TEXT","text":"Hello"}
+                ]}
+            }),
+            &figtether_model::write::WriteBudget::default(),
+        )
+        .expect("valid plan");
+        let epoch = grant_epoch_of(&state, &session_id).expect("epoch");
+        remember_write_creations(
+            &state,
+            &request,
+            epoch,
+            &serde_json::json!({"status":"partial","created":["1:9"]}),
+        );
+        assert!(!state.registry.is_in_scope(&session_id, "1:9"));
+        remember_write_creations(
+            &state,
+            &request,
+            epoch,
+            &serde_json::json!({"status":"applied","created":["1:9","1:10"]}),
+        );
+        assert!(!state.registry.is_in_scope(&session_id, "1:9"));
+        remember_write_creations(
+            &state,
+            &request,
+            epoch,
+            &serde_json::json!({"status":"applied","created":["1:9"]}),
+        );
+        assert!(state.registry.is_in_scope(&session_id, "1:9"));
+    }
+
+    #[tokio::test]
+    async fn session_discovery_supplies_granted_ids_and_mode_without_editor_calls() {
+        let (state, session_id) = ready_state_with(
+            Duration::from_secs(2),
+            figtether_model::write::GrantMode::Write,
+        );
+        let response = dispatch(
+            &state,
+            &identity(),
+            ClientRequest::ListSessions {
+                request_id: "discover".to_string(),
+                cursor: None,
+            },
+        )
+        .await;
+        let data = data_of(&response);
+        assert_eq!(
+            data["sessions"][0]["granted_root_ids"],
+            serde_json::json!(["1:2"])
+        );
+        assert_eq!(data["sessions"][0]["grant_mode"], "write");
+        assert_eq!(data["sessions"][0]["session_id"], session_id.to_string());
+    }
+
     fn write_params(session_id: SessionId, node_id: &str) -> serde_json::Value {
         serde_json::json!({
             "plan": {

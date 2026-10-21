@@ -1,6 +1,6 @@
 //! The tool surface.
 //!
-//! The adapter exposes the twelve read tools of the contract and the three
+//! The adapter exposes fourteen read tools and the three
 //! tools of the write path. The read tools are read only: they declare
 //! `readOnlyHint=true` and `destructiveHint=false`, they name either a
 //! session or a snapshot, and they never accept a parameter that widens a
@@ -59,14 +59,7 @@ pub const WRITE_TIMEOUT: Duration = Duration::from_secs(120);
 pub const JOB_POLL_INTERVAL: Duration = Duration::from_millis(200);
 
 /// The instructions handed to the client during the handshake.
-pub const INSTRUCTIONS: &str = "FigTether exposes the design of the file the user has open in \
-Figma. The read tools are read only: call list_sessions to find a session, get_selection to find \
-the selected nodes, and then read the tree with list_nodes or get_nodes. Every answer carries a \
-provenance envelope: source, observation, coverage, data, and warnings. The write path is plan \
-based: preview_write proposes a plan and answers with what the plan would change, the user \
-approves that preview in the plugin, get_write_approval answers with the approval token, and \
-apply_write applies the approved plan as one undo step. A write never widens a grant, never \
-approves anything on behalf of the user, and never exposes a secret.";
+pub const INSTRUCTIONS: &str = include_str!("../../../integrations/figtether/instructions.txt");
 
 /// The cancellation source of one tool call.
 ///
@@ -425,7 +418,7 @@ impl FigTetherService {
     /// Export nodes as PNG or SVG.
     #[rmcp::tool(
         name = "export_assets",
-        description = "Export nodes of a granted root as PNG or SVG and return one asset per node with its content hash, its MIME type, its byte size, and an opaque grant bound resource URI. A node that cannot be exported is reported per item. Name either a session_id or a snapshot_id, never both.",
+        description = "Export granted nodes as PNG or SVG and return asset metadata. Call get_asset with the returned asset_id and session_id to receive a PNG as an MCP image block. PNG delivery is limited to 1 MiB of image bytes and expires after five minutes or a grant change; lower the scale or export a section if needed. SVG byte delivery is unavailable. Snapshot storage is unavailable in this daemon; use a live session_id.",
         annotations(read_only_hint = true, destructive_hint = false)
     )]
     async fn export_assets(
@@ -450,7 +443,7 @@ impl FigTetherService {
     /// Describe a stored capture.
     #[rmcp::tool(
         name = "get_snapshot_info",
-        description = "Describe an immutable FigTether capture: its capture window, its stable content hash, its origin session and grant, its coverage, and its idle expiry. The answer works while the editor is closed and is never labeled live.",
+        description = "Reserved snapshot contract. The shipped daemon has no snapshot store and returns CAPABILITY_UNAVAILABLE. Use open_design or bounded live-session reads instead.",
         annotations(read_only_hint = true, destructive_hint = false)
     )]
     async fn get_snapshot_info(
@@ -475,7 +468,7 @@ impl FigTetherService {
     /// Subscribe to the invalidation of one scoped root.
     #[rmcp::tool(
         name = "watch_scope",
-        description = "Register a watch on one granted root of a live session and return the watch id with its first cursor. The watch is an invalidation source, never a truth source: read the changed nodes again after an event.",
+        description = "Reserved watch contract. Watch registration is unavailable in the shipped daemon. Read the relevant granted nodes again after editing instead.",
         annotations(read_only_hint = true, destructive_hint = false)
     )]
     async fn watch_scope(
@@ -500,7 +493,7 @@ impl FigTetherService {
     /// Drain the journal of a watch.
     #[rmcp::tool(
         name = "get_changes",
-        description = "Read the change events of a watch: the ids of the changed nodes and the tombstones of the deleted ones. A cursor that the journal can no longer serve answers RESYNC_REQUIRED or CURSOR_EXPIRED. The journal never carries full payloads.",
+        description = "Reserved change-journal contract. Watch/change delivery is unavailable in the shipped daemon. Read the relevant granted nodes again instead.",
         annotations(read_only_hint = true, destructive_hint = false)
     )]
     async fn get_changes(
@@ -567,10 +560,12 @@ pub(crate) fn encode<T: serde::Serialize>(params: &T) -> Result<serde_json::Valu
     })
 }
 
-/// The names of the twelve read tools of the contract.
+/// The names of the fourteen read tools of the surface.
 ///
 /// The read tools are the ones that never change a document.
-pub const READ_TOOL_NAMES: [&str; 12] = [
+pub const READ_TOOL_NAMES: [&str; 14] = [
+    "open_design",
+    "get_asset",
     "get_bridge_status",
     "list_sessions",
     "get_selection",
@@ -590,8 +585,10 @@ pub const READ_TOOL_NAMES: [&str; 12] = [
 /// The write path is plan based: a proposal, an approval, and an apply.
 pub const WRITE_TOOL_NAMES: [&str; 3] = ["preview_write", "get_write_approval", "apply_write"];
 
-/// The names of the fifteen tools of the surface.
-pub const TOOL_NAMES: [&str; 15] = [
+/// The names of the seventeen tools of the surface.
+pub const TOOL_NAMES: [&str; 17] = [
+    "open_design",
+    "get_asset",
     "get_bridge_status",
     "list_sessions",
     "get_selection",
@@ -615,7 +612,9 @@ pub const TOOL_NAMES: [&str; 15] = [
 /// themselves need a daemon client, which the server owns. The read tools
 /// and the write tools live in two routers that are merged here.
 pub fn tool_router() -> ToolRouter<FigTetherService> {
-    FigTetherService::tool_router() + FigTetherService::write_tool_router()
+    FigTetherService::tool_router()
+        + FigTetherService::write_tool_router()
+        + FigTetherService::canvas_tool_router()
 }
 
 #[cfg(test)]
@@ -700,20 +699,20 @@ mod tests {
     }
 
     #[test]
-    fn the_surface_holds_the_twelve_read_tools_and_the_three_write_tools() {
+    fn the_surface_holds_fourteen_read_tools_and_three_write_tools() {
         let names: Vec<String> = router()
             .list_all()
             .into_iter()
             .map(|tool| tool.name.to_string())
             .collect();
-        assert_eq!(names.len(), 15);
+        assert_eq!(names.len(), 17);
         for expected in TOOL_NAMES {
             assert!(
                 names.contains(&expected.to_string()),
                 "{expected} is missing"
             );
         }
-        assert_eq!(READ_TOOL_NAMES.len(), 12);
+        assert_eq!(READ_TOOL_NAMES.len(), 14);
         assert_eq!(WRITE_TOOL_NAMES.len(), 3);
     }
 

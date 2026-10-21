@@ -1,0 +1,119 @@
+{
+  "schema_version": 1,
+  "kind": "documentation-and-design-skill-validation",
+  "created_at": "2026-10-20T23:19:06.391Z",
+  "source": {
+    "commit": "fc345d0146eb6a617179e9a3fe6e3d590e6dc00b",
+    "dirty": true
+  },
+  "checks": {
+    "documentation": {
+      "markdown_files": 100,
+      "issues": 0,
+      "inventory": "docs/audits/2026-10-21-inventory.json"
+    },
+    "detector_unit_tests": {
+      "tests": 35,
+      "pass": 35,
+      "fail": 0,
+      "duration_ms": 915.6572,
+      "log": "benchmarks/results/design-evidence-2026-10-21-verified/unit-tests.log"
+    },
+    "plugin_tests": {
+      "command": "npm --prefix plugins/figma test",
+      "exit_code": 0,
+      "elapsed_ms": 6217.7628,
+      "observed_at": "2026-10-20T23:10:09.6578681Z",
+      "passed": 467,
+      "failed": 0,
+      "log": "benchmarks/results/design-evidence-2026-10-21-verified/plugin-tests.log"
+    },
+    "publication_regression_tests": {
+      "tests": 5,
+      "pass": 5,
+      "fail": 0,
+      "duration_ms": 115.514,
+      "log": "benchmarks/results/design-evidence-2026-10-21-verified/public-tests.log"
+    },
+    "format": {
+      "passed": true
+    },
+    "public_em_dash_scan": {
+      "issues": 0,
+      "scope": "Public proposed text-file set; ignored local runs excluded."
+    },
+    "skill": {
+      "frontmatter_validation": "passed",
+      "installed_copy_matches": true,
+      "files": [
+        {
+          "file": ".agents/skills/design-evidence/agents/openai.yaml",
+          "sha256": "b93fbe6c7562f32e8e604639e1324f27748194ea42ff2736aef15ec6864aa87e"
+        },
+        {
+          "file": ".agents/skills/design-evidence/references/figtether-bridge-profile.json",
+          "sha256": "5fea396cdde8b25951e12846228e0a39ee2b150380b118d2805dea79387d6390"
+        },
+        {
+          "file": ".agents/skills/design-evidence/references/research.md",
+          "sha256": "902c4360ff8bd9b89866caea9f60c3dbd781c603175ad7f4a7c03105b0888cf8"
+        },
+        {
+          "file": ".agents/skills/design-evidence/references/rules.md",
+          "sha256": "9ae970cdbc9e37e20461a3e40b2ac759f8ac46d91f87dcb652a959080d69eb64"
+        },
+        {
+          "file": ".agents/skills/design-evidence/scripts/collect-browser.mjs",
+          "sha256": "515ef9c3b343fd88362713ab90e9cc97621891a382ffc011d73cb682908c092e"
+        },
+        {
+          "file": ".agents/skills/design-evidence/scripts/evaluate.mjs",
+          "sha256": "a09c777a50d47b3cfa2bd25780bdc35f6aecb660fb6556062441ed846e663311"
+        },
+        {
+          "file": ".agents/skills/design-evidence/scripts/evaluate.test.mjs",
+          "sha256": "ed22514fc0d61fb1d084fbcafe8a32673bb9b52d2c11f440ac5361b19c26b221"
+        },
+        {
+          "file": ".agents/skills/design-evidence/SKILL.md",
+          "sha256": "0521e098e19068eef5c405f973402df534c2b81c76cf5570ce9af6b9b80007d0"
+        }
+      ]
+    },
+    "installed_cli": {
+      "installed_cli_matches_frozen_report": true,
+      "unknown_option_rejected": true,
+      "elapsed_ms": 165.45850000000002,
+      "node": "v22.14.0"
+    }
+  },
+  "browser": {
+    "published_record": "benchmarks/published/design-evidence-2026-10-21.json",
+    "rule_count": 14,
+    "captures": 8,
+    "repeated_evaluations": 800,
+    "failed_observations": 0,
+    "manual_review": "untested",
+    "additional_timestamped_run": "benchmarks/results/design-evidence-2026-10-20T23-14-38-496Z/run-summary.json",
+    "additional_captures": 8,
+    "additional_repeated_evaluations": 800
+  },
+  "environment": {
+    "node": "v22.14.0",
+    "v8": "12.4.254.21-node.22",
+    "platform": "win32",
+    "arch": "x64"
+  },
+  "costs": {
+    "model_tokens": null,
+    "model_cost_usd": null,
+    "status": "NOT_MEASURED",
+    "reason": "Chat/research billing is not exposed. The local evaluator and browser harness call no model or paid remote API."
+  },
+  "limits": [
+    "Local verification only; hosted CI was not run.",
+    "The documentation inventory is not proof of every technical claim or grammatical accuracy.",
+    "No AI-authorship classifier accuracy, user-study outcome, or full WCAG conformance is claimed.",
+    "The initial draft failures and superseded collector results are retained in the browser record."
+  ]
+}

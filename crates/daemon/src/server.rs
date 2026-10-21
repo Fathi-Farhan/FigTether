@@ -30,6 +30,7 @@ use crate::bridge;
 use crate::client_api;
 use crate::control;
 use crate::logging::LoggingError;
+use crate::port::{self, PortProblem};
 use crate::runtime_dir::RuntimeDirError;
 use crate::DaemonState;
 
@@ -39,6 +40,19 @@ pub enum DaemonError {
     /// The port must not be zero.
     #[error("the bridge port must not be zero")]
     InvalidPort,
+    /// The port cannot be bound.
+    ///
+    /// The message names the port, the reason, and the next steps. It never
+    /// asks the user to change a firewall or to remove a port reservation.
+    #[error("the bridge port {port} on 127.0.0.1 cannot be bound: {problem} Start the daemon on a free port and regenerate the plugin manifest with the same port: figtether daemon --port {suggestion} and figtether manifest --plugin-id <id> --port {suggestion} --out plugins/figma/manifest.local.json")]
+    PortUnavailable {
+        /// The port that could not be bound.
+        port: u16,
+        /// Why the port could not be bound.
+        problem: PortProblem,
+        /// A port that can be bound instead.
+        suggestion: u16,
+    },
     /// The listener could not be opened.
     #[error("the loopback listener could not be opened: {0}")]
     Bind(#[source] io::Error),
@@ -56,13 +70,37 @@ pub enum DaemonError {
 /// Bind the loopback listener.
 ///
 /// The daemon never binds `0.0.0.0` and never binds an arbitrary port: the
-/// plugin manifest references a fixed port.
+/// plugin manifest references a fixed port. A port that cannot be bound
+/// fails loudly with the reason and the next steps.
 pub async fn bind_listener(port: u16) -> Result<TcpListener, DaemonError> {
     if port == 0 {
         return Err(DaemonError::InvalidPort);
     }
     let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, port));
-    TcpListener::bind(addr).await.map_err(DaemonError::Bind)
+    match TcpListener::bind(addr).await {
+        Ok(listener) => Ok(listener),
+        Err(err) => Err(port_error(port, err)),
+    }
+}
+
+/// Build the error of a failed bind.
+///
+/// The error names the reason of the refusal. A port that another process
+/// holds and a port that the operating system reserved are told apart, so
+/// the message never sends the user after a port that no process uses.
+fn port_error(port: u16, err: io::Error) -> DaemonError {
+    let problem = match err.kind() {
+        io::ErrorKind::AddrInUse => Some(PortProblem::InUse),
+        _ => port::diagnose(port),
+    };
+    match problem {
+        Some(problem) => DaemonError::PortUnavailable {
+            port,
+            problem,
+            suggestion: port::suggest_free_port(port),
+        },
+        None => DaemonError::Bind(err),
+    }
 }
 
 /// The address the daemon listens on.
@@ -76,6 +114,14 @@ pub fn router(state: Arc<DaemonState>) -> Router {
         .route("/bridge", get(bridge_handler))
         .route("/client", get(client_handler))
         .route("/health", get(health_handler))
+        .route("/panel", get(crate::panel::page))
+        .route("/panel.js", get(crate::panel::script))
+        .route("/panel.css", get(crate::panel::style))
+        .route("/panel/state", get(crate::panel::snapshot))
+        .route(
+            "/panel/action",
+            post(crate::panel::action).layer(axum::extract::DefaultBodyLimit::max(8192)),
+        )
         .route(
             "/control/pair",
             post(pair_handler).route_layer(middleware::from_fn(control_guard)),
@@ -130,7 +176,14 @@ async fn guard_headers(
     next: Next,
 ) -> Response {
     let host_ok = host_is_allowed(request.headers(), state.port);
-    let origin_ok = origin_is_allowed(request.headers());
+    let panel_path =
+        request.uri().path() == "/panel" || request.uri().path().starts_with("/panel/");
+    let panel_origin = request
+        .headers()
+        .get("origin")
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(|v| v == format!("http://127.0.0.1:{}", state.port));
+    let origin_ok = origin_is_allowed(request.headers()) || (panel_path && panel_origin);
     if !host_ok || !origin_ok {
         tracing::warn!(
             code = "PERMISSION_DENIED",
@@ -300,6 +353,63 @@ mod tests {
         let addr = listener.local_addr().expect("address");
         assert!(addr.ip().is_loopback());
         assert!(!addr.ip().is_unspecified());
+    }
+
+    #[tokio::test]
+    async fn a_taken_port_is_reported_as_unavailable() {
+        let listener = tokio::net::TcpListener::bind(bind_addr(0))
+            .await
+            .expect("bound");
+        let port = listener.local_addr().expect("address").port();
+        let err = bind_listener(port).await.expect_err("refused");
+        match err {
+            DaemonError::PortUnavailable {
+                port: reported,
+                problem,
+                ..
+            } => {
+                assert_eq!(reported, port);
+                assert_eq!(problem, PortProblem::InUse);
+            }
+            other => panic!("unexpected error: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn the_port_error_names_the_reason_and_the_next_steps() {
+        let err = DaemonError::PortUnavailable {
+            port: 38947,
+            problem: PortProblem::ReservedByOs {
+                start: 38929,
+                end: 39028,
+            },
+            suggestion: 39147,
+        };
+        let text = err.to_string();
+        assert!(text.contains("38947"), "{text}");
+        assert!(text.contains("38929-39028"), "{text}");
+        assert!(text.contains("figtether daemon --port 39147"), "{text}");
+        assert!(
+            text.contains("figtether manifest --plugin-id <id>"),
+            "{text}"
+        );
+        assert!(text.contains("--port 39147"), "{text}");
+    }
+
+    #[test]
+    fn the_port_error_never_asks_for_a_policy_change() {
+        let err = DaemonError::PortUnavailable {
+            port: 38947,
+            problem: PortProblem::ReservedByOs {
+                start: 38929,
+                end: 39028,
+            },
+            suggestion: 39147,
+        };
+        let text = err.to_string().to_lowercase();
+        assert!(!text.contains("firewall"), "{text}");
+        assert!(!text.contains("delete"), "{text}");
+        assert!(!text.contains("remove the"), "{text}");
     }
 
     #[test]

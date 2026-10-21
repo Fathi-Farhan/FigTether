@@ -1,0 +1,139 @@
+{
+  "schema_version": 1,
+  "kind": "documentation-and-ui-verification",
+  "created_at": "2026-10-20T22:42:45.438Z",
+  "source": {
+    "commit": "fc345d0146eb6a617179e9a3fe6e3d590e6dc00b",
+    "dirty": true,
+    "tracked_diff_sha256": "5735c1c54ae36b8c687395a7471aa931ee971f76756d890719c8867b953dad70"
+  },
+  "artifacts": [
+    {
+      "file": "plugins/figma/dist/main.js",
+      "bytes": 183563,
+      "sha256": "02475c158c913d9cda21ad83efb55315ff80072393f2ef52f641518c2a469277"
+    },
+    {
+      "file": "plugins/figma/dist/ui.html",
+      "bytes": 138523,
+      "sha256": "9d3569b2d77d1d60f937b3dce896420deb061ae316a3a945bf495e616a213d1c"
+    },
+    {
+      "file": "plugins/figma/ui/assets/figtether-icon.png",
+      "bytes": 1270,
+      "sha256": "c6b9bc74a0c8a8672eab2095b273fbcf482e50d4455ed17500910aae4a16f62a"
+    },
+    {
+      "file": "assets/figtether-banner.png",
+      "bytes": 1089880,
+      "sha256": "72c50d734da484af36f2aed902b5af806eb226d1c445508e4fedc541cfc875d1"
+    },
+    {
+      "file": "assets/figtether-icon.png",
+      "bytes": 119647,
+      "sha256": "4120a632e0996293a97789f696bcdefbf479a8cd1bd9d6dd2c018369b9ee8493"
+    },
+    {
+      "file": "assets/architecture.svg",
+      "bytes": 4436,
+      "sha256": "f788c9c05bd8390aa344c245ba233aaf475bd3bae0dd81ba8dd7275de68906cf"
+    },
+    {
+      "file": "assets/benchmark-desktop.svg",
+      "bytes": 6171,
+      "sha256": "5b3c1cfb81e6fa239b8af6fbec6c47bdb86e69c1316885a0b35173bfae5b0c84"
+    },
+    {
+      "file": "assets/benchmark-stages.svg",
+      "bytes": 3921,
+      "sha256": "465c6a73c9427d00ff49f31ab271d0e0e77089cb24b7cd781200fb9ecfad41c1"
+    },
+    {
+      "file": "assets/bridge-setup.svg",
+      "bytes": 4108,
+      "sha256": "683bb03524fff4409e79df9a481c5c8ad37ba97a0d9582e9c67af4380c2f6ad3"
+    },
+    {
+      "file": "assets/bridge-ui-desktop.png",
+      "bytes": 126959,
+      "sha256": "cdea5bcbb3e7ca46c0644fdb254920d7069f74a282f80ddca648442aedd2dca6"
+    },
+    {
+      "file": "scripts/render-readme-assets.mjs",
+      "bytes": 14552,
+      "sha256": "d2a0bdac518d3aa83bab46f560e38fa8fa0897f04d28c1b45fc2998ce4d4a470"
+    }
+  ],
+  "checks": [
+    {
+      "command": "npm --prefix plugins/figma test",
+      "exit_code": 0,
+      "elapsed_ms": 4428.213400000001,
+      "observed_at": "2026-10-20T22:27:18.9539154Z",
+      "passed_tests": 467,
+      "failed_tests": 0,
+      "test_files": 39
+    },
+    {
+      "command": "npm --prefix plugins/figma run typecheck",
+      "exit_code": 0,
+      "elapsed_ms": 5944.5015,
+      "observed_at": "2026-10-20T22:26:41.2712142Z",
+      "passed_projects": 5
+    },
+    {
+      "command": "cargo test --locked -p figtether-daemon -p figtether-e2e --test write_path",
+      "exit_code": 0,
+      "elapsed_ms": 13824.097300000001,
+      "observed_at": "2026-10-20T22:28:08.6324005Z",
+      "passed_tests": 20,
+      "failed_tests": 0,
+      "daemon_tests": 7,
+      "e2e_tests": 13
+    },
+    {
+      "command": "npm run public:check",
+      "exit_code": 0,
+      "elapsed_ms": 4344.4159,
+      "observed_at": "2026-10-20T22:42:43.4500389Z"
+    }
+  ],
+  "retained_initial_failure": {
+    "source_log": "benchmarks/results/readme-ui-2026-10-21/plugin-tests.log",
+    "passed": 466,
+    "failed": 1,
+    "reason": "Existing UI test expected old 'not allowed' wording after the copy update.",
+    "resolution": "Assertion updated to the new explicit 'Agent editing is off' wording; full suite passed."
+  },
+  "visual_review": {
+    "direction": "Editorial skill from bergside/awesome-design-skills",
+    "figures": [
+      "banner",
+      "icon",
+      "architecture",
+      "desktop chart",
+      "offline chart",
+      "pairing guide"
+    ],
+    "browser_ui_width_css_px": 420,
+    "browser_ui_result": "Icon visible; text wraps and controls fit; unpaired state.",
+    "figma_desktop": "126.10.10",
+    "native_ui_result": "Closed the old plugin dialog through scoped UI Automation; reopened the last plugin through its menu. Native capture confirms updated icon, headings, source-secret disclosure and unpaired labels.",
+    "native_ui_evidence": "assets/bridge-ui-desktop.png",
+    "native_pairing_or_mutation_retested": false,
+    "desktop_automation_limits": [
+      "An initial keyboard shortcut was refused by the foreground guard; no keys were delivered.",
+      "A later coordinate-based disclosure toggle did not expand it. The disclosure's native click/keyboard interaction was not verified in Figma; its content is present in the built HTML."
+    ]
+  },
+  "previous_performance_data": "benchmarks/published/desktop-2026-10-20.json",
+  "performance_note": "This is a UI/documentation verification, not a new desktop latency benchmark. Prior measured artifact hashes remain unchanged in their historical report.",
+  "costs": {
+    "model_tokens": null,
+    "model_cost_usd": null,
+    "status": "NOT_MEASURED",
+    "image_generation_calls_this_work": 4,
+    "reason": "Chat and image-generation billing telemetry and exact image model revision are unavailable; missing cost is not zero."
+  },
+  "raw_evidence_directory": "benchmarks/results/readme-ui-2026-10-21"
+}

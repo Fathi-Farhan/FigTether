@@ -10,8 +10,7 @@
 # committed schema is missing from the generated set, or when a generated
 # schema is not committed yet.
 #
-# When the generator does not exist yet the check reports a skip and exits with
-# zero, so the pipeline works before the schema work lands.
+# Missing generators or empty schema sets fail: required contracts cannot be skipped.
 #
 # POSIX sh, no bashisms. The PowerShell twin with the same behaviour is
 # scripts/schema-check.ps1.
@@ -44,9 +43,9 @@ for candidate in \
 done
 
 if [ -z "$found" ]; then
-	printf 'schema check: skipped, no schema generator example named %s was found\n' "$example"
+	printf 'schema check: failed, no schema generator example named %s was found\n' "$example" >&2
 	printf 'schema check: expected one of crates/{model,protocol,cli,core}/examples/%s.rs\n' "$example"
-	exit 0
+	exit 1
 fi
 
 printf 'schema check: generator %s\n' "$found"
@@ -78,6 +77,15 @@ else
 fi
 
 status=0
+
+if ! find "$schema_dir" -type f -name '*.schema.json' | grep -q .; then
+	printf 'schema check: failed, no committed schemas were found\n' >&2
+	exit 1
+fi
+if ! find "$tmp" -type f -name '*.schema.json' | grep -q .; then
+	printf 'schema check: failed, the generator produced no schemas\n' >&2
+	exit 1
+fi
 
 for file in $(cd "$schema_dir" && find . -type f -name '*.schema.json' | sort); do
 	if [ ! -f "$tmp/$file" ]; then

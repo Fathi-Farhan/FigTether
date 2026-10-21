@@ -1,5 +1,9 @@
 # ADR-008: Resource budgets adopted from PRD 8.5.5 as code constants
 
+> **Design reference.** Original requirements and approval labels below are historical design
+> records, not a feature-availability list. See [current documentation status](../../documentation-status.md)
+> for implemented reads/writes, observed desktop evidence, and remaining gaps.
+
 | Field                | Value              |
 | -------------------- | ------------------ |
 | Status               | Accepted           |

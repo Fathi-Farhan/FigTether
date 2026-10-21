@@ -16,15 +16,45 @@
     <a class="skip-link" href="#main-content">Skip to the main content</a>
 
     <header class="app-header">
-      <h1>FigTether</h1>
+      <div class="app-brand">
+        <img
+          class="app-brand__icon"
+          src="./assets/figtether-icon.png"
+          alt=""
+          width="36"
+          height="36"
+        />
+        <div>
+          <h1>FigTether Bridge</h1>
+          <p class="app-brand__caption">Read, create, and edit selected designs.</p>
+        </div>
+      </div>
       <p id="connection-summary" class="app-header__status" role="status" aria-live="polite">
         Connection: Not paired.
       </p>
+      <button id="external-panel-button" type="button" class="button" disabled>
+        Open outside Figma
+      </button>
     </header>
 
     <main id="main-content">
-      <section class="panel" aria-labelledby="pair-heading">
-        <h2 id="pair-heading">Pair with the local daemon</h2>
+      <p id="next-step" class="next-step" role="status">Connect to get started.</p>
+      <details id="pair-details" class="panel" open>
+        <summary id="pair-heading">1. Connect your bridge</summary>
+        <details class="setup-help">
+          <summary>Where do I get the pairing secret?</summary>
+          <ol>
+            <li>
+              On this computer, open a terminal and run <code>figtether</code>. Leave it running.
+            </li>
+            <li>Open a second terminal and run <code>figtether pair</code>.</li>
+            <li>Copy the secret printed there, paste it below, and press <strong>Pair</strong>.</li>
+          </ol>
+          <p class="help">
+            Command not found? Build FigTether first and add its binary to your terminal's PATH. The
+            secret comes from your local CLI, not Figma or your AI provider.
+          </p>
+        </details>
         <form id="pair-form" novalidate>
           <div class="field">
             <label for="pairing-secret">Pairing secret</label>
@@ -38,8 +68,9 @@
               aria-describedby="pairing-secret-help"
             />
             <p id="pairing-secret-help" class="help">
-              Paste the one time secret that <code>figtether pair</code> prints. The secret is held
-              in memory only, it is never stored and it is cleared as soon as the handshake used it.
+              Run <code>figtether pair</code> in a second terminal to get this secret. It expires
+              after 5 minutes, works once, and is cleared from this field after you submit it. Paste
+              it here only.
             </p>
           </div>
           <button id="pair-button" type="submit" class="button button--primary">Pair</button>
@@ -48,42 +79,65 @@
         <p id="pair-feedback" class="message" role="status" aria-live="polite"></p>
         <dl class="facts">
           <div class="facts__item">
-            <dt>Session</dt>
-            <dd id="session-name">Not paired</dd>
+            <dt>Session name</dt>
+            <dd id="session-name">No session</dd>
           </div>
           <div class="facts__item">
             <dt>Session fingerprint</dt>
             <dd id="session-fingerprint">Not available</dd>
           </div>
         </dl>
-      </section>
+      </details>
 
       <section class="panel" aria-labelledby="grant-heading">
-        <h2 id="grant-heading">Shared scope</h2>
+        <h2 id="grant-heading">2. Choose what to share</h2>
+        <p class="help">
+          Select a frame in Figma, then click Update selection. Check the named frames you want to
+          share.
+        </p>
         <p id="grant-empty" class="empty">
-          No candidate root in the current selection. Select a node in the editor and press Refresh.
+          Nothing selected yet. Click a frame in Figma, then Update selection.
         </p>
         <fieldset class="fieldset">
-          <legend>Candidate roots in the current selection</legend>
+          <legend>Selected in Figma</legend>
           <ul id="candidate-roots" class="candidate-list"></ul>
         </fieldset>
+        <p id="selection-summary" class="help" role="status"></p>
         <div class="controls">
-          <button id="refresh-button" type="button" class="button">Refresh candidates</button>
+          <button id="refresh-button" type="button" class="button">Update selection</button>
           <button id="allow-button" type="button" class="button button--primary" disabled>
-            Allow read session
+            Share selected frames
           </button>
           <button id="write-grant-button" type="button" class="button" disabled>
-            Allow write session
+            Allow editing
           </button>
         </div>
         <p class="note">
-          The grant binds the roots you check now. A later selection change never widens the grant.
+          <strong>Currently shared:</strong> <span id="shared-frames">Nothing yet</span>. Changing
+          your Figma selection does not change what is shared.
         </p>
         <p id="write-grant-state" class="note">
-          Editing inside the granted roots is not allowed. The read grant never allows a change.
+          Agent editing is off. Share a frame, then allow editing. Review each proposed change here.
         </p>
         <p id="grant-feedback" class="message" role="status" aria-live="polite"></p>
         <p id="write-grant-feedback" class="message" role="status" aria-live="polite"></p>
+      </section>
+
+      <section class="panel" aria-labelledby="mode-heading">
+        <h2 id="mode-heading">3. Choose how to review changes</h2>
+        <label class="auto-choice" for="auto-mode"
+          ><input id="auto-mode" type="checkbox" disabled /> Auto mode</label
+        >
+        <p id="auto-mode-status" class="help" role="status">Off. You review each change.</p>
+        <p class="note">
+          When on, only new plans with no warnings, blocks, or deletions can be approved
+          automatically. Any issue pauses auto mode. Reconnecting or changing sharing turns it off.
+        </p>
+
+        <p class="help">
+          Opens a local browser tab. Drag the tab into its own window and move it to another
+          monitor. Keep this plugin running.
+        </p>
       </section>
 
       <section
@@ -94,14 +148,12 @@
       >
         <h2 id="write-approval-heading">Proposed change</h2>
         <p class="note">
-          This is a proposal of the agent. Nothing has changed in the document yet. You approve the
-          plan here, and only then the plugin applies it. After it is applied the change is a single
-          step in the undo history of Figma, so you can take it back with the undo command of the
-          editor.
+          Review what your agent wants to change. Approving applies this exact plan. After it is
+          applied, use Figma's undo history to take the change back.
         </p>
         <p id="write-approval-state" class="message">This plan is a proposal.</p>
         <p id="write-approval-plan" class="note">Plan without an id.</p>
-        <h3 id="write-counts-heading">What the plan would change</h3>
+        <h3 id="write-counts-heading">Changes in this plan</h3>
         <dl class="facts" aria-labelledby="write-counts-heading">
           <div class="facts__item">
             <dt>Nodes to create</dt>
@@ -124,13 +176,15 @@
             <dd id="write-plan-intent">The agent did not describe this plan.</dd>
           </div>
         </dl>
-        <h3 id="write-warnings-heading">Warnings of the plugin</h3>
+        <h3 id="write-warnings-heading">Needs your attention</h3>
         <ul
           id="write-warning-list"
           class="write-list"
           aria-labelledby="write-warnings-heading"
         ></ul>
-        <p id="write-warning-empty" class="empty">The plugin reported no warnings for this plan.</p>
+        <p id="write-warning-empty" class="empty">
+          No warnings reported. This does not assess design quality.
+        </p>
         <div
           id="write-blocked"
           class="confirm"
@@ -174,15 +228,15 @@
         <p id="write-approval-feedback" class="message" role="status" aria-live="polite"></p>
       </section>
 
-      <section class="panel" aria-labelledby="status-heading">
-        <h2 id="status-heading">Read session</h2>
+      <details class="panel">
+        <summary id="status-heading">Session details</summary>
         <dl class="status-strip">
           <div class="status-strip__item">
             <dt>Connection</dt>
             <dd id="status-connection">Not paired</dd>
           </div>
           <div class="status-strip__item">
-            <dt>Granted roots</dt>
+            <dt>Shared frames</dt>
             <dd id="status-roots">0</dd>
           </div>
           <div class="status-strip__item">
@@ -228,18 +282,18 @@
           </div>
         </dl>
         <p id="write-result-feedback" class="message" role="status" aria-live="polite"></p>
-      </section>
+      </details>
 
       <section class="panel" aria-labelledby="controls-heading">
-        <h2 id="controls-heading">Controls</h2>
+        <h2 id="controls-heading">Sharing controls</h2>
         <div class="controls">
-          <button id="pause-button" type="button" class="button" disabled>Pause</button>
-          <button id="resume-button" type="button" class="button" disabled>Resume</button>
-          <button id="capture-button" type="button" class="button" disabled>
+          <button id="pause-button" hidden type="button" class="button" disabled>Pause</button>
+          <button id="resume-button" hidden type="button" class="button" disabled>Resume</button>
+          <button id="capture-button" hidden type="button" class="button" disabled>
             Capture snapshot
           </button>
           <button id="revoke-button" type="button" class="button button--danger" disabled>
-            Revoke
+            Stop sharing
           </button>
         </div>
         <div
@@ -249,14 +303,14 @@
           aria-labelledby="revoke-confirm-heading"
           hidden
         >
-          <h3 id="revoke-confirm-heading">Revoke this read session?</h3>
+          <h3 id="revoke-confirm-heading">Stop sharing these frames?</h3>
           <p>
-            Revoke stops further reads, drops the queue and clears the grant. Data the client
-            already received cannot be recalled.
+            This stops reading and editing for all agents using this session. Content already sent
+            to a client cannot be recalled.
           </p>
           <div class="controls">
             <button id="revoke-confirm-button" type="button" class="button button--danger">
-              Confirm revoke
+              Stop sharing
             </button>
             <button id="revoke-cancel-button" type="button" class="button">Cancel</button>
           </div>
@@ -267,11 +321,14 @@
       <section class="panel" aria-labelledby="log-heading">
         <h2 id="log-heading">Activity log</h2>
         <p class="note">
-          The log shows the operation, the count, the duration and the error code only. The kinds of
-          the operations of a proposed plan and their counts are logged as well. Layer names, text
-          content, the plan itself and file identifiers are never logged.
+          Recent actions, item counts, and timings. Design content and secrets are excluded.
         </p>
-        <ol id="log-list" class="log-list" role="log" aria-labelledby="log-heading"></ol>
+        <div class="activity-toolbar">
+          <span id="log-count">0 events</span
+          ><button id="clear-log-button" class="button" type="button">Clear activity</button>
+        </div>
+        <p id="log-empty" class="empty">No activity yet. Your agent’s actions will appear here.</p>
+        <ul id="log-list" class="log-list" role="log" aria-labelledby="log-heading"></ul>
       </section>
     </main>
 

@@ -1,9 +1,10 @@
 //! The FigTether subcommands.
 //!
-//! Every command is local. The CLI never asks for a Figma personal access
-//! token, never sends design data anywhere, and prints a secret only for the
-//! explicit local pair action.
+//! Bridge commands use the local daemon. Source updates also invoke Git and
+//! package managers. The CLI never asks for a Figma personal access token and
+//! prints a secret only for the explicit local pair action.
 
+mod agent_check;
 pub mod config;
 pub mod daemon;
 pub mod doctor;
@@ -11,7 +12,10 @@ pub mod manifest;
 pub mod mcp;
 pub mod pair;
 pub mod revoke;
+pub mod setup;
 pub mod status;
+pub mod stop;
+pub mod update;
 
 use std::future::Future;
 
@@ -55,6 +59,9 @@ pub fn dispatch(command: Command) -> anyhow::Result<CommandOutcome> {
         Command::Config(args) => config::run(args),
         Command::Manifest(args) => manifest::run(args),
         Command::Revoke(args) => revoke::run(args),
+        Command::Stop(args) => stop::run(args),
+        Command::Update(args) => update::run(args),
+        Command::Setup(args) => setup::run(args),
     }
 }
 

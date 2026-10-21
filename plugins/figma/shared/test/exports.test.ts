@@ -166,6 +166,7 @@ describe("shared package surface", () => {
       "heartbeat",
       "revoke",
       "approval",
+      "ui_control",
     ]);
     expect(shared.BRIDGE_OPS).toEqual([
       "list_nodes",

@@ -126,7 +126,8 @@ export function fail(
  * so the reason is read from the message of the error. The message of the
  * editor never reaches the daemon: only the reason and a fixed text do.
  */
-export function mapEditorError(error: unknown, operation: number | null): WriteErrorDetail {  const message = error instanceof Error ? error.message : "";
+export function mapEditorError(error: unknown, operation: number | null): WriteErrorDetail {
+  const message = error instanceof Error ? error.message : "";
   const lowered = message.toLowerCase();
   if (lowered.includes("font")) {
     return writeError(

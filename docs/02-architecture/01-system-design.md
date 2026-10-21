@@ -1,5 +1,9 @@
 # FigTether System Design
 
+> **Design reference.** Original requirements and approval labels below are historical design
+> records, not a feature-availability list. See [current documentation status](../documentation-status.md)
+> for implemented reads/writes, observed desktop evidence, and remaining gaps.
+
 Status: `Proposed`
 
 FigTether is a local, read-only bridge between AI agents and a Figma Design document that a still-running

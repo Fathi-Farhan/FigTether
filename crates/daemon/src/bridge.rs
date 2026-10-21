@@ -34,7 +34,7 @@ use figtether_protocol::{
 use futures_util::{SinkExt, Stream, StreamExt};
 use tokio::sync::{mpsc, oneshot};
 
-use crate::secrets::{PairingError, Secret};
+use crate::secrets::{constant_time_eq, PairingError, Secret};
 use crate::DaemonState;
 
 /// Number of frames the daemon may queue for one plugin connection.
@@ -221,6 +221,8 @@ pub struct BridgeHub {
     /// UI, so a reconnect of the same UI finds its session again. It never
     /// decides which sessions a local client may see.
     plugins: Mutex<HashMap<String, SessionId>>,
+    /// Rotating in-memory credentials that survive a transport disconnect.
+    resumes: Mutex<HashMap<SessionId, (String, Secret)>>,
     /// Requests that wait for an answer.
     pending: Mutex<HashMap<String, PendingRequest>>,
     /// Connection epochs.
@@ -243,6 +245,36 @@ impl BridgeHub {
     /// Attach a live connection to a session.
     pub fn attach(&self, session_id: SessionId, link: SessionLink) {
         self.lock_sessions().insert(session_id, link);
+    }
+
+    /// Only successful authentication may establish a reconnect credential.
+    fn attach_authenticated(&self, session_id: SessionId, link: SessionLink) {
+        self.resumes
+            .lock()
+            .unwrap_or_else(|err| err.into_inner())
+            .insert(
+                session_id,
+                (link.client_id.clone(), link.credential.clone()),
+            );
+        self.attach(session_id, link);
+    }
+
+    /// Consume a reconnect credential, bound to its session and plugin label.
+    /// A label alone never authenticates a session. Successful authentication
+    /// rotates the credential when the replacement connection is attached.
+    fn consume_resume(&self, label: &str, presented: &str) -> Option<SessionId> {
+        let mut resumes = self.resumes.lock().unwrap_or_else(|err| err.into_inner());
+        let mut matched = None;
+        for (session_id, (client_id, secret)) in resumes.iter() {
+            let matches = constant_time_eq(secret.as_str(), presented);
+            if matches && client_id == label {
+                matched = Some(*session_id);
+            }
+        }
+        if let Some(session_id) = matched {
+            resumes.remove(&session_id);
+        }
+        matched
     }
 
     /// Detach the connection of a session.
@@ -332,6 +364,10 @@ impl BridgeHub {
     /// Mark a session as revoked and drop its pending work.
     pub fn revoke(&self, session_id: &SessionId) -> usize {
         self.lock_revoked().insert(*session_id);
+        self.resumes
+            .lock()
+            .unwrap_or_else(|err| err.into_inner())
+            .remove(session_id);
         self.lock_sessions().remove(session_id);
         let mut pending = self.lock_pending();
         let ids: Vec<String> = pending
@@ -506,32 +542,37 @@ pub async fn serve_plugin(socket: axum::extract::ws::WebSocket, state: Arc<Daemo
     // The secret carries the owner of the session it opens. The owner is the
     // local installation that minted the secret, not the plugin UI that
     // spends it.
-    let owner = match state.pairing.consume(&request.secret) {
-        Ok(paired) => paired.owner,
-        Err(PairingError::Expired) => {
-            reject_auth(&mut sender, "AUTH_EXPIRED", "the pairing secret expired").await;
-            return;
-        }
-        Err(PairingError::Unknown) => {
-            reject_auth(
-                &mut sender,
-                "AUTH_REQUIRED",
-                "the pairing secret is not valid",
-            )
-            .await;
-            return;
-        }
+    let resumed = state
+        .hub
+        .consume_resume(&request.client_id, &request.secret)
+        .filter(|id| !state.hub.is_revoked(id))
+        .and_then(|id| state.registry.get(&id))
+        .filter(|session| session.state != figtether_core::SessionState::Revoked);
+    let known_session = resumed.as_ref().map(|session| session.session_id);
+    let owner = match resumed {
+        Some(session) => session.client_id,
+        None => match state.pairing.consume(&request.secret) {
+            Ok(paired) => paired.owner,
+            Err(PairingError::Expired) => {
+                reject_auth(&mut sender, "AUTH_EXPIRED", "the pairing secret expired").await;
+                return;
+            }
+            Err(PairingError::Unknown) => {
+                reject_auth(
+                    &mut sender,
+                    "AUTH_REQUIRED",
+                    "the pairing secret is not valid",
+                )
+                .await;
+                return;
+            }
+        },
     };
 
     // A revoked grant never comes back. A plugin that pairs again after a
     // revocation opens a new session and waits for a new grant, so the old
     // session keeps refusing reads.
-    let known_session = state.hub.session_for_plugin(&request.client_id);
-    let revoked = known_session.is_some_and(|session_id| state.hub.is_revoked(&session_id));
-    let session_id = match known_session {
-        Some(session_id) if !revoked => session_id,
-        _ => SessionId::new(),
-    };
+    let session_id = known_session.unwrap_or_default();
     let epoch = state.hub.epochs().bump(&session_id);
 
     let (out_tx, mut out_rx) = mpsc::channel::<BridgeFrame>(OUTBOUND_QUEUE);
@@ -541,7 +582,7 @@ pub async fn serve_plugin(socket: axum::extract::ws::WebSocket, state: Arc<Daemo
     let probes = figtether_model::capabilities::Capabilities {
         probes: capabilities.clone(),
     };
-    if known_session.is_none() || revoked {
+    if known_session.is_none() {
         let registered = crate::domain_call(ErrorCode::InternalError, || {
             state.registry.register(session_id, owner.clone(), probes)
         });
@@ -565,7 +606,7 @@ pub async fn serve_plugin(socket: axum::extract::ws::WebSocket, state: Arc<Daemo
     authenticate_session(&state, session_id);
 
     state.hub.remember_plugin(&request.client_id, session_id);
-    state.hub.attach(
+    state.hub.attach_authenticated(
         session_id,
         SessionLink {
             epoch,
@@ -588,13 +629,14 @@ pub async fn serve_plugin(socket: axum::extract::ws::WebSocket, state: Arc<Daemo
         }),
         capabilities,
     };
-    let answer = BridgeFrame::new(
+    let mut answer = BridgeFrame::new(
         MessageType::Result,
         "auth",
         serde_json::to_value(&accepted).unwrap_or_default(),
     )
     .with_session(session_id)
     .with_connection_epoch(epoch);
+    answer.payload["ui_features"] = serde_json::json!(["companion_window", "warning_gated_auto"]);
     if let Ok(message) = encode_frame(&answer) {
         if sender.send(message).await.is_err() {
             return;
@@ -604,7 +646,6 @@ pub async fn serve_plugin(socket: axum::extract::ws::WebSocket, state: Arc<Daemo
     tracing::info!(code = "AUTH_ACCEPTED", "plugin session authenticated");
 
     let mut heartbeat = HeartbeatTracker::new(Instant::now());
-    let mut offline = false;
     let mut last_heartbeat_sent = Instant::now();
     let mut ticker = tokio::time::interval(HEARTBEAT_INTERVAL / 2);
     ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
@@ -646,6 +687,9 @@ pub async fn serve_plugin(socket: axum::extract::ws::WebSocket, state: Arc<Daemo
                 }
             }
             _ = ticker.tick() => {
+                if !state.hub.epochs().accepts(&session_id, Some(epoch)) {
+                    break;
+                }
                 let now = Instant::now();
                 if now.saturating_duration_since(last_heartbeat_sent) >= HEARTBEAT_INTERVAL {
                     last_heartbeat_sent = now;
@@ -662,8 +706,7 @@ pub async fn serve_plugin(socket: axum::extract::ws::WebSocket, state: Arc<Daemo
                         }
                     }
                 }
-                if !offline && heartbeat.is_offline(now) {
-                    offline = true;
+                if heartbeat.is_offline(now) {
                     tracing::warn!(code = "PLUGIN_OFFLINE", "plugin stopped sending heartbeats");
                     let _ = crate::domain_call(ErrorCode::InternalError, || {
                         state
@@ -671,12 +714,32 @@ pub async fn serve_plugin(socket: axum::extract::ws::WebSocket, state: Arc<Daemo
                             .set_state(&session_id, figtether_core::SessionState::Offline)
                     });
                     state.hub.fail_session(&session_id, "the plugin stopped answering");
+                    // A live socket that only receives our heartbeats prevents the
+                    // UI watchdog from noticing the failed session. Close it so
+                    // the plugin reconnects through authentication and resends
+                    // its existing grant instead of remaining falsely ready.
+                    let _ = sender.send(Message::Close(None)).await;
+                    break;
                 }
             }
         }
     }
 
-    state.hub.detach(&session_id);
+    // A superseded connection must not detach its authenticated replacement.
+    if state.hub.epochs().accepts(&session_id, Some(epoch)) {
+        state.hub.detach(&session_id);
+        state.panels.invalidate(&session_id);
+        if !state.hub.is_revoked(&session_id) {
+            let _ = crate::domain_call(ErrorCode::InternalError, || {
+                state
+                    .registry
+                    .set_state(&session_id, figtether_core::SessionState::Offline)
+            });
+            state
+                .hub
+                .fail_session(&session_id, "the plugin disconnected");
+        }
+    }
     tracing::info!(code = "PLUGIN_CLOSED", "plugin connection closed");
 }
 
@@ -728,6 +791,28 @@ async fn handle_incoming(
     }
 
     match frame.message_type {
+        MessageType::UiControl => {
+            match frame
+                .payload
+                .get("action")
+                .and_then(serde_json::Value::as_str)
+            {
+                Some("open") if !state.hub.is_revoked(&session_id) => {
+                    if let Some(url) = state.panels.open(session_id, epoch, state.port) {
+                        let reply = BridgeFrame::new(
+                            MessageType::UiControl,
+                            "panel-open",
+                            serde_json::json!({"action":"opened","url":url}),
+                        )
+                        .with_session(session_id)
+                        .with_connection_epoch(epoch);
+                        let _ = state.hub.try_send(&session_id, reply);
+                    }
+                }
+                Some("state") => state.panels.publish(session_id, epoch, &frame.payload),
+                _ => {}
+            }
+        }
         MessageType::Heartbeat => {
             heartbeat.record(Instant::now());
             if let Ok(payload) = frame.payload_of::<HeartbeatPayload>() {
@@ -851,6 +936,42 @@ async fn handle_incoming(
             let _ = state.hub.try_send(&session_id, reply);
         }
         MessageType::Approval => {
+            if frame
+                .payload
+                .get("automatic")
+                .is_some_and(|v| !v.is_boolean())
+            {
+                return;
+            }
+            let automatic = frame
+                .payload
+                .get("automatic")
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(false);
+            let approval = frame
+                .payload
+                .get("approval_id")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or("");
+            let hash = frame
+                .payload
+                .get("plan_hash")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or("");
+            if !state
+                .writes
+                .may_decide(&session_id, approval, hash, automatic)
+            {
+                let reply = BridgeFrame::new(
+                    MessageType::UiControl,
+                    "approval-refused",
+                    serde_json::json!({"action":"approval_refused"}),
+                )
+                .with_session(session_id)
+                .with_connection_epoch(epoch);
+                let _ = state.hub.try_send(&session_id, reply);
+                return;
+            }
             // The user approved or rejected a previewed plan. The daemon
             // records the decision and mints the token of an approved plan.
             match frame.payload_of::<figtether_protocol::write::ApprovalDecisionPayload>() {
@@ -878,6 +999,7 @@ async fn handle_incoming(
         }
         MessageType::Result => {
             if let Ok(payload) = frame.payload_of::<ResultPayload>() {
+                state.writes.observe_preview(&session_id, &payload.data);
                 state
                     .hub
                     .complete(&frame.request_id, BridgeOutcome::Result(payload.data));
@@ -1251,6 +1373,44 @@ mod tests {
         assert!(!epochs.accepts(&session, Some(1)));
         assert!(epochs.accepts(&session, Some(2)));
         assert!(epochs.accepts(&session, None));
+    }
+
+    #[test]
+    fn resume_credentials_survive_disconnect_but_not_rotation_or_revocation() {
+        let hub = BridgeHub::new();
+        let session_id = SessionId::new();
+        let (tx, _) = mpsc::channel(1);
+        let link = SessionLink {
+            epoch: 1,
+            client_id: "plugin-a".to_string(),
+            credential: Secret::generate(),
+            tx,
+            capabilities: BTreeMap::new(),
+        };
+        let first = link.credential.clone();
+        hub.attach_authenticated(session_id, link.clone());
+        hub.detach(&session_id);
+        assert_eq!(hub.consume_resume("plugin-b", first.as_str()), None);
+        assert_eq!(hub.consume_resume("plugin-a", "wrong"), None);
+        assert_eq!(
+            hub.consume_resume("plugin-a", first.as_str()),
+            Some(session_id)
+        );
+        assert_eq!(hub.consume_resume("plugin-a", first.as_str()), None);
+        // A capability refresh cannot recreate a consumed credential.
+        hub.attach(session_id, link.clone());
+        assert_eq!(hub.consume_resume("plugin-a", first.as_str()), None);
+        let second = Secret::generate();
+        hub.attach_authenticated(
+            session_id,
+            SessionLink {
+                credential: second.clone(),
+                ..link
+            },
+        );
+        assert_eq!(hub.consume_resume("plugin-a", first.as_str()), None);
+        hub.revoke(&session_id);
+        assert_eq!(hub.consume_resume("plugin-a", second.as_str()), None);
     }
 
     #[test]

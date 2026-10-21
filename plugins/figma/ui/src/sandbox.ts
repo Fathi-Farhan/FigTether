@@ -22,7 +22,8 @@ export interface MessageEventLike {
 
 /** Window surface used by the channel, so tests can supply a fake. */
 export interface WindowLike {
-  readonly parent: unknown;
+  readonly parent: { postMessage(message: unknown, targetOrigin: string): void };
+  readonly top?: unknown;
   addEventListener(type: "message", listener: (event: MessageEventLike) => void): void;
   removeEventListener(type: "message", listener: (event: MessageEventLike) => void): void;
   postMessage(message: unknown, targetOrigin: string): void;
@@ -70,7 +71,14 @@ export function createSandboxChannel(options: SandboxChannelOptions): SandboxCha
   const target = options.window;
 
   const listener = (event: MessageEventLike): void => {
-    if (event.source !== target.parent) {
+    // Desktop relays sandbox responses from the top-level editor, which is
+    // not necessarily this iframe's immediate parent.
+    const editorRelay =
+      target.top !== null &&
+      target.top !== undefined &&
+      event.source === target.top &&
+      (event.origin === "https://www.figma.com" || event.origin === "https://figma.com");
+    if (event.source !== target.parent && !editorRelay) {
       return;
     }
     const result = parseInboundEnvelope(event.data, { channel, maxBytes, allowedTypes });
@@ -85,7 +93,7 @@ export function createSandboxChannel(options: SandboxChannelOptions): SandboxCha
 
   return {
     post<TPayload>(type: string, payload: TPayload, requestId?: string): void {
-      target.postMessage(createEnvelope(type, payload, requestId), "*");
+      target.parent.postMessage({ pluginMessage: createEnvelope(type, payload, requestId) }, "*");
     },
     dispose(): void {
       target.removeEventListener("message", listener);

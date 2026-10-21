@@ -104,7 +104,7 @@ mod tests {
         let tools = answer["result"]["tools"]
             .as_array()
             .expect("the tool list is an array");
-        assert_eq!(tools.len(), 15);
+        assert_eq!(tools.len(), 17);
         for tool in tools {
             let name = tool["name"].as_str().expect("the tool has a name");
             if name == "apply_write" {

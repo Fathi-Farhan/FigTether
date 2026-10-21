@@ -335,6 +335,10 @@ export interface PropertyChange {
 
 /** Create a node under a parent. */
 export interface CreateNodeAction {
+  /** Validated initial styling, applied before reporting the created id. */
+  initialFills?: FigmaPaint[];
+  initialText?: string;
+  font?: FigmaFontName;
   /** The kind of the action. */
   kind: "create_node";
   /** The index of the operation in the plan. */

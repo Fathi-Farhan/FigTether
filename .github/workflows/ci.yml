@@ -7,14 +7,19 @@ name: CI
 #   rust-clippy       CI-02  cargo clippy --workspace --all-targets -- -D warnings
 #   rust-test         CI-03  cargo test --workspace
 #   schema-contract   CI-04  generated schemas must equal the committed ones
-#   plugin-typescript CI-05/06/07  typecheck, lint, test (skipped until the plugin lands)
+#   plugin-typescript CI-05/06/07  required typecheck, lint, build and tests
 #   docs-format       CI-13  npm run format:check plus the em dash scan
 #   dependency-audit  CI-09  cargo deny plus cargo audit
 #   sbom              CI-10  CycloneDX SBOM artifact
 #   license-check     license files plus the dependency license policy
+#   workflow-lint     actionlint validates every Actions workflow
+#   required          stable, fail-closed status for branch protection
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  merge_group:
+    types: [checks_requested]
   push:
     branches:
       - main
@@ -31,6 +36,10 @@ concurrency:
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: "1"
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
   rust-fmt:
@@ -69,12 +78,16 @@ jobs:
           components: clippy
           cache: true
       - name: cargo clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
   rust-test:
-    name: rust test
-    runs-on: ubuntu-latest
+    name: rust test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-15-intel, macos-15]
     permissions:
       contents: read
     steps:
@@ -86,8 +99,23 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1
         with:
           cache: true
-      - name: cargo test --workspace
-        run: cargo test --workspace
+      - name: cargo test --workspace --locked
+        run: |
+          mkdir -p artifacts
+          {
+            printf 'commit=%s\nrunner=%s/%s\n' "$GITHUB_SHA" "$RUNNER_OS" "$RUNNER_ARCH"
+            rustc --version
+            cargo --version
+          } > artifacts/rust-environment.txt
+          cargo test --workspace --locked 2>&1 | tee artifacts/rust-tests.log
+      - name: Retain Rust test evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: rust-tests-${{ matrix.os }}
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 30
 
   schema-contract:
     name: schema contract
@@ -118,47 +146,41 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-      # The plugin workspace does not exist yet. The detection runs as a step
-      # so the job stays out of the way until plugins/figma/package.json lands
-      # and then runs the full loop.
-      - name: Detect the plugin workspace
-        id: plugin
+      - name: Require the plugin workspace and lockfile
         run: |
-          set -euo pipefail
-          if [ -f plugins/figma/package.json ]; then
-            echo "present=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "plugins/figma/package.json is not present, the TypeScript job is skipped" >> "$GITHUB_STEP_SUMMARY"
-          fi
+          test -s plugins/figma/package.json
+          test -s plugins/figma/package-lock.json
       - name: Install Node.js
-        if: steps.plugin.outputs.present == 'true'
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "22"
-      - name: Verify the plugin lockfile
-        if: steps.plugin.outputs.present == 'true'
-        run: test -f plugins/figma/package-lock.json
+          cache: npm
+          cache-dependency-path: plugins/figma/package-lock.json
       - name: Install plugin dependencies
-        if: steps.plugin.outputs.present == 'true'
         run: npm ci
         working-directory: plugins/figma
       - name: Typecheck
-        if: steps.plugin.outputs.present == 'true'
         run: npm run build:types && npm run typecheck
         working-directory: plugins/figma
       - name: Lint
-        if: steps.plugin.outputs.present == 'true'
         run: npm run lint:all
         working-directory: plugins/figma
       - name: Build
-        if: steps.plugin.outputs.present == 'true'
         run: npm run build
         working-directory: plugins/figma
       - name: Test
-        if: steps.plugin.outputs.present == 'true'
-        run: npm test
+        run: npm test -- --reporter=default --reporter=junit --outputFile=../../artifacts/plugin-tests.xml
         working-directory: plugins/figma
+      - name: Require the test report
+        run: test -s artifacts/plugin-tests.xml
+      - name: Retain plugin test evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: plugin-tests
+          path: artifacts/plugin-tests.xml
+          if-no-files-found: warn
+          retention-days: 30
 
   docs-format:
     name: docs format
@@ -182,7 +204,7 @@ jobs:
       - name: Prettier check
         run: npm run format:check
       - name: Public documentation, links, and generated visuals
-        run: npm run public:test && npm run public:check
+        run: npm run public:test && npm run ci:test && npm run design:test && npm run public:check
       - name: Em dash scan
         run: sh scripts/scan-em-dash.sh
 
@@ -311,3 +333,50 @@ jobs:
         run: go install github.com/zricethezav/gitleaks/v8@v8.24.3
       - name: Scan reachable history without printing credentials
         run: '"$(go env GOPATH)/bin/gitleaks" git --log-opts="--all" --config .gitleaks.toml --redact --no-banner .'
+
+  workflow-lint:
+    name: workflow lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Install pinned actionlint
+        env:
+          GOBIN: ${{ runner.temp }}/actionlint-bin
+        run: go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.11
+      - name: Validate workflow syntax, expressions and embedded shell
+        run: '"$RUNNER_TEMP/actionlint-bin/actionlint" -color'
+
+  required:
+    name: CI required
+    if: always()
+    needs:
+      - rust-fmt
+      - rust-clippy
+      - rust-test
+      - schema-contract
+      - plugin-typescript
+      - docs-format
+      - dependency-audit
+      - sbom
+      - license-check
+      - secret-scan
+      - workflow-lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Install Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+      - name: Require every prerequisite to succeed
+        env:
+          CI_NEEDS_JSON: ${{ toJSON(needs) }}
+        run: node scripts/ci-gate.mjs

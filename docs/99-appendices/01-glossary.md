@@ -1,5 +1,9 @@
 # FigTether Glossary
 
+> **Design reference.** Original requirements and approval labels below are historical design
+> records, not a feature-availability list. See [current documentation status](../documentation-status.md)
+> for implemented reads/writes, observed desktop evidence, and remaining gaps.
+
 Status: `Proposed`
 
 This glossary is the vocabulary of record for the FigTether documentation set. Part 1 reproduces every

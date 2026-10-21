@@ -1,5 +1,9 @@
 # ADR-013: Bidirectional write path through the local plugin
 
+> **Design reference.** Original requirements and approval labels below are historical design
+> records, not a feature-availability list. See [current documentation status](../../documentation-status.md)
+> for implemented reads/writes, observed desktop evidence, and remaining gaps.
+
 Status: `Proposed` (requires product approval; supersedes the read-only rule of `D03` for a
 future release)
 

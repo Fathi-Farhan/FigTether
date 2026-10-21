@@ -1,0 +1,33 @@
+{
+  "$defs": {
+    "AssetId": {
+      "description": "Opaque identifier of one exported asset.",
+      "format": "uuid",
+      "type": "string"
+    },
+    "SessionId": {
+      "description": "Identity of one plugin run or tab.",
+      "format": "uuid",
+      "type": "string"
+    }
+  },
+  "$id": "urn:figtether:schema:get_asset_params",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Fetch a previously exported PNG within the same active grant.",
+  "properties": {
+    "asset_id": {
+      "$ref": "#/$defs/AssetId",
+      "description": "Opaque asset id returned by export_assets."
+    },
+    "session_id": {
+      "$ref": "#/$defs/SessionId",
+      "description": "Session that exported the image."
+    }
+  },
+  "required": [
+    "session_id",
+    "asset_id"
+  ],
+  "title": "GetAssetParams",
+  "type": "object"
+}

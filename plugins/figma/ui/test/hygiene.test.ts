@@ -108,7 +108,7 @@ describe("credential and code hygiene", () => {
       const matches = source.content.match(/wss?:\/\/[^\s"'`]+/g) ?? [];
       found += matches.length;
       for (const match of matches) {
-        expect(match, source.file).toMatch(/^ws:\/\/127\.0\.0\.1:38947/);
+        expect(match, source.file).toBe("ws://localhost:${LOCAL_BRIDGE_PORT}/bridge");
       }
     }
     expect(found).toBeGreaterThan(0);

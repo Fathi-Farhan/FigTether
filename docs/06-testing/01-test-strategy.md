@@ -1,4 +1,8 @@
-﻿# FigTether Test Strategy
+# FigTether Test Strategy
+
+> **Design reference.** Original requirements and approval labels below are historical design
+> records, not a feature-availability list. See [current documentation status](../documentation-status.md)
+> for implemented reads/writes, observed desktop evidence, and remaining gaps.
 
 Status: `Proposed`
 

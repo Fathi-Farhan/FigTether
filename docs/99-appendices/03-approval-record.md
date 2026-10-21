@@ -1,5 +1,9 @@
 # FigTether Approval Record
 
+> **Design reference.** Original requirements and approval labels below are historical design
+> records, not a feature-availability list. See [current documentation status](../documentation-status.md)
+> for implemented reads/writes, observed desktop evidence, and remaining gaps.
+
 Status: `Proposed`
 
 This is the governance record for the FigTether documentation set produced from
@@ -30,9 +34,11 @@ written design is internally consistent and PRD-faithful; it says nothing about 
 Write path note: `ADR-013` and `docs/11-write-path/01-write-path-design.md` are registered as
 `Proposed`. They propose to change the read-only decision `D03` for a future release, which the
 PRD required to be raised as a separate RFC first. That product decision has not been made, so the
-PRD rule stands: write-back is not available, and the write path is documented as a proposal
+formal release decision remains pending. The source implementation nevertheless includes
+approval-gated writes, while the original release proposal remains documented as a proposal
 (`docs/00-overview/01-prd-analysis.md` section 12). The write path is implemented across the Rust
-crates and the plugin, and it is not verified in a Figma Desktop session.
+crates and the plugin. Limited Windows/Figma Desktop approval, native creation, and readback
+evidence is recorded in [the write verification](../write-path-verification.md).
 
 ## 2. Document status registry
 

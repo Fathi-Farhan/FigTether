@@ -1,0 +1,211 @@
+{
+  "schema_version": 1,
+  "kind": "native-editable-website-diagnostic",
+  "recorded_at": "2026-10-21T04:23:10.114Z",
+  "build": {
+    "commit": "fc345d0146eb6a617179e9a3fe6e3d590e6dc00b",
+    "dirty": true,
+    "diff_sha256": "126347c4b6ccaf23787a89480b521bd63710632822b248134a0dce9930c57abd",
+    "binary_sha256": "b340d02e89fb0caacb77bed61dedb1d153bfbea668200f4ce4400e6c30cbf35c",
+    "plugin_sha256": "5962c947f4d86feab3c9f558b5237928dac7739eef6c7909ed18ef9fc9f0eee2",
+    "ui_sha256": "0356567d201b61fbda53f884e1622c8a79d5f4f6e5c65fd7695b3fc6c20c4cfd",
+    "version": "0.1.0",
+    "profile": "debug",
+    "node": "v22.14.0",
+    "os": "win32 10.0.26200 x64",
+    "cpu": "AMD Ryzen 5 4500 6-Core Processor              ",
+    "logical_cpus": 12,
+    "ram_bytes": 17032208384,
+    "figma_desktop": "126.10.11"
+  },
+  "design": {
+    "width": 1440,
+    "height": 4440,
+    "verified_unique_nodes": 123,
+    "section_count": 5,
+    "successful_applies": 6,
+    "root": "Codex Test",
+    "other_agent_frame_mutated_by_runner": false,
+    "static_desktop_design": true,
+    "responsive_implementation_tested": false
+  },
+  "workloads": [
+    {
+      "lane": "fresh-default-38-nodes",
+      "count": 10,
+      "successes": 10,
+      "failures": 0,
+      "p50_ms": 108.28760000000011,
+      "p95_ms": 120.63570000000004,
+      "p99_ms": 120.63570000000004,
+      "max_ms": 120.63570000000004
+    },
+    {
+      "lane": "fresh-first-page-50-nodes",
+      "count": 10,
+      "successes": 10,
+      "failures": 0,
+      "p50_ms": 62.46640000000002,
+      "p95_ms": 114.34770000000003,
+      "p99_ms": 114.34770000000003,
+      "max_ms": 114.34770000000003
+    },
+    {
+      "lane": "full-website-png-metadata",
+      "count": 3,
+      "successes": 3,
+      "failures": 0,
+      "p50_ms": 1558.4417999999996,
+      "p95_ms": 1581.6361000000002,
+      "p99_ms": 1581.6361000000002,
+      "max_ms": 1581.6361000000002
+    }
+  ],
+  "sections": [
+    {
+      "lane": "section-hero-default",
+      "nodes": 20,
+      "elapsed_ms": 83.8714,
+      "ok": true
+    },
+    {
+      "lane": "section-product-default",
+      "nodes": 38,
+      "elapsed_ms": 78.44220000000001,
+      "ok": true
+    },
+    {
+      "lane": "section-workflow-default",
+      "nodes": 16,
+      "elapsed_ms": 80.8818,
+      "ok": true
+    },
+    {
+      "lane": "section-control-default",
+      "nodes": 30,
+      "elapsed_ms": 74.79390000000001,
+      "ok": true
+    },
+    {
+      "lane": "section-closing-default",
+      "nodes": 18,
+      "elapsed_ms": 54.32060000000001,
+      "ok": true
+    }
+  ],
+  "applies": [
+    {
+      "label": "foundation-apply-grant4",
+      "elapsed_ms": 217.71120000000002,
+      "operations": 6,
+      "ok": true
+    },
+    {
+      "label": "content-1-apply",
+      "elapsed_ms": 855.1085,
+      "operations": 28,
+      "ok": true
+    },
+    {
+      "label": "content-2-apply",
+      "elapsed_ms": 516.1589999999999,
+      "operations": 28,
+      "ok": true
+    },
+    {
+      "label": "content-3-apply",
+      "elapsed_ms": 359.16409999999996,
+      "operations": 27,
+      "ok": true
+    },
+    {
+      "label": "content-4-apply",
+      "elapsed_ms": 407.31110000000007,
+      "operations": 27,
+      "ok": true
+    },
+    {
+      "label": "content-5-apply",
+      "elapsed_ms": 184.41880000000003,
+      "operations": 7,
+      "ok": true
+    }
+  ],
+  "concurrent_clients": {
+    "samples": [
+      {
+        "elapsed_ms": 86.87979999999999,
+        "ok": true
+      },
+      {
+        "elapsed_ms": 133.69380000000007,
+        "ok": true
+      }
+    ],
+    "overlap_ms": 77.8798828125,
+    "shared_installation": true,
+    "gemini_model_telemetry_available": false,
+    "simultaneous_writes_tested": false
+  },
+  "failures": [
+    {
+      "kind": "rich-read-timeout",
+      "samples": [
+        {
+          "lane": "hero-rich-readback",
+          "elapsed_ms": 20007.9844,
+          "error": null
+        },
+        {
+          "lane": "control-rich-readback",
+          "elapsed_ms": 20011.470800000003,
+          "error": null
+        }
+      ]
+    },
+    {
+      "kind": "pagination",
+      "first_page_nodes": 109,
+      "followup_nodes": 109,
+      "distinct_nodes_across_both": 109,
+      "complete": false,
+      "note": "The supplied continuation cursor repeated the first page. Full scene verification instead read all five sections separately."
+    },
+    {
+      "kind": "approval-invalidated",
+      "note": "Adding Gemini to the grant invalidated the earlier foundation approval; a refreshed plan was approved and applied."
+    },
+    {
+      "kind": "plan-hash-mismatch",
+      "note": "PowerShell default text decoding corrupted a checkmark in a preview. Apply was refused before changes; a UTF-8 plan was approved and applied."
+    },
+    {
+      "kind": "harness",
+      "note": "DPI-sensitive mouse coordinates, an early clipboard read, and a missing cursor-spec file required corrections. They are not counted as successful design writes."
+    }
+  ],
+  "artifact": {
+    "file": "figtether-website-2026-10-21.png",
+    "sha256": "6e44d7b86223dc0c153c0d17580ed08d7c87d24c54209de11b6de5e95ddc7f74",
+    "width": 2880,
+    "height": 8880,
+    "source": "Native Figma Copy as PNG, Codex Test only, separate from MCP metadata exports"
+  },
+  "cost": {
+    "model_input_tokens": null,
+    "model_output_tokens": null,
+    "billed_cost_usd": null,
+    "status": "unmeasured"
+  },
+  "limits": [
+    "Single Windows machine, debug build, small diagnostic sample counts",
+    "MCP PNG timings cover render/transport/metadata; asset download delivery not verified",
+    "Native rendered design inspected; no interactive prototype, manual undo, or per-agent access isolation verified",
+    "Simultaneous clients share a local installation credential; Gemini model activity/cost is not observed",
+    "These measurements predate the source updater; binary hashes identify the tested build"
+  ],
+  "raw": {
+    "directory": "benchmarks/results/two-agent-desktop-20261021-102402",
+    "calls_sha256": "6d8caa151b4073b19b161e55167db2ad41e354b0fd8a5070850a84c3384fddab"
+  }
+}

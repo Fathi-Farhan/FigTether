@@ -42,7 +42,8 @@ export type MessageType =
   | "cancel"
   | "heartbeat"
   | "revoke"
-  | "approval";
+  | "approval"
+  | "ui_control";
 
 /** Every message type in wire order. */
 export const MESSAGE_TYPES: readonly MessageType[] = [
@@ -58,6 +59,7 @@ export const MESSAGE_TYPES: readonly MessageType[] = [
   "heartbeat",
   "revoke",
   "approval",
+  "ui_control",
 ];
 
 /** Operations the plugin can perform. */

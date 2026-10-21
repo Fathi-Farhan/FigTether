@@ -70,6 +70,8 @@ pub enum MessageType {
     Revoke,
     /// The user approved or rejected a write plan.
     Approval,
+    /// Explicit local companion-window control, separate from MCP tools.
+    UiControl,
 }
 
 impl MessageType {
@@ -88,6 +90,7 @@ impl MessageType {
             Self::Heartbeat => "heartbeat",
             Self::Revoke => "revoke",
             Self::Approval => "approval",
+            Self::UiControl => "ui_control",
         }
     }
 }

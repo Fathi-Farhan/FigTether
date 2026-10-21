@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { PluginError } from "../src/errors.js";
 import {
@@ -85,6 +85,15 @@ function sampleDocument(): FakeDocument {
 }
 
 describe("list_nodes", () => {
+  it("honors the public root-only depth and node limit parameters", async () => {
+    const document = sampleDocument();
+    const { context } = createContext(document, ["1:1"]);
+    const rootOnly = await handleListNodes({ root_id: "1:1", depth: 0 }, context);
+    expect(rootOnly.nodes.map((node) => node.id)).toEqual(["1:1"]);
+    const limited = await handleListNodes({ root_id: "1:1", depth: 2, limit: 2 }, context);
+    expect(limited.nodes).toHaveLength(2);
+    expect(limited.truncated).toBe(true);
+  });
   it("lists the nodes under the granted root", async () => {
     const document = sampleDocument();
     const { context } = createContext(document, ["1:1"]);
@@ -132,6 +141,29 @@ describe("list_nodes", () => {
 });
 
 describe("read_nodes", () => {
+  it("uses a lightweight default without resolving fonts or references", async () => {
+    const document = sampleDocument();
+    const { context } = createContext(document, ["1:1"]);
+    const fonts = vi.spyOn(context.fontCatalog, "isAvailable");
+    const styles = vi.spyOn(context.resolver, "resolveStyle");
+    const variables = vi.spyOn(context.resolver, "resolveVariable");
+    const result = await handleReadNodes({ node_ids: ["1:1"], depth: 2 }, context);
+    expect(result.nodes.map((node) => node.id)).toEqual(["1:1", "1:2", "1:3"]);
+    expect(result.nodes.find((node) => node.id === "1:2")?.text).toBeUndefined();
+    expect(fonts).not.toHaveBeenCalled();
+    expect(styles).not.toHaveBeenCalled();
+    expect(variables).not.toHaveBeenCalled();
+  });
+
+  it("normalizes explicitly requested text but skips excluded references", async () => {
+    const document = sampleDocument();
+    const { context } = createContext(document, ["1:1"]);
+    const styles = vi.spyOn(context.resolver, "resolveStyle");
+    const result = await handleReadNodes({ node_ids: ["1:2"], fields: ["text"] }, context);
+    expect(result.nodes[0]?.text?.text).toBe("Pay now");
+    expect(result.nodes[0]?.geometry).toBeUndefined();
+    expect(styles).not.toHaveBeenCalled();
+  });
   it("reports a per item error for a node outside the grant", async () => {
     const document = sampleDocument();
     const { context } = createContext(document, ["1:2"]);

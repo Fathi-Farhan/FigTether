@@ -1,5 +1,9 @@
 # Data Contracts: Error Catalog
 
+> **Design reference.** Original requirements and approval labels below are historical design
+> records, not a feature-availability list. See [current documentation status](../documentation-status.md)
+> for implemented reads/writes, observed desktop evidence, and remaining gaps.
+
 Status: `Proposed`
 
 Purpose: this document freezes every error code the product may return, the trigger, recovery and

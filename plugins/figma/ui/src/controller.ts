@@ -8,7 +8,7 @@
  * without a browser.
  */
 
-import { base64Decode, base64Encode, createFrame } from "@figtether/shared";
+import { base64Decode, base64Encode, createFrame, isCompanionUrl } from "@figtether/shared";
 import type { BridgeFrame, JsonValue } from "@figtether/shared";
 
 import { BridgeClient } from "./bridge.js";
@@ -85,6 +85,16 @@ export interface CapabilityView {
 
 /** The model the interface renders. */
 export interface UiModel {
+  readonly automaticReviewAvailable?: boolean;
+  readonly autoModeReason?: string | null;
+  readonly writeApprovedAutomatically?: boolean;
+  readonly canOpenPanel?: boolean;
+  readonly grantEpoch?: number;
+  readonly writeApprovalId?: string | null;
+  readonly sharedFrameNames?: readonly string[];
+  readonly autoMode?: boolean;
+  readonly canUseAutoMode?: boolean;
+  readonly nextStepText?: string;
   readonly connection: ConnectionState;
   readonly connectionText: string;
   readonly connectionMarker: string;
@@ -169,7 +179,7 @@ export interface BridgeOptions {
   readonly url?: string;
 }
 
-const NO_SESSION = "Not paired";
+const NO_SESSION = "No session";
 const NO_FINGERPRINT = "Not available";
 const NOT_REPORTED = "Not reported by the daemon";
 
@@ -190,6 +200,7 @@ export class AppController {
   private paused = false;
   private sessionName: string | null = null;
   private sessionFingerprint: string | null = null;
+  private authenticatedSessionId: string | null = null;
   private grantedRootIds: string[] = [];
   private mode: ReadMode = "unknown";
   private lastReadAt: number | null = null;
@@ -197,6 +208,15 @@ export class AppController {
   private capabilities: CapabilityView[] = [];
   private candidates: CandidateRoot[] = [];
   private selectedRootIds: string[] = [];
+  private readonly frameNames = new Map<string, string>();
+  private autoMode = false;
+  private autoSupported = false;
+  private companionSupported = false;
+  private autoModeReason: string | null = null;
+  private readonly autoDecided = new Set<string>();
+  private panelOpen = false;
+  private lastModel: UiModel | null = null;
+  private readonly activityLines: string[] = [];
   private grantPending = false;
   private revokeConfirmVisible = false;
   private localGrantEpoch = 0;
@@ -208,6 +228,7 @@ export class AppController {
   private writeApprovalId: string | null = null;
   /** Whether the user already decided about the proposed plan. */
   private writeDecision: WriteDecision = "none";
+  private automaticDecision = false;
   /** The plan that was applied last. */
   private writeResult: WriteResultView | null = null;
   /**
@@ -266,6 +287,9 @@ export class AppController {
       this.ui.focusPairInput();
       return;
     }
+    this.clearLocalState();
+    this.sandbox.post("revoke", { reason: "pairing_replaced_session" });
+    this.connection = "connecting";
     this.ui.setPairError(null);
     this.secret.write(trimmed);
     this.bridge.pair(trimmed);
@@ -288,6 +312,8 @@ export class AppController {
 
   /** The user pressed Allow read session. */
   onAllowRequested(): void {
+    this.autoMode = false;
+    this.autoModeReason = null;
     if (this.connection !== "connected") {
       this.ui.setActionResult(
         "grant",
@@ -333,11 +359,7 @@ export class AppController {
     this.paused = false;
     this.grantPending = false;
     this.mode = "live";
-    this.ui.setActionResult(
-      "grant",
-      true,
-      "Read session allowed for the selected roots. A later selection change never widens the grant.",
-    );
+    this.ui.setActionResult("grant", true, "Selected frames are shared for reading.");
     this.log({ operation: "grant_update", count: roots.length });
     this.render();
   }
@@ -350,6 +372,8 @@ export class AppController {
    * it never approves a plan on its own.
    */
   onWriteGrantRequested(): void {
+    this.autoMode = false;
+    this.autoModeReason = null;
     if (this.connection !== "connected") {
       this.ui.setActionResult(
         "write_grant",
@@ -396,7 +420,7 @@ export class AppController {
       "write_grant",
       true,
       enabled
-        ? "Write session allowed for the granted roots. Every plan still needs your approval before anything changes."
+        ? "Editing enabled. Plans need approval. Auto mode can handle warning-free plans."
         : "The session is back to read only. Plans are refused now.",
     );
     this.log({ operation: "write_grant", count: this.grantedRootIds.length });
@@ -409,8 +433,25 @@ export class AppController {
    * The decision goes to the daemon with the hash of the plan the user was
    * shown. The plugin never applies a plan on its own.
    */
-  onApproveWriteRequested(): void {
+  onApproveWriteRequested(automatic = false): void {
+    if (this.connection !== "connected" || this.paused) {
+      this.ui.setActionResult(
+        "approve",
+        false,
+        "Reconnect or resume sharing before approving a plan.",
+      );
+      return;
+    }
     const preview = this.writePreview;
+    if (
+      automatic &&
+      (!this.autoMode ||
+        preview?.autoApprovalSafe !== true ||
+        this.connection !== "connected" ||
+        !this.writeGrantEnabled ||
+        this.paused)
+    )
+      return;
     if (preview === null) {
       this.ui.setActionResult("approve", false, "There is no proposed change to approve.");
       return;
@@ -440,17 +481,24 @@ export class AppController {
       );
       return;
     }
-    const decision = buildApprovalDecision(approvalId, preview.planHash, true, null);
+    const decision = {
+      ...buildApprovalDecision(approvalId, preview.planHash, true, null),
+      ...(automatic ? { automatic: true } : {}),
+    };
     if (!this.bridge.sendApproval(decision)) {
+      this.autoMode = false;
+      this.autoModeReason = "Paused: the daemon is not reachable. Reconnect and review the plan.";
       this.ui.setActionResult(
         "approve",
         false,
         "The daemon is not reachable. The plan stays unapproved.",
       );
       this.log({ operation: "approve", errorCode: "PLUGIN_OFFLINE" });
+      this.render();
       return;
     }
     this.writeDecision = "approved";
+    this.automaticDecision = automatic;
     this.ui.setActionResult(
       "approve",
       true,
@@ -507,6 +555,7 @@ export class AppController {
 
   /** The user pressed Pause. */
   onPauseRequested(): void {
+    this.autoMode = false;
     if (this.connection !== "connected" || this.grantedRootIds.length === 0) {
       this.ui.setActionResult("pause", false, "There is no active read session to pause.");
       return;
@@ -727,6 +776,7 @@ export class AppController {
   }
 
   private handleConnection(state: ConnectionState, detail: string | null): void {
+    if (state !== "connected") this.autoMode = false;
     const previous = this.connection;
     if (previous === "revoked" && state !== "connected" && state !== "connecting") {
       // A revoked session is terminal. The close of the socket must not turn
@@ -752,6 +802,14 @@ export class AppController {
   }
 
   private handleAuthAccepted(payload: AuthAcceptedPayload): void {
+    this.autoMode = false;
+    const restoring = this.authenticatedSessionId === payload.session_id;
+    if (!restoring) {
+      this.clearLocalState();
+    }
+    this.authenticatedSessionId = payload.session_id;
+    this.autoSupported = payload.ui_features?.includes("warning_gated_auto") === true;
+    this.companionSupported = payload.ui_features?.includes("companion_window") === true;
     this.secret.clear();
     if (this.connection !== "revoked") {
       this.connection = "connected";
@@ -759,7 +817,33 @@ export class AppController {
     this.sessionName = payload.session_name;
     this.sessionFingerprint = fingerprintSessionId(payload.session_id);
     this.capabilities = this.toCapabilityViews(payload.capabilities);
-    this.paused = false;
+    // Only a credential-authenticated continuation of the same session may
+    // restore its previous user grant. Current selection is never consulted.
+    this.localGrantEpoch = payload.grant_epoch;
+    if (restoring && this.grantedRootIds.length > 0) {
+      this.writePreview = null;
+      this.writeApprovalId = null;
+      this.writeDecision = "none";
+      this.waiting.length = 0;
+      this.inFlight = null;
+      this.daemonFrames.clear();
+      const epoch = this.nextGrantEpoch();
+      const sessionMode = this.paused ? "paused" : "live";
+      const mode = this.writeGrantEnabled ? "write" : "read";
+      this.sandbox.post("grant_update", {
+        root_ids: this.grantedRootIds,
+        grant_epoch: epoch,
+        mode,
+        session_mode: sessionMode,
+      });
+      if (!this.bridge.sendGrantUpdate(this.grantedRootIds, epoch, sessionMode, mode)) {
+        this.ui.setActionResult(
+          "grant",
+          false,
+          "Reconnect succeeded, but restoring the shared scope failed. Allow the session again.",
+        );
+      }
+    }
     this.ui.setPairError(null);
     this.ui.setActionResult("pair", true, "Paired with the local daemon.");
     this.log({ operation: "pair", count: 1 });
@@ -779,8 +863,36 @@ export class AppController {
 
   private handleBridgeFrame(frame: BridgeFrame): void {
     switch (frame.message_type) {
+      case "ui_control": {
+        const p = frame.payload;
+        if (!isRecord(p)) break;
+        if (p["action"] === "opened" && typeof p["url"] === "string" && isCompanionUrl(p["url"])) {
+          this.panelOpen = true;
+          this.sandbox.post("open_external", { url: p["url"] });
+        } else if (p["action"] === "approval_refused") {
+          this.autoMode = false;
+          this.writeDecision = "none";
+          this.ui.setActionResult(
+            "approve",
+            false,
+            "Approval was refused. Auto mode is off. Ask your agent for a fresh preview.",
+          );
+        } else if (p["action"] === "command") {
+          this.onPanelCommand(p);
+        }
+        break;
+      }
       case "grant_update": {
         const payload = frame.payload as { root_ids?: unknown; grant_epoch?: unknown };
+        if (
+          typeof payload.grant_epoch === "number" &&
+          payload.grant_epoch !== this.localGrantEpoch
+        ) {
+          this.autoMode = false;
+          this.writePreview = null;
+          this.writeApprovalId = null;
+          this.writeDecision = "none";
+        }
         if (Array.isArray(payload.root_ids)) {
           this.grantedRootIds = payload.root_ids.filter(
             (entry): entry is string => typeof entry === "string",
@@ -800,12 +912,13 @@ export class AppController {
         break;
       }
       case "revoke": {
+        this.sandbox.post("revoke", { reason: "daemon_revoked" });
         this.clearLocalState();
         this.connection = "revoked";
         this.ui.setActionResult(
           "revoke",
           true,
-          "The daemon revoked the session. Later reads are refused.",
+          "The session was revoked. Run 'figtether pair', enter the new secret here, then share your frames again.",
         );
         break;
       }
@@ -830,6 +943,11 @@ export class AppController {
   }
 
   private handleBridgeError(error: UiError): void {
+    if (this.autoMode) {
+      this.autoMode = false;
+      this.autoModeReason =
+        "Paused: the bridge reported an error. Review the activity before continuing.";
+    }
     this.ui.setActionResult("pair", false, this.describeError(error));
     this.log({ operation: "other", errorCode: error.code });
     this.render();
@@ -837,8 +955,14 @@ export class AppController {
 
   private handleSelection(payload: unknown): void {
     this.candidates = this.readRoots(payload);
+    for (const root of this.candidates) {
+      if (root.name) this.frameNames.set(root.node_id, root.name);
+    }
     const known = new Set(this.candidates.map((root) => root.node_id));
     this.selectedRootIds = this.selectedRootIds.filter((id) => known.has(id));
+    if (this.selectedRootIds.length === 0 && this.candidates.length === 1) {
+      this.selectedRootIds = [this.candidates[0]!.node_id];
+    }
     this.render();
   }
 
@@ -955,8 +1079,16 @@ export class AppController {
    * provide: the recovery path is the undo command of the editor.
    */
   private showWriteResult(result: WriteResultView): void {
+    if (result.partial || result.warnings.length > 0) {
+      this.autoMode = false;
+      this.autoModeReason = "Paused: the last change needs review before continuing.";
+    }
     this.writeResult = result;
-    this.ui.setActionResult("write_result", true, writeResultSummary(result));
+    this.ui.setActionResult(
+      "write_result",
+      !result.partial && result.warnings.length === 0,
+      writeResultSummary(result),
+    );
     this.log({
       operation: "write_result",
       count: affectedNodes(result.counts),
@@ -972,12 +1104,104 @@ export class AppController {
    * plan.
    */
   private showPreview(preview: WritePreviewView, context: WritePlanContext): void {
+    this.automaticDecision = false;
     this.writePreview = preview;
     this.writeApprovalId = preview.approvalId ?? context.approvalId;
     this.writeDecision = "none";
     this.ui.setActionResult("preview", true, previewHeadline(preview));
     this.logPreview(preview);
+    if (this.autoMode) {
+      if (preview.autoApprovalSafe !== true) {
+        this.autoMode = false;
+        this.autoModeReason = preview.blocked
+          ? "Paused: this plan is blocked."
+          : preview.warnings.length > 0
+            ? "Paused: review the warnings in this plan."
+            : preview.counts.remove > 0
+              ? "Paused: removing layers needs your review."
+              : "Paused: this preview has incomplete safety checks.";
+        this.ui.setActionResult(
+          "preview",
+          false,
+          "Auto mode paused. This plan has warnings, deletions, a block, or incomplete checks. Review it yourself.",
+        );
+      } else if (this.writeApprovalId !== null && !this.autoDecided.has(this.writeApprovalId)) {
+        this.autoDecided.add(this.writeApprovalId);
+        if (this.autoDecided.size > 200)
+          this.autoDecided.delete(this.autoDecided.values().next().value!);
+        this.onApproveWriteRequested(true);
+      }
+    }
     this.render();
+  }
+
+  /** Explicit, session-only opt-in. Existing proposals are not approved retroactively. */
+  onAutoModeChanged(enabled: boolean): void {
+    this.autoModeReason = null;
+    if (enabled && this.writeApprovalId !== null) this.autoDecided.add(this.writeApprovalId);
+    this.autoMode =
+      enabled &&
+      this.autoSupported &&
+      this.connection === "connected" &&
+      this.writeGrantEnabled &&
+      !this.paused &&
+      this.grantedRootIds.length > 0;
+    this.render();
+  }
+
+  onExternalPanelRequested(): void {
+    if (this.connection === "connected" && this.companionSupported)
+      this.bridge.sendFrame("ui_control", { action: "open" });
+  }
+
+  onClearActivity(): void {
+    this.activityLines.length = 0;
+    this.publishPanel();
+  }
+
+  private onPanelCommand(p: Record<string, unknown>): void {
+    if (!this.panelOpen || this.connection !== "connected") return;
+    if (p["command"] === "refresh") {
+      this.onSelectionRefreshRequested();
+      return;
+    }
+    if (p["grant_epoch"] !== this.localGrantEpoch) return;
+    const value = p["value"];
+    switch (p["command"]) {
+      case "select":
+        if (Array.isArray(value) && value.every((x) => typeof x === "string"))
+          this.onRootSelectionChanged(value);
+        break;
+      case "share":
+        this.onAllowRequested();
+        break;
+      case "editing":
+        this.onWriteGrantRequested();
+        break;
+      case "auto":
+        if (typeof value === "boolean") this.onAutoModeChanged(value);
+        break;
+      case "stop":
+        this.onRevokeRequested();
+        break;
+      case "stop_confirm":
+        this.onRevokeConfirmed();
+        break;
+      case "stop_cancel":
+        this.onRevokeCancelled();
+        break;
+      case "approve":
+      case "reject":
+        if (
+          isRecord(value) &&
+          value["planHash"] === this.writePreview?.planHash &&
+          value["approvalId"] === this.writeApprovalId
+        ) {
+          if (p["command"] === "approve") this.onApproveWriteRequested();
+          else this.onRejectWriteRequested("");
+        }
+        break;
+    }
   }
 
   /**
@@ -1080,6 +1304,10 @@ export class AppController {
    * request it belongs to, so the daemon completes the pending request.
    */
   private handleSandboxError(payload: unknown, requestId: string | null): void {
+    if (this.autoMode) {
+      this.autoMode = false;
+      this.autoModeReason = "Paused: Figma reported an error. Review the change before continuing.";
+    }
     const answerId = this.completeRequest(requestId);
     const error = this.readError(payload);
     if (answerId !== null) {
@@ -1268,6 +1496,9 @@ export class AppController {
       const nodeType = (item as { node_type?: unknown }).node_type;
       const childCount = (item as { child_count?: unknown }).child_count;
       roots.push({
+        ...(typeof (item as { name?: unknown }).name === "string"
+          ? { name: (item as { name: string }).name.slice(0, 200) }
+          : {}),
         node_id: nodeId,
         node_type: typeof nodeType === "string" ? nodeType : "node",
         child_count: typeof childCount === "number" ? childCount : null,
@@ -1320,10 +1551,16 @@ export class AppController {
   }
 
   private clearLocalState(): void {
+    this.panelOpen = false;
+    this.autoModeReason = null;
+    this.autoMode = false;
+    this.autoDecided.clear();
+    this.frameNames.clear();
     this.secret.clear();
     this.assembler.reset();
     this.sessionName = null;
     this.sessionFingerprint = null;
+    this.authenticatedSessionId = null;
     this.grantedRootIds = [];
     this.selectedRootIds = [];
     this.candidates = [];
@@ -1345,7 +1582,21 @@ export class AppController {
   }
 
   private log(entry: LogEntry): void {
-    this.ui.appendLog(formatLogLine(entry, this.now()));
+    const line = formatLogLine(entry, this.now());
+    this.activityLines.push(line);
+    if (this.activityLines.length > 200) this.activityLines.shift();
+    this.ui.appendLog(line);
+    this.publishPanel();
+  }
+
+  private publishPanel(): void {
+    if (this.panelOpen && this.connection === "connected" && this.lastModel !== null) {
+      this.bridge.sendFrame("ui_control", {
+        action: "state",
+        model: JSON.parse(JSON.stringify(this.lastModel)) as JsonValue,
+        logs: this.activityLines,
+      });
+    }
   }
 
   private render(): void {
@@ -1354,13 +1605,37 @@ export class AppController {
     const hasGrant = this.grantedRootIds.length > 0;
     const preview = this.writePreview;
     const canDecide = preview !== null && this.writeDecision === "none";
-    this.ui.render({
+    const model: UiModel = {
+      automaticReviewAvailable: this.autoSupported,
+      autoModeReason: this.autoModeReason,
+      writeApprovedAutomatically: this.automaticDecision,
+      canOpenPanel: connected && this.companionSupported,
+      grantEpoch: this.localGrantEpoch,
+      writeApprovalId: this.writeApprovalId,
+      sharedFrameNames: this.grantedRootIds.map(
+        (id, index) => this.frameNames.get(id) ?? `Shared frame ${index + 1}`,
+      ),
+      autoMode: this.autoMode,
+      canUseAutoMode:
+        connected && hasGrant && this.writeGrantEnabled && !this.paused && this.autoSupported,
+      nextStepText: !connected
+        ? "Connect to your local bridge to get started."
+        : !hasGrant
+          ? "Select a frame in Figma, then share it below."
+          : !this.writeGrantEnabled
+            ? "Your frames are shared for reading. Allow editing to start designing."
+            : preview !== null && this.writeDecision === "none"
+              ? "A proposed change needs your attention. Review it below."
+              : this.autoMode
+                ? "Auto mode is on. New warning-free plans can be approved automatically."
+                : "Ready to design. Ask your agent for a change, then review its proposal here.",
       connection: this.connection,
       connectionText: connectionLabel(this.connection),
       connectionMarker: connectionMarker(this.connection),
       phase,
       phaseText: phaseLabel(phase),
-      sessionName: this.sessionName ?? NO_SESSION,
+      sessionName:
+        this.sessionName ?? (this.sessionFingerprint === null ? NO_SESSION : "Unnamed session"),
       sessionFingerprint: this.sessionFingerprint ?? NO_FINGERPRINT,
       grantedRootCount: this.grantedRootIds.length,
       modeText: modeLabel(this.mode),
@@ -1383,9 +1658,17 @@ export class AppController {
       writeDecision: this.writeDecision,
       // A blocked plan is never approved, and a plan that was decided is
       // never decided twice.
-      canApproveWrite: canDecide && preview.blocked === false && this.writeApprovalId !== null,
+      canApproveWrite:
+        connected &&
+        !this.paused &&
+        canDecide &&
+        preview.blocked === false &&
+        this.writeApprovalId !== null,
       canRejectWrite: canDecide && this.writeApprovalId !== null,
       writeResult: this.writeResult,
-    });
+    };
+    this.lastModel = model;
+    this.ui.render(model);
+    this.publishPanel();
   }
 }

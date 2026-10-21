@@ -30,6 +30,7 @@ tmp/
 *.tsbuildinfo
 
 # Local runtime and account-specific configuration
+.figtether/
 **/daemon.json
 **/installation.json
 **/figtether.log*

@@ -68,7 +68,10 @@ impl PlanCounts {
     /// top of the properties of the operation, exactly like the model counts
     /// them when it validates a plan.
     pub fn of(plan: &WritePlan) -> Self {
-        let mut counts = PlanCounts::default();
+        let mut counts = PlanCounts {
+            property_changes: figtether_model::write::count_property_changes(plan),
+            ..PlanCounts::default()
+        };
         for operation in &plan.operations {
             counts.operations = counts.operations.saturating_add(1);
             if operation.kind == WriteOperationKind::CreateNode {
@@ -77,14 +80,6 @@ impl PlanCounts {
             if let Some(text) = operation.text.as_deref() {
                 counts.text_characters =
                     counts.text_characters.saturating_add(text.chars().count());
-            }
-            let properties = u32::try_from(operation.properties.len()).unwrap_or(u32::MAX);
-            counts.property_changes = counts.property_changes.saturating_add(properties);
-            if matches!(
-                operation.kind,
-                WriteOperationKind::SetText | WriteOperationKind::SetFills
-            ) {
-                counts.property_changes = counts.property_changes.saturating_add(1);
             }
         }
         counts
@@ -100,8 +95,6 @@ impl PlanCounts {
 pub struct WritePolicy {
     /// The limits this policy enforces.
     pub limits: ResourceLimits,
-    /// The monotonic clock of the rate window.
-    pub clock: Instant,
     /// The write operations admitted in the rolling window, oldest first.
     window: RwLock<VecDeque<Instant>>,
 }
@@ -111,7 +104,6 @@ impl WritePolicy {
     pub fn new(limits: ResourceLimits) -> Self {
         Self {
             limits,
-            clock: Instant::now(),
             window: RwLock::new(VecDeque::new()),
         }
     }
@@ -132,6 +124,24 @@ impl WritePolicy {
         text_chars: usize,
         created_nodes: u32,
         property_changes: u32,
+    ) -> Result<(), FigError> {
+        self.admit_at(
+            plan_ops,
+            text_chars,
+            created_nodes,
+            property_changes,
+            Instant::now(),
+        )
+    }
+
+    /// Admit with an explicit monotonic time for deterministic boundary tests.
+    pub fn admit_at(
+        &self,
+        plan_ops: u32,
+        text_chars: usize,
+        created_nodes: u32,
+        property_changes: u32,
+        now: Instant,
     ) -> Result<(), FigError> {
         if plan_ops > self.limits.max_operations_per_plan {
             return Err(budget_error(
@@ -161,7 +171,7 @@ impl WritePolicy {
                 self.limits.max_text_characters_per_plan,
             ));
         }
-        self.admit_to_window()
+        self.admit_to_window(now)
     }
 
     /// Admit a plan against the budgets.
@@ -199,9 +209,11 @@ impl WritePolicy {
     }
 
     /// Admit one write operation to the rolling window.
-    fn admit_to_window(&self) -> Result<(), FigError> {
-        let now = self.clock;
+    fn admit_to_window(&self, now: Instant) -> Result<(), FigError> {
         let mut window = self.write_window();
+        // Concurrent admissions can acquire the lock in a different order from
+        // their clock reads. Keep the queue ordered for front-only pruning.
+        let now = window.back().copied().map_or(now, |last| now.max(last));
         prune_window(&mut window, now);
         let limit = self.limits.max_write_operations_per_minute as usize;
         if window.len() >= limit {
@@ -217,7 +229,11 @@ impl WritePolicy {
 
     /// Number of write operations in the rolling window.
     pub fn writes_in_window(&self) -> usize {
-        let now = self.clock;
+        self.writes_in_window_at(Instant::now())
+    }
+
+    /// Count admissions at an explicit monotonic time.
+    pub fn writes_in_window_at(&self, now: Instant) -> usize {
         let mut window = self.write_window();
         prune_window(&mut window, now);
         window.len()
@@ -752,14 +768,51 @@ mod tests {
     fn the_rate_window_opens_again_after_a_minute() {
         let mut limits = limits();
         limits.max_write_operations_per_minute = 1;
-        let mut policy = WritePolicy::new(limits);
-        assert!(policy.admit(1, 0, 0, 0).is_ok());
-        assert!(policy.admit(1, 0, 0, 0).is_err(), "the window is full");
-        policy.clock += WRITE_RATE_WINDOW;
+        let policy = WritePolicy::new(limits);
+        let now = Instant::now();
+        assert!(policy.admit_at(1, 0, 0, 0, now).is_ok());
         assert!(
-            policy.admit(1, 0, 0, 0).is_ok(),
+            policy
+                .admit_at(
+                    1,
+                    0,
+                    0,
+                    0,
+                    now + WRITE_RATE_WINDOW - Duration::from_nanos(1)
+                )
+                .is_err(),
+            "the window is still full before the boundary"
+        );
+        assert!(
+            policy.admit_at(1, 0, 0, 0, now + WRITE_RATE_WINDOW).is_ok(),
             "the window slides with the clock"
         );
+    }
+
+    #[test]
+    fn production_admission_prunes_old_entries_without_mutating_a_test_clock() {
+        let mut limits = limits();
+        limits.max_write_operations_per_minute = 1;
+        let policy = WritePolicy::new(limits);
+        policy
+            .write_window()
+            .push_back(Instant::now() - WRITE_RATE_WINDOW);
+        assert_eq!(policy.writes_in_window(), 0);
+        assert!(policy.admit(1, 0, 0, 0).is_ok());
+        assert_eq!(policy.writes_in_window(), 1);
+    }
+
+    #[test]
+    fn rate_windows_are_independent_between_sessions() {
+        let mut limits = limits();
+        limits.max_write_operations_per_minute = 1;
+        let first = WritePolicy::new(limits.clone());
+        let second = WritePolicy::new(limits);
+        let now = Instant::now();
+        assert!(first.admit_at(1, 0, 0, 0, now).is_ok());
+        assert!(first.admit_at(1, 0, 0, 0, now).is_err());
+        assert!(second.admit_at(1, 0, 0, 0, now).is_ok());
+        assert_eq!(first.writes_in_window_at(now + WRITE_RATE_WINDOW), 0);
     }
 
     #[test]

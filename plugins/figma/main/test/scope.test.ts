@@ -56,6 +56,16 @@ describe("scope membership", () => {
 });
 
 describe("scope guard", () => {
+  it("uses asynchronous lookup when dynamic-page forbids synchronous lookup", async () => {
+    const document = createFakeDocument([{ id: "1:1" }]);
+    document.api.getNodeById = () => {
+      throw new Error("Cannot call getNodeById with dynamic-page");
+    };
+    document.api.getNodeByIdAsync = async (id) => document.nodes.get(id) ?? null;
+    const guard = new ScopeGuard(document.api);
+    guard.setGrant({ rootIds: ["1:1"], grantEpoch: 1 });
+    await expect(guard.requireInScope("1:1")).resolves.toMatchObject({ id: "1:1" });
+  });
   it("refuses a read without a grant", async () => {
     const document = createFakeDocument([{ id: "1:1" }]);
     const guard = new ScopeGuard(document.api);

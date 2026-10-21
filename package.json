@@ -6,13 +6,19 @@
   "author": "FigTether contributors",
   "license": "MIT OR Apache-2.0",
   "engines": {
-    "node": ">=22.14.0"
+    "node": "\u003e=22.14.0"
   },
   "scripts": {
-    "format": "prettier --write \"*.md\" \"*.json\" \"docs/**/*.md\" \"assets/*.md\" \"benchmarks/**/*.md\" \"benchmarks/published/*.json\" \"security/**/*.md\" \"scripts/*.mjs\"",
-    "format:check": "prettier --check \"*.md\" \"*.json\" \"docs/**/*.md\" \"assets/*.md\" \"benchmarks/**/*.md\" \"benchmarks/published/*.json\" \"security/**/*.md\" \"scripts/*.mjs\"",
-    "public:check": "node scripts/public-check.mjs && node scripts/render-readme-assets.mjs --check",
-    "public:test": "node --test scripts/public-check.test.mjs"
+    "bridge:smoke": "node scripts/validation/bridge-smoke.mjs",
+    "format": "prettier --write \"*.md\" \"*.json\" \"docs/**/*.md\" \"assets/*.md\" \"benchmarks/**/*.md\" \"benchmarks/published/*.json\" \"security/**/*.md\" \"scripts/*.mjs\" \".agents/skills/**/*.{md,mjs,json,yaml}\" \"integrations/**/*.{md,json}\" \"scripts/validation/**/*.{mjs,ts}\"",
+    "format:check": "prettier --check \"*.md\" \"*.json\" \"docs/**/*.md\" \"assets/*.md\" \"benchmarks/**/*.md\" \"benchmarks/published/*.json\" \"security/**/*.md\" \"scripts/*.mjs\" \".agents/skills/**/*.{md,mjs,json,yaml}\" \"integrations/**/*.{md,json}\" \"scripts/validation/**/*.{mjs,ts}\"",
+    "public:check": "node scripts/public-check.mjs \u0026\u0026 node scripts/render-readme-assets.mjs --check \u0026\u0026 node scripts/audit-docs.mjs \u0026\u0026 node scripts/generate-agent-workflow.mjs --check",
+    "public:test": "node --test scripts/public-check.test.mjs",
+    "docs:check": "node scripts/audit-docs.mjs",
+    "design:test": "node --test .agents/skills/design-evidence/scripts/evaluate.test.mjs",
+    "ci:test": "node --test scripts/ci-gate.test.mjs scripts/schema-check.test.mjs",
+    "agents:generate": "node scripts/generate-agent-workflow.mjs",
+    "agents:check": "node scripts/generate-agent-workflow.mjs --check"
   },
   "devDependencies": {
     "prettier": "^3.4.0"

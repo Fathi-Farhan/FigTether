@@ -1,10 +1,11 @@
 # Figma plugin
 
-The plugin reads the document through Figma's Plugin API. Its sandbox does not open sockets;
+The plugin reads, creates, and edits native document nodes through Figma's Plugin API. Its sandbox does not open sockets;
 the UI iframe relays messages to the Rust daemon. The shared package owns the wire contract.
 
-This is a development plugin. Automated tests use a fake editor API; Figma Desktop loading,
-network policy, and seat-specific capabilities still need a manual validation pass. Start with
+This is a development plugin. Automated tests use a fake editor API. A limited Windows/Figma
+Desktop 126.10.10 evaluation verified loading, pairing, scoped reads, approved writes, and
+export metadata. Other platforms and seat-specific capabilities remain unverified. Start with
 the [quickstart](../../docs/quickstart.md) and a synthetic file.
 
 ## Build and test
@@ -23,13 +24,13 @@ npm run build
 `npm run build:watch` rebuilds during development. `npm run format` uses the repository's
 Prettier settings. `npm run lint` covers shared/tooling files only; use `lint:all` before a PR.
 
-| Path | Purpose |
-| --- | --- |
-| [`main/`](main/README.md) | Allowlisted read handlers, traversal, scope checks, export |
-| [`ui/`](ui/README.md) | Pairing, grant controls, status, WebSocket relay |
-| `shared/src/` | Frames, postMessage envelope, capabilities, encoding, hashing |
-| `build.mjs` | Bundles `main/src/main.ts`, `ui/src/ui.ts`, and the UI document |
-| `dist/` | Local build output; ignored by Git |
+| Path                      | Purpose                                                             |
+| ------------------------- | ------------------------------------------------------------------- |
+| [`main/`](main/README.md) | Scoped read handlers, native write execution, traversal, and export |
+| [`ui/`](ui/README.md)     | Pairing, grant controls, status, WebSocket relay                    |
+| `shared/src/`             | Frames, postMessage envelope, capabilities, encoding, hashing       |
+| `build.mjs`               | Bundles `main/src/main.ts`, `ui/src/ui.ts`, and the UI document     |
+| `dist/`                   | Local build output; ignored by Git                                  |
 
 ## Import into Figma
 
@@ -41,7 +42,7 @@ Prettier settings. `npm run lint` covers shared/tooling files only; use `lint:al
    figtether manifest --plugin-id YOUR_PLUGIN_ID --out plugins/figma/manifest.local.json
    ```
 
-4. Import that local manifest in Figma's development plugin menu. Start `figtether daemon` and
+4. Import that local manifest in Figma's development plugin menu. Start `figtether` and
    pair using `figtether pair`, then grant a small selected frame.
 
 Do not overwrite the checked-in example just to insert your account's ID. A plugin ID is not
@@ -49,7 +50,7 @@ a secret, but local IDs don't belong in the shared manifest. The CLI manifest us
 `documentAccess: dynamic-page`, Figma Design only, and explicit development loopback addresses.
 The checked-in example is not a Community/production manifest.
 
-The UI currently uses `127.0.0.1:38947`. Regenerating a manifest with a different port does not
+The UI currently connects to `ws://localhost:38947/bridge`; the daemon binds `127.0.0.1:38947`. Regenerating a manifest with a different port does not
 change that UI constant. Keep the default for now.
 
 ## Build output and limits
@@ -59,8 +60,9 @@ The build writes JavaScript, CSS, source maps, `ui.html`, and a copied developme
 from the source repository. The generated manifest in `dist/` rewrites paths relative to that
 directory. The local manifest above instead references `dist/` from its parent directory.
 
-Editor packaging is not yet validated. In particular, script/style loading inside Figma's UI
-iframe needs a real-editor test; a successful esbuild run alone does not prove the plugin loads.
+The build embeds JavaScript, CSS, and the small local icon into `ui.html`, because the Figma
+iframe does not serve sibling asset URLs. This packaging was loaded in the recorded desktop
+test; a successful build alone does not establish support on other editors or seats.
 Snapshot UI controls, large transfers, and asset-resource delivery do not yet make complete
 daemon workflows. Read the [current limitations](../../docs/10-implementation/01-implementation-status.md).
 

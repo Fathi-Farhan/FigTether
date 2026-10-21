@@ -111,8 +111,11 @@ export class PluginRuntime {
   /** Start the runtime: listen for messages and probe the capabilities. */
   async start(): Promise<void> {
     this.transport.onMessage((raw) => {
-      void this.handleRaw(raw).catch(() => {
-        // A failure of the message pump never breaks the plugin.
+      void this.handleRaw(raw).catch((error: unknown) => {
+        console.error(
+          "FigTether message failed:",
+          error instanceof Error ? error.message : "unknown error",
+        );
       });
     });
     await this.refreshCapabilities();
@@ -203,6 +206,9 @@ export class PluginRuntime {
         return;
       case "selection_request":
         this.sendSelection();
+        return;
+      case "open_external":
+        this.api.openExternal?.(message.url);
         return;
       case "status_request":
         this.sendStatus();
@@ -394,6 +400,7 @@ export class PluginRuntime {
   private sendSelection(): void {
     const selection = this.api.currentPage.selection ?? [];
     const roots = selection.map((node) => ({
+      name: node.name,
       node_id: node.id,
       node_type: node.type,
       child_count: (node.children ?? []).length,

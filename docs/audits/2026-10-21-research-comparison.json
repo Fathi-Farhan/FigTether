@@ -1,0 +1,373 @@
+{
+  "schema_version": 1,
+  "review_date": "2026-10-21",
+  "language": "en",
+  "scope": "Research comparison and skill/documentation integration; no evaluator logic changes",
+  "inputs": [
+    {
+      "file": "00_MASTER_INDEX_AND_CITATION_CROSSCHECK.md",
+      "bytes": 26087,
+      "sha256": "5632169d9bfff55651814ba5f646123049c731517e9c973c090730e4b08cc8dd",
+      "lines": 133
+    },
+    {
+      "file": "01_AI_AGENT_SKILLS_DESIGN_EMPIRICAL_REFERENCE.md",
+      "bytes": 29645,
+      "sha256": "6f39f98f560659819d086d9ebfed6ae6d637c235bc9514f5f8f89a427e868d4c",
+      "lines": 162
+    },
+    {
+      "file": "02_DETERMINISTIC_DETECTOR_RULES_UI_UX_DESIGN.md",
+      "bytes": 41562,
+      "sha256": "e01f8db71d6c87f6408e2d905792f5661306efcb3dfc6b491761e091946b8a46",
+      "lines": 243
+    }
+  ],
+  "source_checks": [
+    {
+      "reference": "R1",
+      "version": "2602.12670v4",
+      "title": "SkillsBench",
+      "url": "https://arxiv.org/abs/2602.12670v4",
+      "check": "abstract_identity_and_headline",
+      "replicated": false
+    },
+    {
+      "reference": "R2",
+      "version": "2610.04832v1",
+      "title": "Agent Skill Evolution",
+      "url": "https://arxiv.org/abs/2610.04832v1",
+      "check": "selected_full_text_methods_and_claims",
+      "replicated": false
+    },
+    {
+      "reference": "R3",
+      "version": "2607.01456v2",
+      "title": "From Anatomy to Smells",
+      "url": "https://arxiv.org/abs/2607.01456v2",
+      "check": "abstract_identity_only",
+      "replicated": false
+    },
+    {
+      "reference": "R4",
+      "version": "2607.00911v2",
+      "title": "From Registry to Repository",
+      "url": "https://arxiv.org/abs/2607.00911v2",
+      "check": "abstract_identity_and_headline",
+      "replicated": false
+    },
+    {
+      "reference": "R5",
+      "version": "2608.11888v1",
+      "title": "Agent Skills Can Be Harmful",
+      "url": "https://arxiv.org/abs/2608.11888v1",
+      "check": "abstract_identity_and_headline",
+      "replicated": false
+    },
+    {
+      "reference": "R6",
+      "version": "2601.20404v2",
+      "title": "On the Impact of AGENTS.md Files",
+      "url": "https://arxiv.org/abs/2601.20404v2",
+      "check": "abstract_identity_only",
+      "replicated": false
+    },
+    {
+      "reference": "R7",
+      "version": "2602.12430v4",
+      "title": "Agent Skills for Large Language Models",
+      "url": "https://arxiv.org/abs/2602.12430v4",
+      "check": "abstract_identity_only",
+      "replicated": false
+    },
+    {
+      "reference": "R8",
+      "version": "2409.07429v1",
+      "title": "Agent Workflow Memory",
+      "url": "https://arxiv.org/abs/2409.07429v1",
+      "check": "abstract_identity_only",
+      "replicated": false
+    },
+    {
+      "reference": "R9",
+      "version": "2504.07079v1",
+      "title": "SkillWeaver",
+      "url": "https://arxiv.org/abs/2504.07079v1",
+      "check": "abstract_identity_only",
+      "replicated": false
+    },
+    {
+      "reference": "R10",
+      "version": "2305.16291v2",
+      "title": "Voyager",
+      "url": "https://arxiv.org/abs/2305.16291v2",
+      "check": "abstract_identity_only",
+      "replicated": false
+    },
+    {
+      "reference": "R11",
+      "version": "2403.03163v3",
+      "title": "Design2Code",
+      "url": "https://arxiv.org/abs/2403.03163v3",
+      "check": "abstract_identity_this_pass_full_text_in_prior_review",
+      "replicated": false
+    },
+    {
+      "reference": "R12",
+      "version": "2608.22390v1",
+      "title": "SchemaGUI",
+      "url": "https://arxiv.org/abs/2608.22390v1",
+      "check": "selected_full_text_setup_table_and_geometry",
+      "replicated": false
+    },
+    {
+      "reference": "R13",
+      "version": "2404.12500v1",
+      "title": "UIClip",
+      "url": "https://arxiv.org/abs/2404.12500v1",
+      "check": "selected_full_text_jitter_and_limits",
+      "replicated": false
+    },
+    {
+      "reference": "R14",
+      "version": "2511.00843v1",
+      "title": "Portal UX Agent",
+      "url": "https://arxiv.org/abs/2511.00843v1",
+      "check": "selected_full_text_scoring_and_results",
+      "replicated": false
+    },
+    {
+      "reference": "R15",
+      "version": "2605.26144v4",
+      "title": "VISTA",
+      "url": "https://arxiv.org/abs/2605.26144v4",
+      "check": "abstract_identity_and_headline",
+      "replicated": false
+    },
+    {
+      "reference": "R16",
+      "version": "2411.03292v3",
+      "title": "Interaction2Code",
+      "url": "https://arxiv.org/abs/2411.03292v3",
+      "check": "abstract_identity_and_headline",
+      "replicated": false
+    },
+    {
+      "reference": "R17",
+      "version": "2412.15310v1",
+      "title": "MRWeb",
+      "url": "https://arxiv.org/abs/2412.15310v1",
+      "check": "abstract_identity_and_headline",
+      "replicated": false
+    },
+    {
+      "reference": "R18",
+      "version": "2605.24830v1",
+      "title": "Macaron-A2UI",
+      "url": "https://arxiv.org/abs/2605.24830v1",
+      "check": "abstract_identity_only",
+      "replicated": false
+    },
+    {
+      "reference": "R19",
+      "version": "2510.13914v2",
+      "title": "A11yn",
+      "url": "https://arxiv.org/abs/2510.13914v2",
+      "check": "abstract_identity_only",
+      "replicated": false
+    },
+    {
+      "reference": "R20",
+      "title": "Verifying that web pages have accessible layout",
+      "url": "https://homes.cs.washington.edu/~mernst/pubs/verify-layout-pldi2018-abstract.html",
+      "check": "author_publication_page_identity_and_headline",
+      "replicated": false
+    },
+    {
+      "reference": "R21",
+      "title": "Automated layout failure detection for responsive web pages without an explicit oracle",
+      "url": "https://www.gregorykapfhammer.com/research/papers/walsh2017/",
+      "artifact_url": "https://github.com/redecheck/redecheck",
+      "check": "author_publication_page_and_original_artifact",
+      "replicated": false
+    },
+    {
+      "reference": "R22",
+      "version": "2506.13832v2",
+      "title": "FrontendBench",
+      "url": "https://arxiv.org/abs/2506.13832v2",
+      "check": "abstract_identity_and_headline",
+      "replicated": false
+    },
+    {
+      "reference": "R23",
+      "version": "2507.02306v1",
+      "title": "Synthetic Heuristic Evaluation",
+      "url": "https://arxiv.org/abs/2507.02306v1",
+      "check": "selected_full_text_denominators_and_methods",
+      "replicated": false
+    },
+    {
+      "reference": "R24",
+      "version": "2603.24755v2",
+      "title": "SlopCodeBench",
+      "url": "https://arxiv.org/abs/2603.24755v2",
+      "check": "v1_selected_full_text_and_v2_abstract_version_comparison",
+      "replicated": false
+    },
+    {
+      "reference": "R24-heuristic",
+      "title": "Anti-Slop UI",
+      "url": "https://github.com/local-over/Anti-Slop-UI/blob/main/research_paper.md",
+      "check": "author_manuscript_identity_and_source_classification",
+      "peer_review_status": "not_established",
+      "replicated": false
+    }
+  ],
+  "verification_scope": "All cited arXiv identities/abstracts checked; selected full-text claims only; no universal line-by-line verification or paper replication",
+  "mapping": {
+    "skill_proposals": 12,
+    "ui_proposals": 30,
+    "implemented_static_rules": 14,
+    "ruleset": "1.0.0",
+    "new_executable_ui_rules": 0
+  },
+  "skill": [
+    {
+      "file": "SKILL.md",
+      "sha256": "69ceb6247b6f279e7a219e72935798944fbb6e77e0ba581de78a26b33a250fbb"
+    },
+    {
+      "file": "references/research.md",
+      "sha256": "8c62e4caa3cc77e232987597c27f3ca75ca2c228b55e1bb98592eb9a341e3c23"
+    },
+    {
+      "file": "references/interaction-review.md",
+      "sha256": "58cce22065298faab7b9ee9c1663453c9cde9f40f2ceb8e3da922845e4e28d2e"
+    },
+    {
+      "file": "references/rules.md",
+      "sha256": "9ae970cdbc9e37e20461a3e40b2ac759f8ac46d91f87dcb652a959080d69eb64"
+    },
+    {
+      "file": "scripts/evaluate.mjs",
+      "sha256": "a09c777a50d47b3cfa2bd25780bdc35f6aecb660fb6556062441ed846e663311"
+    },
+    {
+      "file": "scripts/evaluate.test.mjs",
+      "sha256": "ed22514fc0d61fb1d084fbcafe8a32673bb9b52d2c11f440ac5361b19c26b221"
+    },
+    {
+      "file": "scripts/collect-browser.mjs",
+      "sha256": "515ef9c3b343fd88362713ab90e9cc97621891a382ffc011d73cb682908c092e"
+    },
+    {
+      "file": "references/figtether-bridge-profile.json",
+      "sha256": "5fea396cdde8b25951e12846228e0a39ee2b150380b118d2805dea79387d6390"
+    },
+    {
+      "file": "agents/openai.yaml",
+      "sha256": "b93fbe6c7562f32e8e604639e1324f27748194ea42ff2736aef15ec6864aa87e"
+    }
+  ],
+  "validation": {
+    "node": "v22.14.0",
+    "v8": "12.4.254.21-node.22",
+    "platform": "win32",
+    "arch": "x64",
+    "detector_tests": {
+      "exit_code": 0,
+      "tests": 35,
+      "passed": 35,
+      "failed": 0,
+      "elapsed_ms": 200.1486,
+      "raw_log": "benchmarks/results/research-merge-2026-10-21T01-19-02-719Z/detector-tests.log"
+    },
+    "native_figma_tests_this_merge": 0,
+    "model_efficacy_trials": 0,
+    "source_documents_unchanged": true,
+    "installed_skill": {
+      "files": 9,
+      "all_match": true,
+      "inventory": [
+        {
+          "file": "SKILL.md",
+          "sha256": "69ceb6247b6f279e7a219e72935798944fbb6e77e0ba581de78a26b33a250fbb",
+          "match": true
+        },
+        {
+          "file": "references/research.md",
+          "sha256": "8c62e4caa3cc77e232987597c27f3ca75ca2c228b55e1bb98592eb9a341e3c23",
+          "match": true
+        },
+        {
+          "file": "references/interaction-review.md",
+          "sha256": "58cce22065298faab7b9ee9c1663453c9cde9f40f2ceb8e3da922845e4e28d2e",
+          "match": true
+        },
+        {
+          "file": "references/rules.md",
+          "sha256": "9ae970cdbc9e37e20461a3e40b2ac759f8ac46d91f87dcb652a959080d69eb64",
+          "match": true
+        },
+        {
+          "file": "scripts/evaluate.mjs",
+          "sha256": "a09c777a50d47b3cfa2bd25780bdc35f6aecb660fb6556062441ed846e663311",
+          "match": true
+        },
+        {
+          "file": "scripts/evaluate.test.mjs",
+          "sha256": "ed22514fc0d61fb1d084fbcafe8a32673bb9b52d2c11f440ac5361b19c26b221",
+          "match": true
+        },
+        {
+          "file": "scripts/collect-browser.mjs",
+          "sha256": "515ef9c3b343fd88362713ab90e9cc97621891a382ffc011d73cb682908c092e",
+          "match": true
+        },
+        {
+          "file": "references/figtether-bridge-profile.json",
+          "sha256": "5fea396cdde8b25951e12846228e0a39ee2b150380b118d2805dea79387d6390",
+          "match": true
+        },
+        {
+          "file": "agents/openai.yaml",
+          "sha256": "b93fbe6c7562f32e8e604639e1324f27748194ea42ff2736aef15ec6864aa87e",
+          "match": true
+        }
+      ]
+    },
+    "skill_frontmatter_validation": {
+      "project_exit_code": 0,
+      "installed_exit_code": 0
+    },
+    "publication_check": {
+      "exit_code": 0,
+      "public_files": 462,
+      "issues": 0,
+      "svg_assets_current": 4,
+      "documentation_files": 102,
+      "documentation_issues": 0
+    },
+    "formatting_check": {
+      "exit_code": 0,
+      "status": "all_matched_files_passed"
+    },
+    "git_diff_check": {
+      "exit_code": 0
+    },
+    "detector_tap_duration_ms": 127.9598,
+    "limitations": [
+      "No new native Figma/browser run for this documentation-only integration.",
+      "No with/without-skill efficacy experiment.",
+      "Source checks do not certify every proposed threshold or numerical claim."
+    ]
+  },
+  "cost": {
+    "model_tokens": null,
+    "billed_cost": null,
+    "status": "unmeasured",
+    "note": "No model/API calls inside detector unit tests; assistant research and editing billing was not exposed."
+  },
+  "historical_evidence_preserved": true
+}

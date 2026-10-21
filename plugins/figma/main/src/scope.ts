@@ -107,14 +107,15 @@ export class ScopeGuard {
    * switching the editor view.
    */
   async resolveNode(nodeId: string): Promise<FigmaNode> {
-    const direct = this.api.getNodeById?.(nodeId);
-    if (direct !== undefined && direct !== null) {
-      return direct;
-    }
     if (this.api.getNodeByIdAsync !== undefined) {
       const loaded = await this.api.getNodeByIdAsync(nodeId);
       if (loaded !== null && loaded !== undefined) {
         return loaded;
+      }
+    } else {
+      const direct = this.api.getNodeById?.(nodeId);
+      if (direct !== undefined && direct !== null) {
+        return direct;
       }
     }
     throw nodeNotFound("The requested node does not exist in this document");

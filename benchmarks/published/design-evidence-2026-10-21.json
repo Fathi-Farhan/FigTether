@@ -1,0 +1,306 @@
+{
+  "schema_version": 1,
+  "kind": "design-evidence-browser-smoke-test",
+  "created_at": "2026-10-20T23:08:29.257Z",
+  "artifact": {
+    "file": "plugins/figma/dist/ui.html",
+    "sha256": "3092e86d5a9a7674bc67f783e5438d893c5f7d8ebce313bc4852bc266b5147f9"
+  },
+  "browser": "Chrome/155.0.8059.85",
+  "javascript": "15.5.35.25",
+  "node": "v22.14.0",
+  "platform": "win32",
+  "ruleset_sha256": "a09c777a50d47b3cfa2bd25780bdc35f6aecb660fb6556062441ed846e663311",
+  "collector_sha256": "515ef9c3b343fd88362713ab90e9cc97621891a382ffc011d73cb682908c092e",
+  "profile": {
+    "schema_version": 1,
+    "id": "figtether-bridge-2026-10-21",
+    "tokens": {
+      "font_sizes": [12, 12.35, 13, 13.3, 14, 15, 18],
+      "radii": [0, 6]
+    },
+    "decoration": {
+      "max_gradients": 0,
+      "max_shadows": 0
+    },
+    "review": {
+      "repeated_surface_min": 6,
+      "repeated_surface_ratio": 0.6,
+      "pill_min": 5,
+      "pill_ratio": 0.75,
+      "generic_phrases": [
+        "unlock the power",
+        "seamless",
+        "revolutionize",
+        "supercharge",
+        "game-changing"
+      ]
+    }
+  },
+  "run_count": 8,
+  "elapsed_ms": 11673.9956,
+  "runs": [
+    {
+      "width_css_px": 305,
+      "requested_width": 320,
+      "theme": "light",
+      "state": "unpaired",
+      "visible_nodes": 65,
+      "capture_complete": true,
+      "counts": {
+        "passed": 188,
+        "failed": 0,
+        "inapplicable": 10,
+        "cantTell": 0,
+        "untested": 1,
+        "review": 0
+      },
+      "decision": "review_required",
+      "findings": [],
+      "input_sha256": "8fb930d780d4205cd0491b6d7b1d671f26edc724d616dbdc804ee62257d81d1f",
+      "profile_sha256": "ce7db0f7085f183ff70068dc5facdfdeaaab0234e181133966bf64e6e5373cd7",
+      "ruleset_sha256": "a09c777a50d47b3cfa2bd25780bdc35f6aecb660fb6556062441ed846e663311",
+      "evaluator_runs": 100,
+      "byte_identical": true,
+      "evaluator_p50_ms": 3.726599999999962,
+      "evaluator_p95_ms": 18.51449999999977,
+      "capture_and_review_ms": 1733.3606999999997,
+      "focused_help_enter_opens": null,
+      "raw_snapshot": "benchmarks/results/design-evidence-2026-10-21-verified/320-light-unpaired.snapshot.json",
+      "raw_screenshot": "benchmarks/results/design-evidence-2026-10-21-verified/320-light-unpaired.png"
+    },
+    {
+      "width_css_px": 305,
+      "requested_width": 320,
+      "theme": "dark",
+      "state": "unpaired",
+      "visible_nodes": 65,
+      "capture_complete": true,
+      "counts": {
+        "passed": 188,
+        "failed": 0,
+        "inapplicable": 10,
+        "cantTell": 0,
+        "untested": 1,
+        "review": 0
+      },
+      "decision": "review_required",
+      "findings": [],
+      "input_sha256": "732374c471e910c97d13b87cfb3c46d400c992d5ec3328e4e5ba6912a7026ee1",
+      "profile_sha256": "ce7db0f7085f183ff70068dc5facdfdeaaab0234e181133966bf64e6e5373cd7",
+      "ruleset_sha256": "a09c777a50d47b3cfa2bd25780bdc35f6aecb660fb6556062441ed846e663311",
+      "evaluator_runs": 100,
+      "byte_identical": true,
+      "evaluator_p50_ms": 3.9284000000006927,
+      "evaluator_p95_ms": 32.78940000000057,
+      "capture_and_review_ms": 2170.8414999999995,
+      "focused_help_enter_opens": null,
+      "raw_snapshot": "benchmarks/results/design-evidence-2026-10-21-verified/320-dark-unpaired.snapshot.json",
+      "raw_screenshot": "benchmarks/results/design-evidence-2026-10-21-verified/320-dark-unpaired.png"
+    },
+    {
+      "width_css_px": 405,
+      "requested_width": 420,
+      "theme": "light",
+      "state": "unpaired",
+      "visible_nodes": 65,
+      "capture_complete": true,
+      "counts": {
+        "passed": 188,
+        "failed": 0,
+        "inapplicable": 10,
+        "cantTell": 0,
+        "untested": 1,
+        "review": 0
+      },
+      "decision": "review_required",
+      "findings": [],
+      "input_sha256": "e0d431c8eebe78c9c91c1a8903ba9a2fc2c4dcf9d23bb5a5268d4ccb66185f58",
+      "profile_sha256": "ce7db0f7085f183ff70068dc5facdfdeaaab0234e181133966bf64e6e5373cd7",
+      "ruleset_sha256": "a09c777a50d47b3cfa2bd25780bdc35f6aecb660fb6556062441ed846e663311",
+      "evaluator_runs": 100,
+      "byte_identical": true,
+      "evaluator_p50_ms": 3.650100000000748,
+      "evaluator_p95_ms": 20.618500000000495,
+      "capture_and_review_ms": 1587.8376000000007,
+      "focused_help_enter_opens": null,
+      "raw_snapshot": "benchmarks/results/design-evidence-2026-10-21-verified/420-light-unpaired.snapshot.json",
+      "raw_screenshot": "benchmarks/results/design-evidence-2026-10-21-verified/420-light-unpaired.png"
+    },
+    {
+      "width_css_px": 405,
+      "requested_width": 420,
+      "theme": "light",
+      "state": "help-expanded",
+      "visible_nodes": 72,
+      "capture_complete": true,
+      "counts": {
+        "passed": 209,
+        "failed": 0,
+        "inapplicable": 10,
+        "cantTell": 0,
+        "untested": 1,
+        "review": 0
+      },
+      "decision": "review_required",
+      "findings": [],
+      "input_sha256": "3cf978d5e42cf6d6e4c2ef32d3d0f34c4c161dcfe1784d0fd1c7ccc884a65b52",
+      "profile_sha256": "ce7db0f7085f183ff70068dc5facdfdeaaab0234e181133966bf64e6e5373cd7",
+      "ruleset_sha256": "a09c777a50d47b3cfa2bd25780bdc35f6aecb660fb6556062441ed846e663311",
+      "evaluator_runs": 100,
+      "byte_identical": true,
+      "evaluator_p50_ms": 3.3047999999998865,
+      "evaluator_p95_ms": 13.983899999999267,
+      "capture_and_review_ms": 1314.8132999999998,
+      "focused_help_enter_opens": true,
+      "raw_snapshot": "benchmarks/results/design-evidence-2026-10-21-verified/420-light-help-expanded.snapshot.json",
+      "raw_screenshot": "benchmarks/results/design-evidence-2026-10-21-verified/420-light-help-expanded.png"
+    },
+    {
+      "width_css_px": 405,
+      "requested_width": 420,
+      "theme": "dark",
+      "state": "unpaired",
+      "visible_nodes": 65,
+      "capture_complete": true,
+      "counts": {
+        "passed": 188,
+        "failed": 0,
+        "inapplicable": 10,
+        "cantTell": 0,
+        "untested": 1,
+        "review": 0
+      },
+      "decision": "review_required",
+      "findings": [],
+      "input_sha256": "a37b0d4f4521391d16cbc9da61af7796deae8c09d22e75cf75559582fcb0c23a",
+      "profile_sha256": "ce7db0f7085f183ff70068dc5facdfdeaaab0234e181133966bf64e6e5373cd7",
+      "ruleset_sha256": "a09c777a50d47b3cfa2bd25780bdc35f6aecb660fb6556062441ed846e663311",
+      "evaluator_runs": 100,
+      "byte_identical": true,
+      "evaluator_p50_ms": 2.2163000000000466,
+      "evaluator_p95_ms": 3.5354000000006636,
+      "capture_and_review_ms": 494.7443999999996,
+      "focused_help_enter_opens": null,
+      "raw_snapshot": "benchmarks/results/design-evidence-2026-10-21-verified/420-dark-unpaired.snapshot.json",
+      "raw_screenshot": "benchmarks/results/design-evidence-2026-10-21-verified/420-dark-unpaired.png"
+    },
+    {
+      "width_css_px": 405,
+      "requested_width": 420,
+      "theme": "dark",
+      "state": "help-expanded",
+      "visible_nodes": 72,
+      "capture_complete": true,
+      "counts": {
+        "passed": 209,
+        "failed": 0,
+        "inapplicable": 10,
+        "cantTell": 0,
+        "untested": 1,
+        "review": 0
+      },
+      "decision": "review_required",
+      "findings": [],
+      "input_sha256": "a415400c7a70997932aa36b6599153e3f67a29d0feefd3d9c86c16e33ff37e5a",
+      "profile_sha256": "ce7db0f7085f183ff70068dc5facdfdeaaab0234e181133966bf64e6e5373cd7",
+      "ruleset_sha256": "a09c777a50d47b3cfa2bd25780bdc35f6aecb660fb6556062441ed846e663311",
+      "evaluator_runs": 100,
+      "byte_identical": true,
+      "evaluator_p50_ms": 2.302800000001298,
+      "evaluator_p95_ms": 3.369299999998475,
+      "capture_and_review_ms": 487.2415000000001,
+      "focused_help_enter_opens": true,
+      "raw_snapshot": "benchmarks/results/design-evidence-2026-10-21-verified/420-dark-help-expanded.snapshot.json",
+      "raw_screenshot": "benchmarks/results/design-evidence-2026-10-21-verified/420-dark-help-expanded.png"
+    },
+    {
+      "width_css_px": 945,
+      "requested_width": 960,
+      "theme": "light",
+      "state": "unpaired",
+      "visible_nodes": 65,
+      "capture_complete": true,
+      "counts": {
+        "passed": 188,
+        "failed": 0,
+        "inapplicable": 10,
+        "cantTell": 0,
+        "untested": 1,
+        "review": 0
+      },
+      "decision": "review_required",
+      "findings": [],
+      "input_sha256": "b23930aa45f46168a1208e2887d695f2a5df91029559436697d42ac42e765006",
+      "profile_sha256": "ce7db0f7085f183ff70068dc5facdfdeaaab0234e181133966bf64e6e5373cd7",
+      "ruleset_sha256": "a09c777a50d47b3cfa2bd25780bdc35f6aecb660fb6556062441ed846e663311",
+      "evaluator_runs": 100,
+      "byte_identical": true,
+      "evaluator_p50_ms": 1.5328000000008615,
+      "evaluator_p95_ms": 2.0421000000005733,
+      "capture_and_review_ms": 362.8083999999999,
+      "focused_help_enter_opens": null,
+      "raw_snapshot": "benchmarks/results/design-evidence-2026-10-21-verified/960-light-unpaired.snapshot.json",
+      "raw_screenshot": "benchmarks/results/design-evidence-2026-10-21-verified/960-light-unpaired.png"
+    },
+    {
+      "width_css_px": 945,
+      "requested_width": 960,
+      "theme": "dark",
+      "state": "unpaired",
+      "visible_nodes": 65,
+      "capture_complete": true,
+      "counts": {
+        "passed": 188,
+        "failed": 0,
+        "inapplicable": 10,
+        "cantTell": 0,
+        "untested": 1,
+        "review": 0
+      },
+      "decision": "review_required",
+      "findings": [],
+      "input_sha256": "48acdf0beddddd0ca090cc3cb74444adfc01858decb986aa66136e4c404ac0ae",
+      "profile_sha256": "ce7db0f7085f183ff70068dc5facdfdeaaab0234e181133966bf64e6e5373cd7",
+      "ruleset_sha256": "a09c777a50d47b3cfa2bd25780bdc35f6aecb660fb6556062441ed846e663311",
+      "evaluator_runs": 100,
+      "byte_identical": true,
+      "evaluator_p50_ms": 1.4382999999997992,
+      "evaluator_p95_ms": 1.8857000000007247,
+      "capture_and_review_ms": 307.9542000000001,
+      "focused_help_enter_opens": null,
+      "raw_snapshot": "benchmarks/results/design-evidence-2026-10-21-verified/960-dark-unpaired.snapshot.json",
+      "raw_screenshot": "benchmarks/results/design-evidence-2026-10-21-verified/960-dark-unpaired.png"
+    }
+  ],
+  "retained_draft_findings": [
+    {
+      "directory": "benchmarks/results/design-evidence-2026-10-21",
+      "status": "failed",
+      "observations": [
+        "Password input used browser-default 13.3333 px; fixed to inherit body font.",
+        "Keyboard harness lacked focus emulation and complete Enter key fields."
+      ]
+    },
+    {
+      "directory": "benchmarks/results/design-evidence-2026-10-21-final",
+      "status": "superseded",
+      "observations": [
+        "Draft collector incorrectly included closed-details descendants. Corrected before final evaluation; draft snapshots and summary retained."
+      ]
+    }
+  ],
+  "limits": [
+    "Isolated local browser render of built plugin HTML, not a fresh native Figma or MCP benchmark.",
+    "Only unpaired and focused-help-expanded states; no pairing secret entered and no design mutation.",
+    "Standard-derived checks are partial; no WCAG conformance or AI-authorship accuracy is assessed.",
+    "P50/p95 timings measure the local evaluator only; they do not measure Figma, model inference, or user task time.",
+    "No representative human/AI labeled corpus or user study was run."
+  ],
+  "costs": {
+    "model_tokens": null,
+    "model_cost_usd": null,
+    "status": "NOT_MEASURED",
+    "note": "The collector/evaluator call no model or paid remote API. Chat/research billing is not exposed."
+  }
+}

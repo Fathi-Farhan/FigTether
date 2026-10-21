@@ -49,6 +49,24 @@ describe("AppController", () => {
     expect(ui.pairError).toContain("figtether pair");
   });
 
+  it("keeps an unnamed authenticated session distinct from an unpaired bridge", () => {
+    const { controller, ui, bridge } = harness();
+    controller.onPairRequested("pairing-secret-value");
+    bridge.handlers.onAuthAccepted({
+      session_credential: "session-credential",
+      session_id: "session-01",
+      connection_epoch: 1,
+      grant_epoch: 0,
+      capabilities: {},
+      session_name: null,
+    });
+    const model = ui.model as UiModel;
+    expect(model.connection).toBe("connected");
+    expect(model.sessionName).toBe("Unnamed session");
+    expect(model.sessionFingerprint).not.toBe("Not available");
+    expect(model.grantedRootCount).toBe(0);
+  });
+
   it("grants the roots that the user checked", () => {
     const { controller, ui, sandbox, bridge } = harness();
     controller.onPairRequested("pairing-secret-value");
@@ -82,7 +100,9 @@ describe("AppController", () => {
     controller.onPairRequested("pairing-secret-value");
     acceptHandshake(bridge);
     controller.onSandboxEnvelope(
-      sandboxEnvelope("selection", { roots: [{ node_id: "1:2", node_type: "FRAME", child_count: 0 }] }),
+      sandboxEnvelope("selection", {
+        roots: [{ node_id: "1:2", node_type: "FRAME", child_count: 0 }],
+      }),
     );
     controller.onRootSelectionChanged(["1:2"]);
     controller.onAllowRequested();
@@ -102,12 +122,71 @@ describe("AppController", () => {
     expect(sandbox.posted.filter((entry) => entry.type === "grant_update")).toHaveLength(1);
   });
 
+  it.each([false, true])(
+    "restores only the previous grant after reconnect (paused: %s)",
+    (paused) => {
+      const { controller, ui, sandbox, bridge } = harness();
+      acceptHandshake(bridge);
+      controller.onSandboxEnvelope(
+        sandboxEnvelope("selection", {
+          roots: [{ node_id: "1:2", node_type: "FRAME", child_count: 0 }],
+        }),
+      );
+      controller.onRootSelectionChanged(["1:2"]);
+      controller.onAllowRequested();
+      controller.onWriteGrantRequested();
+      if (paused) controller.onPauseRequested();
+      controller.onSandboxEnvelope(
+        sandboxEnvelope("selection", {
+          roots: [{ node_id: "9:9", node_type: "FRAME", child_count: 0 }],
+        }),
+      );
+      controller.onRootSelectionChanged(["9:9"]);
+      bridge.handlers.onConnection("offline", null);
+      acceptHandshake(bridge);
+      const restored = bridge.grantUpdates().at(-1);
+      expect(restored?.root_ids).toEqual(["1:2"]);
+      expect(restored?.mode).toBe("write");
+      expect(restored?.session_mode).toBe(paused ? "paused" : "live");
+      expect((sandbox.lastOf("grant_update")?.payload as { root_ids: string[] }).root_ids).toEqual([
+        "1:2",
+      ]);
+      expect((ui.model as UiModel).grantedRootCount).toBe(1);
+    },
+  );
+
+  it("does not carry a previous grant into a different authenticated session", () => {
+    const { controller, ui, bridge } = harness();
+    acceptHandshake(bridge);
+    controller.onSandboxEnvelope(
+      sandboxEnvelope("selection", {
+        roots: [{ node_id: "1:2", node_type: "FRAME", child_count: 0 }],
+      }),
+    );
+    controller.onRootSelectionChanged(["1:2"]);
+    controller.onAllowRequested();
+    const before = bridge.grantUpdates().length;
+    bridge.handlers.onAuthAccepted({
+      session_credential: "replacement-credential",
+      session_id: "different-session",
+      connection_epoch: 1,
+      grant_epoch: 0,
+      capabilities: {},
+      session_name: null,
+    });
+    expect(bridge.grantUpdates()).toHaveLength(before);
+    expect((ui.model as UiModel).grantedRootCount).toBe(0);
+    expect((ui.model as UiModel).phase).toBe("awaiting_grant");
+  });
+
   it("pauses and resumes the session", () => {
     const { controller, ui, bridge } = harness();
     controller.onPairRequested("pairing-secret-value");
     acceptHandshake(bridge);
     controller.onSandboxEnvelope(
-      sandboxEnvelope("selection", { roots: [{ node_id: "1:2", node_type: "FRAME", child_count: 0 }] }),
+      sandboxEnvelope("selection", {
+        roots: [{ node_id: "1:2", node_type: "FRAME", child_count: 0 }],
+      }),
     );
     controller.onRootSelectionChanged(["1:2"]);
     controller.onAllowRequested();
@@ -146,7 +225,9 @@ describe("AppController", () => {
     controller.onPairRequested("pairing-secret-value");
     acceptHandshake(bridge);
     controller.onSandboxEnvelope(
-      sandboxEnvelope("selection", { roots: [{ node_id: "1:2", node_type: "FRAME", child_count: 0 }] }),
+      sandboxEnvelope("selection", {
+        roots: [{ node_id: "1:2", node_type: "FRAME", child_count: 0 }],
+      }),
     );
     controller.onRootSelectionChanged(["1:2"]);
     controller.onAllowRequested();
@@ -163,7 +244,9 @@ describe("AppController", () => {
     controller.onPairRequested("pairing-secret-value");
     acceptHandshake(bridge);
     controller.onSandboxEnvelope(
-      sandboxEnvelope("selection", { roots: [{ node_id: "1:2", node_type: "FRAME", child_count: 0 }] }),
+      sandboxEnvelope("selection", {
+        roots: [{ node_id: "1:2", node_type: "FRAME", child_count: 0 }],
+      }),
     );
     controller.onRootSelectionChanged(["1:2"]);
     controller.onAllowRequested();
@@ -179,7 +262,7 @@ describe("AppController", () => {
     const model = ui.model as UiModel;
     expect(model.connection).toBe("revoked");
     expect(model.grantedRootCount).toBe(0);
-    expect(model.sessionName).toBe("Not paired");
+    expect(model.sessionName).toBe("No session");
   });
 
   it("states that delivered data cannot be recalled", () => {
@@ -187,7 +270,9 @@ describe("AppController", () => {
     controller.onPairRequested("pairing-secret-value");
     acceptHandshake(bridge);
     controller.onSandboxEnvelope(
-      sandboxEnvelope("selection", { roots: [{ node_id: "1:2", node_type: "FRAME", child_count: 0 }] }),
+      sandboxEnvelope("selection", {
+        roots: [{ node_id: "1:2", node_type: "FRAME", child_count: 0 }],
+      }),
     );
     controller.onRootSelectionChanged(["1:2"]);
     controller.onAllowRequested();
@@ -212,6 +297,49 @@ describe("AppController", () => {
     expect(failure?.message).toContain("BUSY");
     expect(failure?.message).toContain("750");
   });
+
+  it.each(["local", "daemon"])(
+    "re-enables sharing after fresh pairing following %s revocation",
+    (source) => {
+      const { controller, ui, bridge, sandbox } = harness();
+      acceptHandshake(bridge);
+      controller.onSandboxEnvelope(
+        sandboxEnvelope("selection", {
+          roots: [{ node_id: "1:2", node_type: "FRAME", child_count: 0 }],
+        }),
+      );
+      controller.onRootSelectionChanged(["1:2"]);
+      controller.onAllowRequested();
+      controller.onWriteGrantRequested();
+      if (source === "local") controller.onRevokeConfirmed();
+      else bridge.handlers.onFrame(bridgeFrame("revoke", { reason: "client_revoked" }));
+      expect(sandbox.lastOf("revoke")).toBeDefined();
+      expect((ui.model as UiModel).connection).toBe("revoked");
+      controller.onPairRequested("fresh-secret");
+      expect((ui.model as UiModel).connection).toBe("connecting");
+      bridge.handlers.onAuthAccepted({
+        session_credential: "new-credential",
+        session_id: "fresh-session",
+        connection_epoch: 1,
+        grant_epoch: 0,
+        capabilities: {},
+        session_name: null,
+      });
+      expect((ui.model as UiModel).connection).toBe("connected");
+      expect((ui.model as UiModel).grantedRootCount).toBe(0);
+      expect((ui.model as UiModel).canGrantWrite).toBe(false);
+      controller.onSandboxEnvelope(
+        sandboxEnvelope("selection", {
+          roots: [{ node_id: "1:9", node_type: "FRAME", child_count: 0 }],
+        }),
+      );
+      controller.onRootSelectionChanged(["1:9"]);
+      expect((ui.model as UiModel).canGrant).toBe(true);
+      controller.onAllowRequested();
+      expect(bridge.grantUpdates().at(-1)?.root_ids).toEqual(["1:9"]);
+      expect(bridge.grantUpdates().at(-1)?.mode).toBe("read");
+    },
+  );
 
   it("reports an offline plugin with a recovery action", () => {
     const { controller, ui, bridge } = harness();
@@ -334,7 +462,9 @@ describe("AppController", () => {
     controller.onPairRequested("pairing-secret-value");
     acceptHandshake(bridge);
     controller.onSandboxEnvelope(
-      sandboxEnvelope("selection", { roots: [{ node_id: "1:2", node_type: "FRAME", child_count: 0 }] }),
+      sandboxEnvelope("selection", {
+        roots: [{ node_id: "1:2", node_type: "FRAME", child_count: 0 }],
+      }),
     );
     controller.onRootSelectionChanged(["1:2"]);
     controller.onAllowRequested();

@@ -111,9 +111,7 @@ describe("preview_write", () => {
     const document = sampleDocument();
     const context = createWriteContext(document, ["1:1"]);
     const preview = await handlePreviewWrite(
-      planPayload([
-        { kind: "set_properties", node_id: "1:2", properties: { characters: "no" } },
-      ]),
+      planPayload([{ kind: "set_properties", node_id: "1:2", properties: { characters: "no" } }]),
       context,
     );
     expect(preview.blocked).toBe(true);
@@ -189,10 +187,7 @@ describe("preview_write", () => {
     const context = createWriteContext(document, ["1:1"]);
     const payload = planPayload([{ kind: "create_node", parent_id: "1:1", node_type: "FRAME" }]);
     const hash = planHash(parseWritePlan(payload).plan);
-    const preview = await handlePreviewWrite(
-      { ...payload, plan_hash: hash },
-      context,
-    );
+    const preview = await handlePreviewWrite({ ...payload, plan_hash: hash }, context);
     expect(preview.blocked).toBe(false);
     expect(preview.plan_hash).toBe(hash);
   });

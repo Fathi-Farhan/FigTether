@@ -47,3 +47,9 @@ test("placeholder contact checks do not expose credential values", () => {
   const placeholder = "https://github.com/" + "<owner>/<repo>";
   assert.deepEqual(inspectText("SECURITY.md", placeholder), ["placeholder public contact/link"]);
 });
+test("a byte order mark is refused, because Figma cannot parse it", () => {
+  assert.deepEqual(inspectText("plugins/figma/manifest.json", "\u{feff}{}"), [
+    "byte order mark at the start of the file",
+  ]);
+  assert.deepEqual(inspectText("plugins/figma/manifest.json", "{}"), []);
+});

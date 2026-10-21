@@ -76,9 +76,10 @@ describe("the write path in the runtime", () => {
     await harness.deliver({
       channel: BRIDGE_CHANNEL,
       kind: "bridge_frame",
-      payload: request("preview_write", planPayload([
-        { kind: "create_node", parent_id: "1:1", node_type: "FRAME" },
-      ])),
+      payload: request(
+        "preview_write",
+        planPayload([{ kind: "create_node", parent_id: "1:1", node_type: "FRAME" }]),
+      ),
     });
     const answer = harness.sent.find((envelope) => envelope.kind === "result");
     expect(answer).toBeDefined();
@@ -86,7 +87,11 @@ describe("the write path in the runtime", () => {
     expect(answer?.type).toBe("result");
     expect(answer?.channel).toBe(BRIDGE_CHANNEL);
     expect(answer?.request_id).toBe("req_write");
-    const payload = answer?.payload as { request_id: string; ok: boolean; data: { blocked: boolean } };
+    const payload = answer?.payload as {
+      request_id: string;
+      ok: boolean;
+      data: { blocked: boolean };
+    };
     expect(payload.request_id).toBe("req_write");
     expect(payload.ok).toBe(true);
     expect(payload.data.blocked).toBe(false);
@@ -102,9 +107,17 @@ describe("the write path in the runtime", () => {
     await harness.deliver({
       channel: BRIDGE_CHANNEL,
       kind: "bridge_frame",
-      payload: request("apply_write", planPayload([
-        { kind: "create_node", parent_id: "1:1", node_type: "FRAME", properties: { name: "New" } },
-      ])),
+      payload: request(
+        "apply_write",
+        planPayload([
+          {
+            kind: "create_node",
+            parent_id: "1:1",
+            node_type: "FRAME",
+            properties: { name: "New" },
+          },
+        ]),
+      ),
     });
     const answer = harness.sent.find((envelope) => envelope.kind === "result");
     expect(answer).toBeDefined();
@@ -130,9 +143,10 @@ describe("the write path in the runtime", () => {
     await harness.deliver({
       channel: BRIDGE_CHANNEL,
       kind: "bridge_frame",
-      payload: request("apply_write", planPayload([
-        { kind: "set_properties", node_id: "2:2", properties: { x: 1 } },
-      ])),
+      payload: request(
+        "apply_write",
+        planPayload([{ kind: "set_properties", node_id: "2:2", properties: { x: 1 } }]),
+      ),
     });
     const answer = harness.sent.find((envelope) => envelope.kind === "error");
     expect(answer).toBeDefined();
@@ -153,9 +167,10 @@ describe("the write path in the runtime", () => {
     await harness.deliver({
       channel: BRIDGE_CHANNEL,
       kind: "bridge_frame",
-      payload: request("preview_write", planPayload([
-        { kind: "create_node", parent_id: "1:1", node_type: "FRAME" },
-      ])),
+      payload: request(
+        "preview_write",
+        planPayload([{ kind: "create_node", parent_id: "1:1", node_type: "FRAME" }]),
+      ),
     });
     const answer = harness.sent.find((envelope) => envelope.kind === "error");
     expect(answer).toBeDefined();
@@ -175,9 +190,10 @@ describe("the write path in the runtime", () => {
     await harness.deliver({
       channel: BRIDGE_CHANNEL,
       kind: "bridge_frame",
-      payload: request("apply_write", planPayload([
-        { kind: "create_node", parent_id: "1:1", node_type: "FRAME" },
-      ])),
+      payload: request(
+        "apply_write",
+        planPayload([{ kind: "create_node", parent_id: "1:1", node_type: "FRAME" }]),
+      ),
     });
     const answer = harness.sent.find((envelope) => envelope.kind === "error");
     const payload = answer?.payload as { code: string };
@@ -194,9 +210,10 @@ describe("the write path in the runtime", () => {
     await harness.deliver({
       channel: BRIDGE_CHANNEL,
       kind: "bridge_frame",
-      payload: request("preview_write", planPayload([
-        { kind: "create_node", parent_id: "1:1", node_type: "FRAME" },
-      ])),
+      payload: request(
+        "preview_write",
+        planPayload([{ kind: "create_node", parent_id: "1:1", node_type: "FRAME" }]),
+      ),
     });
     const answer = harness.sent.find((envelope) => envelope.kind === "error");
     const payload = answer?.payload as { code: string };
@@ -214,9 +231,10 @@ describe("the write path in the runtime", () => {
     await harness.deliver({
       channel: BRIDGE_CHANNEL,
       kind: "bridge_frame",
-      payload: request("preview_write", planPayload([
-        { kind: "create_node", parent_id: "1:1", node_type: "FRAME" },
-      ])),
+      payload: request(
+        "preview_write",
+        planPayload([{ kind: "create_node", parent_id: "1:1", node_type: "FRAME" }]),
+      ),
     });
     const answer = harness.sent.find((envelope) => envelope.kind === "result");
     expect(answer).toBeDefined();

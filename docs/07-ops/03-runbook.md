@@ -1,5 +1,9 @@
 # Operations Runbook
 
+> **Design reference.** Original requirements and approval labels below are historical design
+> records, not a feature-availability list. See [current documentation status](../documentation-status.md)
+> for implemented reads/writes, observed desktop evidence, and remaining gaps.
+
 Status: `Proposed`
 
 This runbook defines what an operator or maintainer watches (metrics), how diagnostics stay
@@ -97,8 +101,12 @@ figtether daemon --shutdown-graceful
 
 1. Diagnose what occupies the default `38947` loopback port using OS tooling that requires no
    privilege; the daemon's own error message may report what it safely observed (PRD 8.7: show
-   owner process/port only where knowable without privilege).
-2. Choose a different port explicitly; never silently fall back.
+   owner process/port only where knowable without privilege). `figtether doctor` runs that check
+   and names the reason: another process holds the port, or the operating system reserved the
+   range for the hypervisor and the port is unusable even when nothing listens on it.
+2. Choose a different port explicitly; never silently fall back. The doctor reports a free port
+   in its `port_suggestion` field, and `figtether manifest --port auto` writes such a port into
+   the plugin manifest and prints the matching daemon command.
 3. Regenerate the manifest for the new port; the plugin bundle needs a matching manifest (PRD 5.1
    step 3). Proposed shape:
 
@@ -107,8 +115,17 @@ figtether daemon --port 38948
 figtether manifest generate --plugin-id "<your-plugin-id>" --port 38948
 ```
 
+The automatic variant of the same procedure:
+
+```sh
+figtether manifest generate --plugin-id "<your-plugin-id>" --port auto
+figtether daemon --port <the-port-that-was-printed>
+```
+
 4. Re-run `figtether doctor`; then re-pair. Note IPv6 loopback binding behavior is decided by
    `ADR-002` at `G0`; this runbook assumes the IPv4 loopback baseline until that lands.
+5. Never delete a Windows port reservation and never disable a firewall to free a port. The
+   reservation belongs to the hypervisor, and the port is moved by an explicit choice instead.
 
 ### 3.4 Upgrade and rollback
 

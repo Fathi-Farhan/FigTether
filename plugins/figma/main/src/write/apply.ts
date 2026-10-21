@@ -60,6 +60,7 @@ export async function applyResolvedPlan(
 
 /** The applier of one plan. */
 class PlanApplier {
+  private readonly loadedFonts = new Set<string>();
   private readonly createdNodes = new Map<string, FigmaNode>();
   private readonly created: string[] = [];
   private readonly changed: string[] = [];
@@ -167,6 +168,7 @@ class PlanApplier {
   /** Create a node and append it to its parent. */
   private async applyCreateNode(action: CreateNodeAction): Promise<void> {
     const parent = await this.resolveNode(action.parentRef, action.operation);
+    if (action.font !== undefined) await this.loadFont(action.font, action.operation);
     let node: FigmaNode;
     if (action.nodeType === "GROUP") {
       const children: FigmaNode[] = [];
@@ -193,7 +195,10 @@ class PlanApplier {
       }
       parent.appendChild(node);
     }
+    if (action.font !== undefined) node.fontName = action.font;
     await this.applyChanges(node, action.changes, action.operation);
+    if (action.initialFills !== undefined) node.fills = action.initialFills;
+    if (action.initialText !== undefined) node.characters = action.initialText;
     this.createdNodes.set(action.ref, node);
     this.created.push(node.id);
   }
@@ -235,6 +240,9 @@ class PlanApplier {
   private async applySetText(action: SetTextAction): Promise<void> {
     const node = await this.resolveNode(action.nodeRef, action.operation);
     await this.loadFont(action.font, action.operation);
+    if (action.font !== null) {
+      node.fontName = action.font;
+    }
     node.characters = action.characters;
     if (action.fontSize !== null) {
       node.fontSize = action.fontSize;
@@ -318,6 +326,8 @@ class PlanApplier {
     if (font === null) {
       return;
     }
+    const key = JSON.stringify(font);
+    if (this.loadedFonts.has(key)) return;
     if (this.api.loadFontAsync === undefined) {
       throw refusal(
         WRITE_ERROR_REASONS.CAPABILITY_UNAVAILABLE,
@@ -327,6 +337,7 @@ class PlanApplier {
     }
     try {
       await this.api.loadFontAsync(font);
+      this.loadedFonts.add(key);
     } catch {
       throw new WritePlanError(
         writeError(
@@ -373,11 +384,7 @@ class PlanApplier {
  * The Plugin API has no `createGroup`: a group is built from the nodes it
  * takes over, so the group is created by the group call and not here.
  */
-export function createNode(
-  api: FigmaApi,
-  nodeType: CreateNodeType,
-  operation: number,
-): FigmaNode {
+export function createNode(api: FigmaApi, nodeType: CreateNodeType, operation: number): FigmaNode {
   switch (nodeType) {
     case "FRAME":
       return requireCall(api.createFrame, "createFrame", operation);

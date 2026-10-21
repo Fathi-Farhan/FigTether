@@ -3,9 +3,9 @@
 //! The binary is thin on purpose: it parses the arguments, hands the selected
 //! subcommand to the command layer, and maps the result onto an exit code.
 //!
-//! The CLI is local only. It never asks for a Figma personal access token,
-//! never sends design data anywhere, and prints a secret only for the
-//! explicit local pair action.
+//! Bridge commands use local transport. Updates invoke Git and package managers.
+//! The CLI never asks for a Figma personal access token and prints a secret
+//! only for the explicit local pair action.
 
 mod cli;
 mod commands;
@@ -22,7 +22,7 @@ use clap::Parser;
 
 fn main() -> ExitCode {
     let cli = cli::Cli::parse();
-    match commands::dispatch(cli.command) {
+    match commands::dispatch(cli.into_command()) {
         Ok(outcome) if outcome.success => ExitCode::SUCCESS,
         Ok(outcome) => {
             if let Some(message) = outcome.message {

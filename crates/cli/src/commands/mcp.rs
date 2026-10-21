@@ -37,7 +37,7 @@ mod tests {
 
     #[test]
     fn the_adapter_publishes_the_read_only_tools() {
-        assert_eq!(READ_TOOL_NAMES.len(), 12);
+        assert_eq!(READ_TOOL_NAMES.len(), 14);
         assert!(READ_TOOL_NAMES.contains(&"list_sessions"));
         assert!(READ_TOOL_NAMES.contains(&"get_selection"));
         assert!(READ_TOOL_NAMES.contains(&"inspect_design"));

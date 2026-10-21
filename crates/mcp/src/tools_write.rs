@@ -163,7 +163,7 @@ impl FigTetherService {
     /// Propose a write plan and read its preview.
     #[rmcp::tool(
         name = "preview_write",
-        description = "Propose a write plan and read what it would change. The plan is a proposal: the document does not change until the user approves the preview in the plugin. The answer names the nodes that would be created, changed, moved, or removed, the number of operations, the warnings, whether the plan is blocked, and the approval_id the user approves. The operations are create_node, insert_child, set_properties, set_text, set_fills, delete_node, and move_node. Then call get_write_approval for the approval token, and apply_write with the plan and that token.",
+        description = "Propose a bounded write plan; the document does not change. Operations: create_node, insert_child, set_properties, set_text, set_fills, delete_node, move_node. Prefer initial fills, text, font_family and font_style on create_node. The proposal returns warnings, blocks and an approval_id. The user approves in the Bridge, or explicitly enabled Auto may approve eligible new warning-free plans. Warnings always require review. Never enable Auto or click approval controls yourself. Call get_write_approval, then apply_write with the exact approved plan and token.",
         annotations(read_only_hint = true, destructive_hint = false)
     )]
     async fn preview_write(
@@ -189,7 +189,7 @@ impl FigTetherService {
     /// Read the decision of the user about an approval request.
     #[rmcp::tool(
         name = "get_write_approval",
-        description = "Read the status of an approval request: pending, approved, rejected, or expired. Call it after preview_write, once the user has decided in the plugin. When the plan is approved, the answer carries the approval token that apply_write needs. When it is not approved, the answer says so and no token is issued.",
+        description = "Read a preview approval: pending, approved, rejected, or expired. Approved means user review or eligible user-enabled Auto; it carries the token for apply_write. Pending warnings need user review. Do not repeatedly poll while waiting for a person, enable Auto, or approve through UI controls. A missing approval never permits mutation.",
         annotations(read_only_hint = true, destructive_hint = false)
     )]
     async fn get_write_approval(
@@ -220,7 +220,7 @@ impl FigTetherService {
     /// Apply a plan the user approved.
     #[rmcp::tool(
         name = "apply_write",
-        description = "Apply a plan the user already approved in the plugin. The approval_token comes from get_write_approval, and the plan has to be exactly the plan that was previewed, because the approval is bound to its hash. Name the session in the plan or in session_id. The answer reports the node ids that were created, changed, removed, and moved, whether the change was committed as one undo step, the version id when a version checkpoint was written, and the warnings. A plan without a valid approval is refused and changes nothing.",
+        description = "Apply the exact previewed plan using approval_token from get_write_approval. Approval is bound to the plan hash and current grant; user review or eligible user-enabled Auto is required. The result reports created, changed, removed and moved node IDs, undo commit status and warnings. Read back changed nodes and inspect a fresh render with export_assets/get_asset or open_design. A missing or stale approval is refused; partial failures require review before another plan.",
         annotations(read_only_hint = false, destructive_hint = true)
     )]
     async fn apply_write(

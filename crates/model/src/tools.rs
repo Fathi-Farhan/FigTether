@@ -13,7 +13,30 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::ids::{JobId, SessionId, SnapshotId};
+use crate::ids::{AssetId, JobId, SessionId, SnapshotId};
+
+/// Open one named or unambiguous granted design without changing access.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct OpenDesignParams {
+    /// Limit discovery to this session when known.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+    /// Exact granted frame id. Ambiguous targets return choices.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub frame_id: Option<String>,
+    /// Exact frame name, useful when the user names their working frame.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub frame_name: Option<String>,
+}
+
+/// Fetch a previously exported PNG within the same active grant.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct GetAssetParams {
+    /// Session that exported the image.
+    pub session_id: SessionId,
+    /// Opaque asset id returned by export_assets.
+    pub asset_id: AssetId,
+}
 
 /// Which consistency lane a read may use.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, JsonSchema)]

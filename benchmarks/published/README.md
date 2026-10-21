@@ -1,5 +1,28 @@
 # README chart data
 
+The [agent integration implementation and evaluation](agent-integration-2026-10-21.md)
+separates deterministic adapter checks from real host trials, including policy restrictions,
+timeouts, unavailable clients, and unmeasured billing. Its [data](agent-integration-2026-10-21.json)
+identifies each build. See the [reproduction guide](../agent-integration.md).
+
+The [Bridge UX verification](bridge-ux-2026-10-21.json) records controller/daemon checks,
+browser interactions, version hashes, ten local companion snapshot timings, and unmeasured
+model cost. It uses a synthetic plugin and is separate from live Figma design benchmarks.
+The [usability review](../../docs/audits/2026-10-21-bridge-ux.md) explains the product changes
+and remaining user needs.
+
+The [21 October native website test](website-2026-10-21.md) records six approved writes,
+123 verified nodes, concurrent native reads, a Figma PNG, and the remaining rich-read and
+pagination failures. [Its source data](website-2026-10-21.json) identifies the tested build.
+The [source updater verification](source-update-2026-10-21.json) records separate Windows
+installation tests; it is not a Figma performance comparison.
+The [default daemon launch verification](default-daemon-2026-10-21.json) records the bare
+`figtether` command, compatibility with `figtether daemon`, and separate pairing behavior.
+
+The [21 October bridge integration verification](bridge-integration-2026-10-21.md) records
+the connection and editing fixes, automated checks, and remaining native-editor validation.
+Its measurements are separate from the historical charts below.
+
 The [offline stage chart](../../assets/benchmark-stages.svg) is generated from
 [`offline-stages.json`](offline-stages.json), a reviewed aggregate from one local diagnostic run.
 It contains no design data, username, machine hostname, filesystem path, or runtime credential.

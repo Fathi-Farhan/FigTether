@@ -1,5 +1,9 @@
 # ADR-003: Official rmcp SDK with pinned version and MSRV
 
+> **Design reference.** Original requirements and approval labels below are historical design
+> records, not a feature-availability list. See [current documentation status](../../documentation-status.md)
+> for implemented reads/writes, observed desktop evidence, and remaining gaps.
+
 | Field                | Value      |
 | -------------------- | ---------- |
 | Status               | Proposed   |

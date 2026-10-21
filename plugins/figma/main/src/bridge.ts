@@ -16,7 +16,7 @@
  * drift apart.
  */
 
-import { assertJsonValue, sha256Hex } from "@figtether/shared";
+import { assertJsonValue, sha256Hex, isCompanionUrl } from "@figtether/shared";
 import { BRIDGE_CHANNEL, MESSAGE_TYPES, OUTBOUND_MESSAGE_KINDS } from "@figtether/shared";
 import type { BridgeEnvelope, GrantMode, SessionMode } from "@figtether/shared";
 import { base64Encode, utf8ByteLength, utf8Encode } from "./encoding.js";
@@ -33,6 +33,7 @@ export { BRIDGE_CHANNEL };
 
 /** Message kinds the sandbox accepts from the UI. */
 export const INBOUND_KINDS = [
+  "open_external",
   "frame",
   "bridge_frame",
   "grant_update",
@@ -72,6 +73,7 @@ export type { BridgeEnvelope as RelayEnvelope };
 
 /** A validated inbound message. */
 export type InboundMessage =
+  | { kind: "open_external"; url: string }
   | { kind: "frame"; frame: BridgeFrame }
   | {
       kind: "grant_update";
@@ -220,6 +222,15 @@ export function validateInbound(raw: unknown): ValidationResult {
 
   const record = payload as Record<string, unknown>;
   switch (kind) {
+    case "open_external":
+      if (typeof record["url"] === "string" && isCompanionUrl(record["url"])) {
+        return { ok: true, message: { kind: "open_external", url: record["url"] } };
+      }
+      return {
+        ok: false,
+        reason: "malformed",
+        detail: "external window URL is not the local companion",
+      };
     case "frame":
     case "bridge_frame":
       return validateFramePayload(record);

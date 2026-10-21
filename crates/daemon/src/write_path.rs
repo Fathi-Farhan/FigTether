@@ -119,6 +119,8 @@ impl ApprovalStatus {
 /// content: the plan travels as the JSON the client sent.
 #[derive(Debug, Clone)]
 pub struct ApprovalRequest {
+    /// Auto approval is fail-closed until a complete warning-free preview arrives.
+    pub auto_safe: bool,
     /// Identity of the approval.
     pub approval_id: String,
     /// Session the plan targets.
@@ -161,6 +163,7 @@ impl ApprovalRequest {
     ) -> Self {
         Self {
             approval_id: approval_id.into(),
+            auto_safe: false,
             session_id,
             plan_hash: plan_hash.into(),
             grant_epoch,
@@ -263,6 +266,57 @@ pub struct WritePath {
 }
 
 impl WritePath {
+    /// Record the editor's preview before any automatic approval is processed.
+    pub fn observe_preview(&self, session: &SessionId, data: &serde_json::Value) {
+        let preview = data.get("preview").unwrap_or(data);
+        let Some(hash) = preview.get("plan_hash").and_then(serde_json::Value::as_str) else {
+            return;
+        };
+        let empty = |key: &str| {
+            preview
+                .get(key)
+                .and_then(serde_json::Value::as_array)
+                .is_some_and(Vec::is_empty)
+        };
+        let safe = preview.get("blocked") == Some(&serde_json::Value::Bool(false))
+            && empty("warnings")
+            && empty("removed")
+            && preview
+                .get("operations_count")
+                .and_then(serde_json::Value::as_u64)
+                .is_some_and(|n| n > 0)
+            && preview
+                .get("reasons")
+                .is_none_or(|v| v.as_array().is_some_and(Vec::is_empty));
+        for request in self.lock().values_mut() {
+            if &request.session_id == session && request.plan_hash == hash {
+                let no_delete = request
+                    .plan
+                    .get("operations")
+                    .and_then(serde_json::Value::as_array)
+                    .is_some_and(|ops| {
+                        ops.iter().all(|op| {
+                            op.get("kind").and_then(serde_json::Value::as_str)
+                                != Some("delete_node")
+                        })
+                    });
+                request.auto_safe = safe && no_delete;
+            }
+        }
+    }
+
+    /// Browser/plugin decisions cannot cross sessions or auto-approve warnings.
+    pub fn may_decide(
+        &self,
+        session: &SessionId,
+        approval: &str,
+        hash: &str,
+        automatic: bool,
+    ) -> bool {
+        self.lock().get(approval).is_some_and(|r| {
+            &r.session_id == session && r.plan_hash == hash && (!automatic || r.auto_safe)
+        })
+    }
     /// Build an empty write path.
     pub fn new(limits: ResourceLimits) -> Self {
         let approvals = ApprovalRegistry::with_limits(&limits);
@@ -678,18 +732,7 @@ fn text_characters(plan: &WritePlan) -> usize {
 
 /// The number of property changes a plan carries.
 fn property_changes(plan: &WritePlan) -> u32 {
-    let count: usize = plan
-        .operations
-        .iter()
-        .map(|operation| {
-            operation.properties.len()
-                + match operation.kind {
-                    WriteOperationKind::SetText | WriteOperationKind::SetFills => 1,
-                    _ => 0,
-                }
-        })
-        .sum();
-    u32::try_from(count).unwrap_or(u32::MAX)
+    figtether_model::write::count_property_changes(plan)
 }
 
 /// Refuse a write of a session that holds no write grant.

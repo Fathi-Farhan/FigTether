@@ -183,9 +183,7 @@ class PlanResolver {
     }
     const moves = this.plan.operations.some((operation) => operation.kind === "move_node");
     if (moves && !this.plan.destructive) {
-      this.warnings.push(
-        "The plan moves a node without carrying the destructive flag",
-      );
+      this.warnings.push("The plan moves a node without carrying the destructive flag");
     }
   }
 
@@ -315,6 +313,29 @@ class PlanResolver {
       changes,
       childRefs,
     };
+    try {
+      if (operation.fills !== undefined) {
+        if (!canHoldFills(operation.node_type))
+          throw new Error("This node type cannot have initial fills");
+        action.initialFills = normalizeFills(operation.fills);
+        this.ledger.countPropertyChanges(1);
+      }
+      if (operation.node_type === "TEXT") {
+        action.font = fontOfOperation(operation) ?? FALLBACK_FONT;
+        for (const change of changes) if (change.requiresFont) change.font = action.font;
+      }
+      if (operation.text !== undefined) {
+        action.initialText = operation.text;
+        this.ledger.countTextCharacters(Array.from(operation.text).length);
+        this.ledger.countPropertyChanges(1);
+      }
+      this.ledger.countPropertyChanges(
+        Number(operation.font_family !== undefined) + Number(operation.font_style !== undefined),
+      );
+    } catch (error) {
+      this.reasons.push({ ...toWriteErrorDetail(error, index), operation: index });
+      return;
+    }
     this.actions.push(action);
   }
 
@@ -422,13 +443,14 @@ class PlanResolver {
       return;
     }
     if (node.type !== "TEXT") {
-      this.warnings.push(
-        `The node ${node.id} is not a text node, the characters were not applied`,
-      );
+      this.warnings.push(`The node ${node.id} is not a text node, the characters were not applied`);
       return;
     }
     const font = fontOfOperation(operation) ?? fontOf(node) ?? FALLBACK_FONT;
-    this.ledger.countTextCharacters(operation.text.length);
+    this.ledger.countTextCharacters(Array.from(operation.text).length);
+    this.ledger.countPropertyChanges(
+      1 + Number(operation.font_family !== undefined) + Number(operation.font_style !== undefined),
+    );
     const action: SetTextAction = {
       kind: "set_text",
       operation: index,
@@ -523,9 +545,7 @@ class PlanResolver {
       return;
     }
     if (await this.leavesScopeBounds(node, operation.x ?? null, operation.y ?? null)) {
-      this.warnings.push(
-        `The new position of ${node.id} leaves the bounds of the granted scope`,
-      );
+      this.warnings.push(`The new position of ${node.id} leaves the bounds of the granted scope`);
     }
     const action: MoveNodeAction = {
       kind: "move_node",
@@ -582,7 +602,7 @@ class PlanResolver {
         path: spec.path,
         value,
         requiresFont: spec.requiresFont,
-        font: spec.requiresFont ? fontOf(node) ?? FALLBACK_FONT : null,
+        font: spec.requiresFont ? (fontOf(node) ?? FALLBACK_FONT) : null,
       });
     }
     return changes;
@@ -685,7 +705,9 @@ class PlanResolver {
 
 /** Whether a node type can hold children. */
 export function canHoldChildren(nodeType: string): boolean {
-  return nodeType !== "TEXT" && nodeType !== "LINE" && nodeType !== "DOCUMENT" && nodeType !== "PAGE";
+  return (
+    nodeType !== "TEXT" && nodeType !== "LINE" && nodeType !== "DOCUMENT" && nodeType !== "PAGE"
+  );
 }
 
 /** Whether a node type carries fills. */
@@ -801,7 +823,7 @@ export function fontOf(node: FigmaNode | null): FigmaFontName | null {
 
 /** The font a text operation names, when it names one. */
 export function fontOfOperation(
-  operation: Extract<WriteOperation, { kind: "set_text" }>,
+  operation: Extract<WriteOperation, { kind: "set_text" | "create_node" }>,
 ): FigmaFontName | null {
   const family = operation.font_family;
   const style = operation.font_style;

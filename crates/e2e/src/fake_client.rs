@@ -119,6 +119,7 @@ impl FakeLocalClient {
             | ClientRequest::InspectDesign { request_id, .. }
             | ClientRequest::GetDesignTokens { request_id, .. }
             | ClientRequest::ExportAssets { request_id, .. }
+            | ClientRequest::GetAsset { request_id, .. }
             | ClientRequest::GetSelection { request_id, .. }
             | ClientRequest::GetSnapshotInfo { request_id, .. }
             | ClientRequest::PreviewWrite { request_id, .. }

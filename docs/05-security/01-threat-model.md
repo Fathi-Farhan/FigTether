@@ -1,5 +1,9 @@
 # FigTether Threat Model
 
+> **Design reference.** Original requirements and approval labels below are historical design
+> records, not a feature-availability list. See [current documentation status](../documentation-status.md)
+> for implemented reads/writes, observed desktop evidence, and remaining gaps.
+
 Status: `Proposed`
 
 This document is the threat model for FigTether v0.1. It lists the assets that must be protected,
@@ -116,9 +120,10 @@ rendering); the residual column is the reciprocal "residual limit" entry of the 
 
 The write path proposed by `ADR-013` adds a class the read path cannot have: the failure of a write
 is a changed design, not a wrong answer. The classes below are the write counterparts of the
-STRIDE rows above. They are proposed, not in force: `ADR-013` is pending product approval
-(`docs/00-overview/01-prd-analysis.md` section 12), and the acceptance scenarios they point to
-(`AT21..AT29`) carry no gate yet.
+STRIDE rows above. The source implementation enforces write grants, scope, budgets, and exact-plan
+approval. This is not an independent security audit. `ADR-013` remains a proposed formal release
+decision, and the acceptance scenarios (`AT21..AT29`) are not all established by the limited
+desktop evidence; see [current status](../documentation-status.md).
 
 | ID   | Class                             | Scenario                                                                                                 | Layer that stops it                                                                                                                                                                                                    | Evidence                      |
 | ---- | --------------------------------- | -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |

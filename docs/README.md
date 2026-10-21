@@ -2,24 +2,36 @@
 
 ## Start here
 
-| I want to...                           | Read                                                                                                        |
-| -------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Try the experimental bridge            | [Quickstart](quickstart.md)                                                                                 |
-| Build, test, or send a patch           | [Contributing](../CONTRIBUTING.md)                                                                          |
-| Understand the process boundaries      | [Architecture diagram](../assets/architecture.svg) and [system design](02-architecture/01-system-design.md) |
-| Check what is implemented              | [Implementation status](10-implementation/01-implementation-status.md)                                      |
-| Reproduce the README chart             | [Published diagnostic data](../benchmarks/published/README.md)                                              |
-| Report a bug or vulnerability          | [Support](../SUPPORT.md) / [security policy](../SECURITY.md)                                                |
-| Prepare the repository for publication | [Publication checklist](maintainers/publication.md)                                                         |
+For agent-driven canvas work, use the [canvas-first workflow](agent-workflow.md). It explains
+automatic MCP guidance, the focused design skill, and the approval/edit/visual-check loop.
+
+| I want to...                              | Read                                                                                                        |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Install and make a first design           | [README tutorial](../README.md#build-and-connect) and [Quickstart](quickstart.md)                           |
+| Connect Codex, Gemini CLI, or Claude Code | [Agent setup and readiness checks](agent-setup.md)                                                          |
+| Understand pairing and the Bridge UI      | [Illustrated Bridge guide](bridge-ui-guide.md)                                                              |
+| Verify native design creation and edits   | [Rust write-path verification](write-path-verification.md)                                                  |
+| Build, test, or send a patch              | [Contributing](../CONTRIBUTING.md)                                                                          |
+| Understand the process boundaries         | [Architecture diagram](../assets/architecture.svg) and [system design](02-architecture/01-system-design.md) |
+| Check what is implemented                 | [Implementation status](10-implementation/01-implementation-status.md)                                      |
+| Reproduce the README chart                | [Published diagnostic data](../benchmarks/published/README.md)                                              |
+| Report a bug or vulnerability             | [Support](../SUPPORT.md) / [security policy](../SECURITY.md)                                                |
+| Prepare the repository for publication    | [Publication checklist](maintainers/publication.md)                                                         |
 
 ## Design reference
+
+Use [current documentation status](documentation-status.md) to resolve historical proposal
+language against implemented behavior. The [design review guide](design-review.md) links
+the reusable skill, deterministic rule contract, primary-source research, and browser evidence.
 
 These documents preserve the original requirements and design decisions. Much of the material
 was written before implementation and remains **proposed**, not a list of working features.
 In particular, snapshot storage, watch/resync, offline bundles, asset-resource delivery, and
-desktop compatibility are not proven by the diagrams or acceptance catalog. The write path is a
-proposed design as well: it is pending product approval, and no applied write has been verified
-in a Figma Desktop session.
+desktop compatibility are not proven by the diagrams or acceptance catalog. The write path is
+implemented and has limited Windows/Figma Desktop evidence: the agent created and read back a
+native website design through approved plans. Its original ADR remains a proposal for a future
+release; that document status should not be confused with absence of the implementation. See
+the [code verification](write-path-verification.md) and [desktop report](../benchmarks/published/desktop-2026-10-20.md).
 
 | Area                                                                  | Contents                                                                                                                                                  |
 | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |

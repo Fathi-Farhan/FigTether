@@ -764,11 +764,11 @@ mod contract {
         pub node_type: Option<String>,
         /// Properties to set on the node. Only the names in
         /// `ALLOWED_WRITE_PROPERTIES` are accepted. Fills and strokes are not
-        /// properties, they are set through the `SetFills` operation.
+        /// properties; use `fills` on create or the `SetFills` operation.
         #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
         pub properties: BTreeMap<String, serde_json::Value>,
-        /// Paints to set on the node. Only the `SetFills` operation reads this
-        /// field. The values are normalized by the plugin before they reach the
+        /// Paints to set on creation or through `SetFills`. The plugin reads this
+        /// field and normalizes the values before they reach the
         /// editor.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub fills: Option<Vec<serde_json::Value>>,
@@ -1767,6 +1767,18 @@ fn published() -> Vec<Published> {
             type_name: "FieldAvailability",
             purpose: "Availability of one field of a record.",
             schema: |g| g.root_schema_for::<c::FieldAvailability>(),
+        },
+        Published {
+            name: "open_design_params",
+            type_name: "OpenDesignParams",
+            purpose: "Parameters of the open_design tool.",
+            schema: |g| g.root_schema_for::<t::OpenDesignParams>(),
+        },
+        Published {
+            name: "get_asset_params",
+            type_name: "GetAssetParams",
+            purpose: "Parameters of the get_asset tool.",
+            schema: |g| g.root_schema_for::<t::GetAssetParams>(),
         },
         Published {
             name: "list_nodes_params",

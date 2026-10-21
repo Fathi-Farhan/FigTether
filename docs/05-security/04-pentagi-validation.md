@@ -1,5 +1,9 @@
 # Adversarial Validation with PentAGI
 
+> **Design reference.** Original requirements and approval labels below are historical design
+> records, not a feature-availability list. See [current documentation status](../documentation-status.md)
+> for implemented reads/writes, observed desktop evidence, and remaining gaps.
+
 Status: `Proposed`
 
 This document defines how FigTether is validated against an autonomous attacker, and how the

@@ -1,10 +1,14 @@
 # MCP Adapter Design (figtether mcp)
 
+> **Design reference.** Original requirements and approval labels below are historical design
+> records, not a feature-availability list. See [current documentation status](../documentation-status.md)
+> for implemented reads/writes, observed desktop evidence, and remaining gaps.
+
 Status: `Proposed`
 
-This document fixes how the Rust MCP server exposes the FigTether read-only tool surface to agent
+This document describes how the Rust MCP server exposes the FigTether read tools to agent
 clients over stdio: one process per client, the rmcp lifecycle with version pinning (D08), the
-twelve tool contract from PRD 8.5.1, consistency semantics with fresh as the default, MCP
+twelve-tool read baseline from PRD 8.5.1, consistency semantics with fresh as the default, MCP
 cancellation forwarding to the scheduler, opaque grant bound resource URIs, config printing, and
 the split between business and protocol error handling. Envelope field rules are anchored in
 `docs/04-data-contracts/01-mcp-envelope.md`; the bridge plane is specified in
@@ -23,14 +27,14 @@ the split between business and protocol error handling. Envelope field rules are
 
 ## 2. Process model
 
-| Aspect         | Decision                                                                                                                                                                    |
-| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Instantiation  | One `figtether mcp` process per MCP client (PRD 8.4: one process per client). The client spawns it via its own config; the process never forks agents.                      |
-| Isolation      | Each process holds the client credential bound to the current `daemon_instance_id`; queues, limits and grant checks are per client id (PRD 8.5.5 per client queue 16).      |
-| Daemon link    | Authenticated loopback channel to the daemon using credentials from the owner only runtime directory (PRD 8.4, 8.6.2). The pairing secret is never present in this process. |
-| Daemon absent  | Structured AUTH_REQUIRED with action `start figtether daemon`, then rerun `figtether doctor`; no silent fallback and no retry storm (PRD 8.7).                              |
-| Ports          | No listener, socket, shell or filesystem writes beyond sanctioned runtime reads; the process is read-only by construction (D03).                                            |
-| Crash behavior | The client restarts the process; a new process revalidates its credential and otherwise answers AUTH_EXPIRED, never reusing state from the dead process.                    |
+| Aspect         | Decision                                                                                                                                                                          |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Instantiation  | One `figtether mcp` process per MCP client (PRD 8.4: one process per client). The client spawns it via its own config; the process never forks agents.                            |
+| Isolation      | Each process holds the client credential bound to the current `daemon_instance_id`; queues, limits and grant checks are per client id (PRD 8.5.5 per client queue 16).            |
+| Daemon link    | Authenticated loopback channel to the daemon using credentials from the owner only runtime directory (PRD 8.4, 8.6.2). The pairing secret is never present in this process.       |
+| Daemon absent  | Structured AUTH_REQUIRED with action `start figtether daemon`, then rerun `figtether doctor`; no silent fallback and no retry storm (PRD 8.7).                                    |
+| Ports          | No listener or shell. The adapter opens an authenticated outbound loopback WebSocket and forwards reads and approved-write requests; it does not execute editor mutations itself. |
+| Crash behavior | The client restarts the process; a new process revalidates its credential and otherwise answers AUTH_EXPIRED, never reusing state from the dead process.                          |
 
 ## 3. rmcp lifecycle and version pinning (D08)
 
@@ -47,7 +51,9 @@ the split between business and protocol error handling. Envelope field rules are
 
 ## 4. Tool surface (PRD 8.5.1)
 
-Every tool is read-only: `readOnlyHint=true`, `destructiveHint=false` on each definition. Hints
+Read tools use `readOnlyHint=true`, `destructiveHint=false`. The implemented write extension
+adds `preview_write`, `get_write_approval`, and mutating `apply_write`; see
+[write verification](../write-path-verification.md). The table below records the read baseline. Hints
 are not authorization and never bypass scope, grant or epoch checks (PRD 8.5.1). All identifier
 arguments are strings. Data operations take `session_id` or `snapshot_id`, mutually exclusive.
 Secrets and bridge endpoints are never arguments, and tool names freeze after G0.

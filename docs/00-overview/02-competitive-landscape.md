@@ -1,5 +1,9 @@
 # Competitive Landscape: Figma Context Options for AI Agents
 
+> **Design reference.** Original requirements and approval labels below are historical design
+> records, not a feature-availability list. See [current documentation status](../documentation-status.md)
+> for implemented reads/writes, observed desktop evidence, and remaining gaps.
+
 Status: `Proposed`
 
 This document positions FigTether against the alternatives named in the PRD product options and research sections (PRD 4.1, 8.2): the official Figma MCP server, REST based MCP alternatives, and the reference project `figma-mcp-free`. It fixes which option occupies which role, which claims about them are allowed or forbidden, the platform support boundary, and the reference code policy. Every performance number cited anywhere in this doc set is a target, never a result, because Gate `G0` has not run (PRD 2.1). Qualitative statements about third party options are restricted to documentation facts registered in the PRD Appendix C (`S1`..`S11`); anything beyond that register stays a hypothesis and is never presented as a FigTether experiment result (PRD 8.2).

@@ -1,5 +1,9 @@
 # Harness2 Integration Architecture for FigTether
 
+> **Design reference.** Original requirements and approval labels below are historical design
+> records, not a feature-availability list. See [current documentation status](../documentation-status.md)
+> for implemented reads/writes, observed desktop evidence, and remaining gaps.
+
 Status: `Proposed`
 
 Purpose: This document defines two integrations between FigTether and the Harness2 methodology

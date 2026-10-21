@@ -286,7 +286,7 @@ export async function handleListNodes(
   const record = asParams(params);
   const rootId = requiredString(record, "root_id");
   const filters = asRecordValue(record["filters"]);
-  const maxDepth = readDepth(filters?.["max_depth"]);
+  const maxDepth = readDepth(record["depth"] ?? filters?.["max_depth"]);
   const types = readStringArray(filters?.["types"]);
   const projection = normalizeFieldList(record["fields"]) ?? [...DEFAULT_SUMMARY_FIELDS];
   const cursorToken = optionalString(record, "cursor");
@@ -309,7 +309,10 @@ export async function handleListNodes(
     guard: context.guard,
     rootIds: [root.id],
     maxDepth,
-    maxNodes: DEFAULT_MAX_NODES,
+    maxNodes: Math.max(
+      1,
+      Math.min(DEFAULT_MAX_NODES, Math.floor(asNumber(record["limit"]) ?? DEFAULT_MAX_NODES)),
+    ),
     startStack,
     visitedBefore,
     onProgress: context.onProgress,
@@ -345,7 +348,11 @@ export async function handleReadNodes(
     throw invalidLimit(`A batch accepts at most ${DEFAULT_BATCH_SIZE} node ids`);
   }
   const depth = readDepth(record["depth"]) ?? 1;
-  const projection = normalizeFieldList(record["fields"]);
+  const projection = normalizeFieldList(record["fields"]) ?? [
+    ...DEFAULT_SUMMARY_FIELDS,
+    "parent_id",
+    "geometry",
+  ];
 
   const grant = context.guard.requireGrant();
   const items: ReadNodesResult["items"] = [];
@@ -799,6 +806,7 @@ async function normalizeEntries(
   const nodes: PluginNode[] = [];
   for (const entry of entries) {
     const normalized = await normalizeNode(entry.node, {
+      fields: projection,
       api: context.api,
       resolver: context.resolver,
       fontCatalog: context.fontCatalog,
@@ -1061,8 +1069,8 @@ function readDepth(value: unknown): number | undefined {
   if (depth === undefined) {
     return undefined;
   }
-  if (depth < 1 || depth > DEFAULT_MAX_DEPTH) {
-    throw invalidLimit(`The depth must be between 1 and ${DEFAULT_MAX_DEPTH}`);
+  if (depth < 0 || depth > DEFAULT_MAX_DEPTH) {
+    throw invalidLimit(`The depth must be between 0 and ${DEFAULT_MAX_DEPTH}`);
   }
   return Math.floor(depth);
 }

@@ -5,7 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 authors.workspace = true
-description = "FigTether command line interface: doctor, daemon, mcp, status, pair, config, manifest, revoke"
+description = "FigTether command line interface: doctor, daemon, mcp, status, pair, config, manifest, revoke, update"
 
 [[bin]]
 name = "figtether"
@@ -27,6 +27,7 @@ sha2 = { workspace = true }
 hex = { workspace = true }
 rand = { workspace = true }
 anyhow = { workspace = true }
+toml = "1.1"
 thiserror = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }

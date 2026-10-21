@@ -1,0 +1,192 @@
+{
+  "schema_version": 1,
+  "kind": "revocation-recovery-fix",
+  "created_at": "2026-10-21T03:43:45.748Z",
+  "figma_desktop": "126.10.11",
+  "environment": "win32 10.0.26200 x64",
+  "node": "v22.14.0",
+  "observed_failure": {
+    "daemon_accepted_fresh_pairing": true,
+    "new_session_state": "paired",
+    "new_session_grants": 0,
+    "old_session_state": "revoked",
+    "daemon_revocations": 1,
+    "ui": "New session fingerprint appeared while sharing controls stayed disabled.",
+    "attribution": "The initiating client is not established by the available telemetry. This test runner did not revoke the live session."
+  },
+  "root_causes": [
+    "Explicit Pair did not reset the revoked transport state before dialing.",
+    "Daemon revoke was forwarded to the controller without clearing transport credentials/timers or the sandbox grant.",
+    "Callbacks from a replaced socket could clear the replacement socket or process stale authentication."
+  ],
+  "changes": [
+    "Explicit Pair resets transport state and clears the previous UI/sandbox session before authenticating.",
+    "Local and daemon revocation stop traffic, timers and credential reuse.",
+    "Daemon revoke clears sandbox scope and pending work.",
+    "Socket callbacks and asynchronous message decoding are checked against the current socket.",
+    "Shared-session agent guidance explains that one agent must not revoke shared access as routine cleanup."
+  ],
+  "tests": {
+    "before_fix": {
+      "focused_passed": 44,
+      "focused_failed": 5,
+      "raw_log": "benchmarks/results/revoke-recovery-2026-10-21/before-fix.log",
+      "encoding": "UTF-16LE PowerShell redirection"
+    },
+    "after_fix": {
+      "focused_passed": 52,
+      "focused_failed": 0,
+      "full_plugin_passed": 483,
+      "full_plugin_failed": 0,
+      "files": 39,
+      "new_regressions": 8
+    },
+    "covered": [
+      "Local revoke then fresh pairing and a new explicit grant.",
+      "Daemon revoke then fresh pairing and a new explicit grant.",
+      "No old read/write grant silently restored.",
+      "No automatic reconnect after revocation.",
+      "Callbacks from replaced sockets ignored.",
+      "An old Blob finishing decoding cannot replace the new authenticated session.",
+      "Real BridgeClient and AppController wiring re-enables sharing after both revoke paths."
+    ]
+  },
+  "commands": [
+    {
+      "id": "plugin-types",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "C:/Program Files/nodejs/node_modules/npm/bin/npm-cli.js",
+        "--prefix",
+        "plugins/figma",
+        "run",
+        "build:types"
+      ],
+      "started_at": "2026-10-21T03:42:00.976Z",
+      "exit_code": 0,
+      "elapsed_ms": 503.2763,
+      "log": "benchmarks/results/revoke-recovery-2026-10-21/plugin-types.log"
+    },
+    {
+      "id": "plugin-typecheck",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "C:/Program Files/nodejs/node_modules/npm/bin/npm-cli.js",
+        "--prefix",
+        "plugins/figma",
+        "run",
+        "typecheck"
+      ],
+      "started_at": "2026-10-21T03:42:01.483Z",
+      "exit_code": 0,
+      "elapsed_ms": 5130.3435,
+      "log": "benchmarks/results/revoke-recovery-2026-10-21/plugin-typecheck.log"
+    },
+    {
+      "id": "plugin-lint",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "C:/Program Files/nodejs/node_modules/npm/bin/npm-cli.js",
+        "--prefix",
+        "plugins/figma",
+        "run",
+        "lint:all"
+      ],
+      "started_at": "2026-10-21T03:42:06.614Z",
+      "exit_code": 0,
+      "elapsed_ms": 7278.6569,
+      "log": "benchmarks/results/revoke-recovery-2026-10-21/plugin-lint.log"
+    },
+    {
+      "id": "plugin-tests",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "C:/Program Files/nodejs/node_modules/npm/bin/npm-cli.js",
+        "--prefix",
+        "plugins/figma",
+        "test",
+        "--",
+        "--reporter=default",
+        "--reporter=junit",
+        "--outputFile=../../benchmarks/results/revoke-recovery-2026-10-21/plugin-tests.xml"
+      ],
+      "started_at": "2026-10-21T03:42:13.894Z",
+      "exit_code": 0,
+      "elapsed_ms": 4432.492399999999,
+      "log": "benchmarks/results/revoke-recovery-2026-10-21/plugin-tests.log"
+    },
+    {
+      "id": "plugin-build",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "C:/Program Files/nodejs/node_modules/npm/bin/npm-cli.js",
+        "--prefix",
+        "plugins/figma",
+        "run",
+        "build"
+      ],
+      "started_at": "2026-10-21T03:42:18.328Z",
+      "exit_code": 0,
+      "elapsed_ms": 795.5908999999992,
+      "log": "benchmarks/results/revoke-recovery-2026-10-21/plugin-build.log"
+    }
+  ],
+  "artifacts": [
+    {
+      "file": "plugins/figma/ui/src/bridge.ts",
+      "bytes": 24160,
+      "sha256": "bb50d44048f9ee2abd461ba4dbff9157aecbf4262038ffa703647a8de191bbee"
+    },
+    {
+      "file": "plugins/figma/ui/src/controller.ts",
+      "bytes": 48049,
+      "sha256": "8d3b98f0b5dc105e934a7f7cbbbe8b2a47ead6dcc9a8fe36776450a52c244566"
+    },
+    {
+      "file": "plugins/figma/ui/src/status.ts",
+      "bytes": 5568,
+      "sha256": "e3d1364c98fdd90d3cd95031bfc4db885eff32900809deeec93dff2226cbc3e7"
+    },
+    {
+      "file": "plugins/figma/ui/test/bridge.test.ts",
+      "bytes": 18602,
+      "sha256": "62778aa36433490df8fd6f43a642ad3088e6c1d391df4a7157bb84cbed6302a1"
+    },
+    {
+      "file": "plugins/figma/ui/test/controller.test.ts",
+      "bytes": 21287,
+      "sha256": "62c0b6a89655d5fa5c18f0c11c506fc6ec6a2bf4fda1c433b3d132a8c36145cf"
+    },
+    {
+      "file": "plugins/figma/dist/main.js",
+      "bytes": 186596,
+      "sha256": "5962c947f4d86feab3c9f558b5237928dac7739eef6c7909ed18ef9fc9f0eee2"
+    },
+    {
+      "file": "plugins/figma/dist/ui.html",
+      "bytes": 140643,
+      "sha256": "0356567d201b61fbda53f884e1622c8a79d5f4f6e5c65fd7695b3fc6c20c4cfd"
+    },
+    {
+      "file": ".agents/skills/figtether-design/SKILL.md",
+      "bytes": 4065,
+      "sha256": "0aeb88e4403b76103d8ae8959833b745ec78ff1b70391f5b802bb574a319ac40"
+    }
+  ],
+  "native_validation": {
+    "new_bundle_built": true,
+    "new_bundle_loaded_in_open_plugin": true,
+    "recovery_retested_in_figma": false,
+    "normal_paired_write_workflow_verified": true,
+    "successful_plans": 6,
+    "note": "User reopened/re-paired the plugin and explicitly granted both test frames. Six plans then applied in Codex Test. A deliberate live revoke/re-pair cycle was not repeated on the shared session to avoid interrupting the other agent.",
+    "evidence": "website-2026-10-21.json"
+  },
+  "cost": {
+    "model_input_tokens": null,
+    "model_output_tokens": null,
+    "billed_cost_usd": null,
+    "status": "unmeasured"
+  },
+  "raw_directory": "benchmarks/results/revoke-recovery-2026-10-21"
+}

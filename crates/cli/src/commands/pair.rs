@@ -19,8 +19,20 @@ pub fn run(args: PairArgs) -> anyhow::Result<CommandOutcome> {
             request_id: control::new_request_id(),
         };
         let data = client.request(request).await?;
-        print_secret(&data);
+        if args.json {
+            output::json(&secret_payload(&data))?;
+        } else {
+            print_secret(&data);
+        }
         Ok(CommandOutcome::ok())
+    })
+}
+
+/// Restrict machine-readable output to the explicit pairing credential fields.
+fn secret_payload(data: &serde_json::Value) -> serde_json::Value {
+    serde_json::json!({
+        "secret": control::text(data, "secret"),
+        "expires_in_seconds": control::number(data, "expires_in_seconds"),
     })
 }
 
@@ -48,5 +60,23 @@ mod tests {
         let data = json!({ "secret": "a".repeat(64), "expires_in_seconds": 300 });
         assert_eq!(control::number(&data, "expires_in_seconds"), 300);
         assert_eq!(control::text(&data, "secret").len(), 64);
+    }
+
+    #[test]
+    fn json_pairing_outputs_only_the_secret_and_ttl() {
+        let payload = secret_payload(&json!({
+            "secret": "synthetic-pair-fixture", "expires_in_seconds": 300,
+            "session_credential": "must-not-be-copied", "internal": "diagnostics"
+        }));
+        assert_eq!(
+            payload,
+            json!({"secret":"synthetic-pair-fixture", "expires_in_seconds":300})
+        );
+        let parsed =
+            <crate::cli::Cli as clap::Parser>::try_parse_from(["figtether", "pair", "--json"]);
+        assert!(matches!(
+            parsed.expect("valid arguments").into_command(),
+            crate::cli::Command::Pair(PairArgs { json: true, .. })
+        ));
     }
 }

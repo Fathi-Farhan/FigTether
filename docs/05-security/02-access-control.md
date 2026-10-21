@@ -1,5 +1,9 @@
 # FigTether Access Control and Credential Model
 
+> **Design reference.** Original requirements and approval labels below are historical design
+> records, not a feature-availability list. See [current documentation status](../documentation-status.md)
+> for implemented reads/writes, observed desktop evidence, and remaining gaps.
+
 Status: `Proposed`
 
 This document defines who and what can act on FigTether, how the plugin and MCP client are
@@ -109,7 +113,8 @@ Epoch rules (`FR03`, `FR16`, threat rows TH05 and TH11 in `01-threat-model.md`):
 Proposed by `ADR-013` and pending product approval (`docs/00-overview/01-prd-analysis.md`
 section 12). The section describes the model as specified in
 `docs/11-write-path/01-write-path-design.md` section 4; it is not a statement about the shipped
-build, and no write has run in a Figma Desktop session.
+release. The implementation has limited Windows/Figma Desktop write evidence; see
+[the verification](../write-path-verification.md).
 
 The grant gains a mode. The read path of v0.1 and v0.2 is unchanged.
 
@@ -173,8 +178,8 @@ decision: enforcement on both sides against bridge input and bugs).
 
 Rows E8 to E11 describe the write path proposed by `ADR-013`. The daemon and the plugin implement
 these checks today, and the automated suites exercise them, but the write path itself is still
-pending product approval and no write has run in a Figma Desktop session; the implementation
-status page records the current state.
+a proposed release decision in the ADR. Approved native writes were exercised in the limited
+Windows desktop evaluation; the implementation status page records the remaining limits.
 
 ## 5. Credential storage policy
 

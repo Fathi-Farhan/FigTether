@@ -1,5 +1,9 @@
 # FigTether-Bench Evaluation Protocol
 
+> **Design reference.** Original requirements and approval labels below are historical design
+> records, not a feature-availability list. See [current documentation status](../documentation-status.md)
+> for implemented reads/writes, observed desktop evidence, and remaining gaps.
+
 Status: `Proposed`
 
 Purpose: This document defines FigTether-Bench, a focused task suite (20 to 30 tasks) for

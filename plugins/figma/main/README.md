@@ -1,22 +1,23 @@
 # FigTether Figma plugin: main sandbox
 
 The main sandbox is the half of the Figma plugin that talks to the document. It runs inside the
-Figma plugin runtime, it has the Plugin API and no network, and it answers the read operations
-that the daemon asks for.
+Figma plugin runtime, it has the Plugin API and no network, and it answers read requests and executes approved write plans
+from the daemon.
 
 The split is deliberate (PRD 8.4, `docs/02-architecture/04-plugin-design.md` section 2):
 
 | Concern   | Main sandbox (`main/`)                       | UI iframe (`ui/`)                                   |
 | --------- | -------------------------------------------- | --------------------------------------------------- |
-| Network   | never opens a socket                         | owns the WebSocket to `ws://127.0.0.1:38947/bridge` |
-| Document  | reads the document, never writes to it       | never touches the document                          |
+| Network   | never opens a socket                         | owns the WebSocket to `ws://localhost:38947/bridge` |
+| Document  | reads nodes and applies approved write plans | never touches the document                          |
 | Secrets   | never sees a pairing secret or a credential  | keeps both in memory only                           |
 | Transport | typed `postMessage` channel to the UI iframe | relays the bridge frames over that channel          |
 
 ## Rules the sandbox keeps
 
-- **Read only.** No handler creates, modifies, deletes, moves or resizes anything. No handler
-  changes the current selection or the current page as a side effect of a read (FR24, AT18).
+- **Reads do not mutate.** Read handlers leave document nodes, selection, and page unchanged
+  (FR24, AT18). The separate write dispatcher creates, updates, moves, or removes supported
+  native nodes only after write-grant, scope, budget, and exact-plan approval checks.
 - **Grant enforced on this side too.** Every node that is read has to be inside the granted roots.
   A node outside the grant is refused with `OUT_OF_SCOPE` before its content is read (FR03).
 - **Honest coverage.** A field the platform did not expose is reported in `unavailable_fields` with
@@ -56,7 +57,8 @@ and the canonical encoding helpers, so the daemon, the UI and the sandbox cannot
 
 ## Operations
 
-Every operation is registered in the handler registry of `src/handlers.ts`. The operation names
+Read operations are registered in `src/handlers.ts`. The separate write dispatcher and executor
+live in `src/write/handlers.ts` and `src/write/apply.ts`. The operation names
 are the wire names of `crates/protocol/src/lib.rs`.
 
 | Operation           | Parameters                                                         | Result                                                                                                                                          |
@@ -202,12 +204,12 @@ unavailable capability is answered with `CAPABILITY_UNAVAILABLE`.
 
 - **Transforms.** The Figma transform is a 2x3 matrix. The wire format carries four numbers, so
   the plugin sends the linear part `[a, b, c, d]` and the translation travels in the bounding box.
-   The rotation has its own field. Review this convention before using it as a CSS transform.
+  The rotation has its own field. Review this convention before using it as a CSS transform.
 - **Sizing.** The Plugin API exposes `FIXED` and `AUTO` per axis, not `HUG` and `FILL`. The
   plugin reports `HUG` when one of the axes is automatic and `FIXED` otherwise. It never claims
   `FILL`, because that depends on the parent and cannot be proven from the node.
 - **Automatic line height.** The API does not expose the value of an automatic line height. The
-   plugin currently uses 1.2 times the font size as a heuristic. It is not an observed line-height value.
+  plugin currently uses 1.2 times the font size as a heuristic. It is not an observed line-height value.
 - **Font weight.** The API exposes the style name, never a numeric weight. The plugin maps the
   well known style names to a weight and uses 400 for a name it does not know.
 - **Font availability.** The plugin compares the runs of a text node with the font list of the
@@ -233,6 +235,7 @@ and the dispatch of the runtime.
 ## Boundaries
 
 - The sandbox never opens a socket and never stores a credential.
-- The sandbox never writes to the document and never changes the selection or the current page.
+- Reads do not write to the document or change selection/page. The separate approved write
+  path mutates native nodes inside the granted scope; see [write verification](../../../docs/write-path-verification.md).
 - The sandbox answers only the allowlisted operations. There is no `eval` and no dynamic code
   anywhere in the chain.

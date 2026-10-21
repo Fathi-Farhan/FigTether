@@ -1,5 +1,9 @@
 # ADR-001: Rust core with a thin TypeScript plugin adapter
 
+> **Design reference.** Original requirements and approval labels below are historical design
+> records, not a feature-availability list. See [current documentation status](../../documentation-status.md)
+> for implemented reads/writes, observed desktop evidence, and remaining gaps.
+
 | Field                | Value         |
 | -------------------- | ------------- |
 | Status               | Accepted      |

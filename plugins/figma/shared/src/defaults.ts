@@ -305,3 +305,14 @@ export function createPluginDocument(init: PluginDocumentInit = {}): PluginDocum
     capabilities: init.capabilities ?? {},
   };
 }
+/** Build-selected loopback port; tests and source imports retain the default. */
+declare const __FIGTETHER_PORT__: number;
+export const LOCAL_BRIDGE_PORT =
+  typeof __FIGTETHER_PORT__ === "undefined" ? 38947 : __FIGTETHER_PORT__;
+
+/** Only this build's private companion URL can be opened by the sandbox. */
+export function isCompanionUrl(url: string): boolean {
+  return new RegExp(`^http://127\\.0\\.0\\.1:${LOCAL_BRIDGE_PORT}/panel#[A-Za-z0-9_-]{43}$`).test(
+    url,
+  );
+}

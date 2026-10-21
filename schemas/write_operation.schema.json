@@ -46,7 +46,7 @@
   "description": "One operation of a write plan.\n\nThe shape is deliberately wide and declarative: the same operation struct\ncarries every kind, and the fields that a kind does not use stay empty.\nThe daemon validates the combination, the plugin resolves it.",
   "properties": {
     "fills": {
-      "description": "Paints to set on the node. Only the `SetFills` operation reads this\nfield. The values are normalized by the plugin before they reach the\neditor.",
+      "description": "Paints to set on creation or through `SetFills`. The plugin reads this\nfield and normalizes the values before they reach the\neditor.",
       "items": true,
       "type": [
         "array",
@@ -103,7 +103,7 @@
     },
     "properties": {
       "additionalProperties": true,
-      "description": "Properties to set on the node. Only the names in\n`ALLOWED_WRITE_PROPERTIES` are accepted. Fills and strokes are not\nproperties, they are set through the `SetFills` operation.",
+      "description": "Properties to set on the node. Only the names in\n`ALLOWED_WRITE_PROPERTIES` are accepted. Fills and strokes are not\nproperties; use `fills` on create or the `SetFills` operation.",
       "type": "object"
     },
     "text": {

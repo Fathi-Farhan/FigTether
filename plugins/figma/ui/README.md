@@ -10,7 +10,7 @@ designer control loop) and PRD section 5.3 (UI minimum).
 
 ## What the UI owns
 
-- The WebSocket to `ws://127.0.0.1:38947/bridge`, the first frame handshake and the heartbeat.
+- The WebSocket to `ws://localhost:38947/bridge`, the first frame handshake and the heartbeat.
 - The pairing secret and the session credential. Both live in closure variables, never in
   `localStorage`, `sessionStorage`, a cookie or a URL, and both are dropped as soon as they are
   used or the session ends.
@@ -84,8 +84,9 @@ reading**, so the user can take the write grant back.
 
 ### Write approval
 
-The agent never mutates the document. It proposes a plan, the plugin resolves the plan against the
-live document without changing it, and the user decides.
+The agent initiates design creation and edits through declarative plans. Preview resolution
+does not mutate the document; after user approval, `apply_write` reaches the native mutation
+executor in the plugin sandbox. The UI iframe relays requests and never accesses document nodes.
 
 1. The daemon sends a request frame with the operation `preview_write`. The request carries the plan
    and the approval id the daemon issued for it.
@@ -249,7 +250,7 @@ loading still need end-to-end validation; see the
   `retry_after_ms` of the daemon.
 - When the editor blocks the socket by its content security policy, the interface names the fix:
   regenerate the manifest with `figtether manifest` so that `networkAccess` allows
-  `ws://127.0.0.1:38947`, then reopen the plugin.
+  `ws://localhost:38947`, then reopen the plugin.
 - A frame that exceeds the 1 MiB frame cap is refused with `PAYLOAD_TOO_LARGE` and never parsed.
 - A frame of an older connection epoch is discarded before its payload is read.
 

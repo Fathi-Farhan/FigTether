@@ -37,6 +37,9 @@ function bootstrap(): void {
   });
 
   const ui = new DomUi(document, {
+    onClearActivity: () => controller?.onClearActivity(),
+    onAutoMode: (enabled) => controller?.onAutoModeChanged(enabled),
+    onExternalPanel: () => controller?.onExternalPanelRequested(),
     onPair: (secret): void => controller?.onPairRequested(secret),
     onSelectionChanged: (rootIds): void => controller?.onRootSelectionChanged(rootIds),
     onSelectionRefresh: (): void => controller?.onSelectionRefreshRequested(),

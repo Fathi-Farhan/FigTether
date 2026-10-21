@@ -1,5 +1,9 @@
 # MCP Response Envelope
 
+> **Design reference.** Original requirements and approval labels below are historical design
+> records, not a feature-availability list. See [current documentation status](../documentation-status.md)
+> for implemented reads/writes, observed desktop evidence, and remaining gaps.
+
 Status: `Proposed`
 
 Purpose paragraph: This document defines the common response envelope that every successful FigTether MCP tool result carries: provenance (`source`), the observation window (`observation`), completeness (`coverage`), payload (`data`), and annotations (`warnings`). It makes labeled evidence inseparable from data, so an agent never decides on unlabeled content (`FR12`, `G03`, `P03`). Normative base: PRD 8.5.2, PRD 8.3, PRD 8.5.5. All timestamps are RFC 3339 UTC strings like `2026-10-20T08:00:00Z`. All names here are `Proposal contract` names frozen only after Gate `G0` sign-off; before that they change through an ADR in `docs/02-architecture/adr/`.

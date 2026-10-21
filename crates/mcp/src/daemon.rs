@@ -5,8 +5,8 @@
 //! and then exchanges [`ClientRequest`] and [`ClientResponse`] frames that
 //! are correlated by the request id.
 //!
-//! The adapter never trusts the daemon for authorization: it only forwards
-//! reads. The daemon checks the grant, the epochs, and the per node
+//! The adapter never grants access itself: it forwards reads and write plans.
+//! The daemon checks the grant, the epochs, and the per node
 //! membership on its side.
 
 use std::collections::HashMap;
@@ -36,6 +36,7 @@ pub fn request_id(request: &ClientRequest) -> &str {
         | ClientRequest::InspectDesign { request_id, .. }
         | ClientRequest::GetDesignTokens { request_id, .. }
         | ClientRequest::ExportAssets { request_id, .. }
+        | ClientRequest::GetAsset { request_id, .. }
         | ClientRequest::GetSelection { request_id, .. }
         | ClientRequest::GetSnapshotInfo { request_id, .. }
         | ClientRequest::WatchScope { request_id, .. }

@@ -8,7 +8,7 @@
  * credential in a persistent store.
  */
 
-import { isCapabilityState, parseFrame } from "@figtether/shared";
+import { isCapabilityState, parseFrame, LOCAL_BRIDGE_PORT } from "@figtether/shared";
 import type { BridgeFrame, CapabilityMap, JsonValue } from "@figtether/shared";
 
 import { DEFAULT_BACKOFF } from "./backoff.js";
@@ -89,12 +89,12 @@ export interface BridgeOptions {
 /** Message that tells the user the editor policy blocked the socket. */
 export const POLICY_BLOCKED_MESSAGE =
   "The editor blocked the connection to the local daemon. Regenerate the plugin manifest with " +
-  "'figtether manifest' so that networkAccess allows ws://127.0.0.1:38947, then reopen the plugin.";
+  `'figtether manifest' so that networkAccess allows ${BRIDGE_URL}, then rebuild and reopen the plugin.`;
 
 /** Message that tells the user the daemon is not reachable. */
 export const DAEMON_UNREACHABLE_MESSAGE =
-  "The local daemon did not accept a connection on ws://127.0.0.1:38947. Start it with " +
-  "'figtether daemon' and pair again.";
+  `The local daemon did not accept a connection on ${BRIDGE_URL}. Start it with ` +
+  `'${LOCAL_BRIDGE_PORT === 38947 ? "figtether" : `figtether daemon --port ${LOCAL_BRIDGE_PORT}`}' and pair again.`;
 
 const AUTH_ERROR_CODES = ["AUTH_REQUIRED", "AUTH_EXPIRED", "PROTOCOL_MISMATCH"];
 
@@ -109,6 +109,7 @@ const ALLOWED_OUTBOUND_TYPES: readonly UiMessageType[] = [
   "progress",
   "error",
   "approval",
+  "ui_control",
 ];
 
 function defaultSocketFactory(url: string): SocketLike {
@@ -141,6 +142,7 @@ function asInteger(value: unknown): number | null {
 
 /** The answer of the daemon to an authentication frame. */
 export interface AuthAcceptedFramePayload {
+  readonly ui_features?: readonly string[];
   readonly session_credential: string;
   readonly session_id: string;
   readonly connection_epoch: number;
@@ -176,6 +178,9 @@ export function parseAuthAccepted(payload: unknown): AuthAcceptedFramePayload | 
   }
   return {
     session_credential: credential,
+    ...(Array.isArray(payload["ui_features"])
+      ? { ui_features: payload["ui_features"].filter((v): v is string => typeof v === "string") }
+      : {}),
     session_id: sessionId,
     connection_epoch: connectionEpoch,
     grant_epoch: asInteger(payload["grant_epoch"]),
@@ -287,6 +292,17 @@ export class BridgeClient {
       this.handlers.onAuthRejected("AUTH_REQUIRED", "Paste the pairing secret shown by the CLI.");
       return;
     }
+    // An explicit pair replaces an old daemon credential. Reconnect alone
+    // still uses that credential, but it must not override a new pair secret.
+    this.clearTimers();
+    this.closeSocket();
+    this.credential.clear();
+    this.sessionIdValue = null;
+    this.connectionEpochValue = 0;
+    this.grantEpochValue = 0;
+    // Pair is an explicit request for a new session. Revocation stays
+    // terminal for automatic reconnect, but cannot lock out a fresh secret.
+    this.transition({ type: "reset" });
     this.stopped = false;
     this.policyBlocked = false;
     this.attempt = 0;
@@ -360,6 +376,7 @@ export class BridgeClient {
       approval_id: decision.approval_id,
       plan_hash: decision.plan_hash,
       approved: decision.approved,
+      ...(decision.automatic === undefined ? {} : { automatic: decision.automatic }),
       ...(decision.reason === undefined ? {} : { reason: decision.reason }),
     });
   }
@@ -376,7 +393,10 @@ export class BridgeClient {
     this.clearTimers();
     this.credential.clear();
     this.pairingSecret.clear();
+    this.sessionIdValue = null;
+    this.grantEpochValue = 0;
     this.transition({ type: "revoked" });
+    this.closeSocket();
     return sent;
   }
 
@@ -441,6 +461,7 @@ export class BridgeClient {
     this.socket = socket;
 
     socket.onopen = (): void => {
+      if (this.socket !== socket) return;
       this.opened = true;
       this.attempt = 0;
       this.lastInboundAt = this.timers.now();
@@ -451,14 +472,17 @@ export class BridgeClient {
     };
 
     socket.onmessage = (event: { data: unknown }): void => {
-      void this.handleMessage(event.data);
+      if (this.socket !== socket) return;
+      void this.handleMessage(event.data, socket);
     };
 
     socket.onerror = (): void => {
+      if (this.socket !== socket) return;
       this.handlers.onLog({ operation: "pair", errorCode: "PLUGIN_OFFLINE" });
     };
 
     socket.onclose = (): void => {
+      if (this.socket !== socket) return;
       this.clearTimers();
       this.socket = null;
       this.opened = false;
@@ -600,7 +624,7 @@ export class BridgeClient {
     }
   }
 
-  private async handleMessage(data: unknown): Promise<void> {
+  private async handleMessage(data: unknown, source: SocketLike): Promise<void> {
     this.lastInboundAt = this.timers.now();
     let text: string | null = null;
     if (typeof data === "string") {
@@ -615,7 +639,7 @@ export class BridgeClient {
     } else if (typeof Blob !== "undefined" && data instanceof Blob) {
       text = await data.text();
     }
-    if (text === null) {
+    if (source !== this.socket || text === null) {
       return;
     }
     if (byteLength(text) > MAX_FRAME_BYTES) {
@@ -682,7 +706,14 @@ export class BridgeClient {
         return;
       }
       case "revoke": {
+        this.clearTimers();
+        this.credential.clear();
+        this.pairingSecret.clear();
+        this.sessionIdValue = null;
+        this.grantEpochValue = 0;
+        this.transition({ type: "revoked" });
         this.handlers.onFrame(frame);
+        this.closeSocket();
         return;
       }
       case "capabilities":
@@ -722,6 +753,7 @@ export class BridgeClient {
       connection_epoch: accepted.connection_epoch,
       grant_epoch: accepted.grant_epoch ?? 0,
       capabilities: accepted.capabilities,
+      ...(accepted.ui_features === undefined ? {} : { ui_features: accepted.ui_features }),
       session_name: null,
     });
   }

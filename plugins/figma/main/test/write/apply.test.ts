@@ -5,6 +5,102 @@ import { parseWritePlan, planHash } from "../../src/write/plan.js";
 import { createWriteContext, planPayload, sampleDocument } from "./write-fixture.js";
 
 describe("apply_write", () => {
+  it("creates styled text in one operation and previews without mutating", async () => {
+    const document = sampleDocument();
+    const context = createWriteContext(document, ["1:1"]);
+    const payload = planPayload([
+      {
+        kind: "create_node",
+        parent_id: "1:1",
+        node_type: "TEXT",
+        properties: { name: "Hero", fontSize: 48, x: 32, y: 40 },
+        text: "Design together",
+        font_family: "Inter",
+        font_style: "Semi Bold",
+        fills: [{ type: "SOLID", color: "#1F4E3D" }],
+      },
+    ]);
+    const { handlePreviewWrite } = await import("../../src/write/handlers.js");
+    const preview = await handlePreviewWrite(payload, context);
+    expect(preview.blocked).toBe(false);
+    expect(document.nodes.has("new:1")).toBe(false);
+    expect(document.fontLoads).toHaveLength(0);
+    const result = await handleApplyWrite(payload, context);
+    expect(result.status).toBe("applied");
+    expect(result.applied_operations).toBe(1);
+    expect(result.created).toEqual(["new:1"]);
+    const node = document.nodes.get("new:1");
+    expect(node?.characters).toBe("Design together");
+    expect(node?.fontSize).toBe(48);
+    expect(node?.fontName).toEqual({ family: "Inter", style: "Semi Bold" });
+    expect(node?.fills).toEqual([
+      {
+        type: "SOLID",
+        color: { r: 31 / 255, g: 78 / 255, b: 61 / 255, a: 1 },
+        opacity: 1,
+        visible: true,
+      },
+    ]);
+    expect(document.fontLoads).toEqual([{ family: "Inter", style: "Semi Bold" }]);
+    expect(document.commitUndoCalls).toBe(1);
+  });
+
+  it("includes initial text and styling in the write budgets", async () => {
+    const document = sampleDocument();
+    const context = createWriteContext(document, ["1:1"]);
+    const { handlePreviewWrite } = await import("../../src/write/handlers.js");
+    const textPreview = await handlePreviewWrite(
+      planPayload([
+        {
+          kind: "create_node",
+          parent_id: "1:1",
+          node_type: "TEXT",
+          text: "x".repeat(20_001),
+        },
+      ]),
+      context,
+    );
+    expect(textPreview.blocked).toBe(true);
+    const propertyPreview = await handlePreviewWrite(
+      planPayload(
+        Array.from({ length: 50 }, () => ({
+          kind: "create_node",
+          parent_id: "1:1",
+          node_type: "TEXT",
+          properties: { name: "Label" },
+          text: "A",
+          font_family: "Inter",
+          font_style: "Regular",
+          fills: [{ type: "SOLID", color: "#111111" }],
+        })),
+      ),
+      context,
+    );
+    expect(propertyPreview.blocked).toBe(true);
+    expect(document.nodes.has("new:1")).toBe(false);
+  });
+
+  it("refuses an unavailable initial font before creating an orphan node", async () => {
+    const document = sampleDocument();
+    const context = createWriteContext(document, ["1:1"]);
+    const result = await handleApplyWrite(
+      planPayload([
+        {
+          kind: "create_node",
+          parent_id: "1:1",
+          node_type: "TEXT",
+          text: "Hello",
+          font_family: "Ghost",
+          font_style: "Regular",
+        },
+      ]),
+      context,
+    );
+    expect(result.status).toBe("partial");
+    expect(result.created).toEqual([]);
+    expect(document.nodes.has("new:1")).toBe(false);
+  });
+
   it("creates the node of the plan and reports its real id", async () => {
     const document = sampleDocument();
     const context = createWriteContext(document, ["1:1"]);
@@ -85,6 +181,7 @@ describe("apply_write", () => {
       context,
     );
     expect(document.fontLoads).toEqual([{ family: "Inter", style: "Semi Bold" }]);
+    expect(document.nodes.get("1:2")?.fontName).toEqual({ family: "Inter", style: "Semi Bold" });
     const fontIndex = document.mutationLog.indexOf("loadFont:Inter:Semi Bold");
     const textIndex = document.mutationLog.indexOf("characters:1:2:Now");
     expect(fontIndex).toBeGreaterThanOrEqual(0);
@@ -152,9 +249,9 @@ describe("apply_write", () => {
     const document = sampleDocument();
     const context = createWriteContext(document, ["1:1"]);
     const result = await handleApplyWrite(
-      planPayload([
-        { kind: "insert_child", parent_id: "1:3", node_id: "1:2" },
-      ], { destructive: true }),
+      planPayload([{ kind: "insert_child", parent_id: "1:3", node_id: "1:2" }], {
+        destructive: true,
+      }),
       context,
     );
     expect(result.status).toBe("applied");
@@ -180,9 +277,7 @@ describe("apply_write", () => {
     const document = sampleDocument();
     const context = createWriteContext(document, ["1:1"]);
     const result = await handleApplyWrite(
-      planPayload([
-        { kind: "set_properties", node_id: "1:2", properties: { fontSize: 22 } },
-      ]),
+      planPayload([{ kind: "set_properties", node_id: "1:2", properties: { fontSize: 22 } }]),
       context,
     );
     expect(result.status).toBe("applied");
@@ -245,7 +340,8 @@ describe("apply_write", () => {
     expect(result.warnings.length).toBeGreaterThan(0);
   });
 
-  it("echoes the approval of the daemon", async () => {    const document = sampleDocument();
+  it("echoes the approval of the daemon", async () => {
+    const document = sampleDocument();
     const context = createWriteContext(document, ["1:1"]);
     const result = await handleApplyWrite(
       planPayload([{ kind: "set_properties", node_id: "1:2", properties: { x: 1 } }], {
@@ -299,9 +395,7 @@ describe("apply_write", () => {
   it("refuses an apply whose approval token names another plan", async () => {
     const document = sampleDocument();
     const context = createWriteContext(document, ["1:1"]);
-    const payload = planPayload([
-      { kind: "set_properties", node_id: "1:2", properties: { x: 1 } },
-    ]);
+    const payload = planPayload([{ kind: "set_properties", node_id: "1:2", properties: { x: 1 } }]);
     payload["approval_token"] =
       "w:apr_01:0000000000000000000000000000000000000000000000000000000000000000" +
       ":session_1:1:2026-10-20T12:34:56.789+00:00";
@@ -313,9 +407,7 @@ describe("apply_write", () => {
   it("takes the approval of the token into the result", async () => {
     const document = sampleDocument();
     const context = createWriteContext(document, ["1:1"]);
-    const payload = planPayload([
-      { kind: "set_properties", node_id: "1:2", properties: { x: 1 } },
-    ]);
+    const payload = planPayload([{ kind: "set_properties", node_id: "1:2", properties: { x: 1 } }]);
     const hash = planHash(parseWritePlan(payload).plan).replace("sha256:", "");
     payload["approval_token"] = `w:apr_01:${hash}:session_1:1:2026-10-20T12:34:56.789+00:00`;
     const result = await handleApplyWrite(payload, context);

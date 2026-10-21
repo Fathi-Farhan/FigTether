@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "id": "figtether-bridge-2026-10-21",
+  "tokens": {
+    "font_sizes": [12, 12.35, 13, 13.3, 14, 15, 18],
+    "radii": [0, 6]
+  },
+  "decoration": { "max_gradients": 0, "max_shadows": 0 },
+  "review": {
+    "repeated_surface_min": 6,
+    "repeated_surface_ratio": 0.6,
+    "pill_min": 5,
+    "pill_ratio": 0.75,
+    "generic_phrases": [
+      "unlock the power",
+      "seamless",
+      "revolutionize",
+      "supercharge",
+      "game-changing"
+    ]
+  }
+}

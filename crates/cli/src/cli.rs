@@ -1,12 +1,13 @@
 //! Command line surface of FigTether.
 //!
-//! The binary is `figtether`. Every subcommand is local only: nothing here
-//! contacts Figma, no personal access token is ever requested, and the only
+//! The binary is `figtether`. Bridge commands contact the local daemon; the
+//! source updater also invokes Git, Cargo, and npm. No Figma personal access
+//! token is ever requested, and the only
 //! secret the CLI prints is the one time pairing secret minted by
 //! `figtether pair`.
 //!
 //! The surface follows PRD section 8.4: `doctor`, `daemon`, `mcp`, `status`,
-//! `pair`, `config`, `manifest`, and `revoke`.
+//! `pair`, `config`, `manifest`, and `revoke`, plus source installation updates.
 
 use std::path::PathBuf;
 
@@ -22,16 +23,27 @@ pub const DEFAULT_PORT: u16 = figtether_core::DEFAULT_BRIDGE_PORT;
     name = "figtether",
     version,
     about = "FigTether: local Figma context for AI agents",
-    long_about = "FigTether reads Figma design context through a local plugin bridge and \
-                  serves it to AI agents over MCP. Everything runs on this machine: no design \
-                  data is sent anywhere, and no Figma access token is ever requested.",
+    long_about = "FigTether reads, creates, and edits native Figma designs through a local \
+                  plugin bridge and serves AI agents over MCP. Design access stays within \
+                  user-granted frames; writes require approval. The update command uses \
+                  Git and package registries. No Figma access token is requested.",
     propagate_version = true,
-    disable_help_subcommand = true
+    disable_help_subcommand = true,
+    after_help = "Run figtether without a subcommand to start the foreground daemon.\n\
+                  In another terminal, run figtether pair to generate a pairing secret."
 )]
 pub struct Cli {
     /// Selected subcommand.
     #[command(subcommand)]
-    pub command: Command,
+    pub command: Option<Command>,
+}
+
+impl Cli {
+    /// Resolve a bare invocation to the same daemon defaults as `figtether daemon`.
+    pub fn into_command(self) -> Command {
+        self.command
+            .unwrap_or_else(|| Command::Daemon(DaemonArgs::default()))
+    }
 }
 
 /// The FigTether subcommands.
@@ -53,6 +65,56 @@ pub enum Command {
     Manifest(ManifestArgs),
     /// Revoke the grant of a session.
     Revoke(RevokeArgs),
+    /// Stop the local daemon.
+    #[command(visible_alias = "terminate")]
+    Stop(StopArgs),
+    /// Update a source installation and rebuild the Figma plugin.
+    Update(UpdateArgs),
+    /// Preview or install a project-local MCP connection and design skill.
+    Setup(SetupArgs),
+}
+
+/// Project-local integration. No global settings or host approvals are changed.
+#[derive(Debug, Args)]
+pub struct SetupArgs {
+    /// Agent host to configure.
+    #[arg(long, value_enum)]
+    pub client: ClientKind,
+    /// Design workspace; it need not contain the FigTether source.
+    #[arg(long, default_value = ".")]
+    pub workspace: PathBuf,
+    /// Write the reviewed configuration and skill. Without it, only preview.
+    #[arg(long, conflicts_with_all = ["remove", "check"])]
+    pub apply: bool,
+    /// Remove only unchanged entries installed by this command.
+    #[arg(long, conflicts_with = "check")]
+    pub remove: bool,
+    /// Test the installed entry and actual MCP adapter without changing files.
+    #[arg(long)]
+    pub check: bool,
+    /// Emit machine-readable output.
+    #[arg(long)]
+    pub json: bool,
+    /// Isolated/custom daemon runtime directory.
+    #[arg(long)]
+    pub runtime_dir: Option<PathBuf>,
+    /// Explicit daemon port.
+    #[arg(long)]
+    pub port: Option<u16>,
+}
+
+/// Arguments of `figtether update`.
+#[derive(Debug, Args)]
+pub struct UpdateArgs {
+    /// Source checkout. Defaults to the checkout this executable was built from.
+    #[arg(long, value_name = "PATH")]
+    pub source: Option<PathBuf>,
+    /// Rebuild the current local source without Git/network source updates.
+    #[arg(long)]
+    pub local: bool,
+    /// Show the update steps without fetching, building, or replacing files.
+    #[arg(long)]
+    pub dry_run: bool,
 }
 
 /// Arguments of `figtether doctor`.
@@ -86,6 +148,16 @@ pub struct DaemonArgs {
     pub log_level: LogLevel,
 }
 
+impl Default for DaemonArgs {
+    fn default() -> Self {
+        Self {
+            port: DEFAULT_PORT,
+            runtime_dir: None,
+            log_level: LogLevel::Info,
+        }
+    }
+}
+
 /// Arguments of `figtether mcp`.
 #[derive(Debug, Args)]
 pub struct McpArgs {
@@ -117,6 +189,9 @@ pub struct StatusArgs {
 /// Arguments of `figtether pair`.
 #[derive(Debug, Args)]
 pub struct PairArgs {
+    /// Print only the one-use secret and its lifetime as JSON on stdout.
+    #[arg(long)]
+    pub json: bool,
     /// Port of the daemon. Defaults to the port in the runtime file, otherwise 38947.
     #[arg(long, value_name = "PORT")]
     pub port: Option<u16>,
@@ -154,15 +229,22 @@ pub struct ManifestArgs {
     /// Action to perform. The only action is generate, which is also the default.
     #[arg(value_name = "ACTION", default_value = "generate")]
     pub action: String,
-    /// Path of the generated manifest. Defaults to manifest.json in the current directory.
+    /// Path of the generated manifest. Defaults to the machine local manifest
+    /// inside a checkout, otherwise to manifest.json in the current directory.
     #[arg(long, value_name = "PATH")]
     pub out: Option<PathBuf>,
-    /// Plugin id of the development manifest. It belongs to your own Figma account.
+    /// Plugin id of the development manifest. It belongs to your own Figma
+    /// account. Without it the id of the existing manifest is kept.
     #[arg(long, value_name = "ID")]
-    pub plugin_id: String,
-    /// Loopback port the plugin is allowed to reach.
-    #[arg(long, default_value_t = DEFAULT_PORT, value_name = "PORT")]
-    pub port: u16,
+    pub plugin_id: Option<String>,
+    /// Loopback port the plugin is allowed to reach. Use `auto` to pick a free one.
+    #[arg(
+        long,
+        default_value_t = PortSelection::Fixed(DEFAULT_PORT),
+        value_name = "PORT",
+        value_parser = parse_port_selection
+    )]
+    pub port: PortSelection,
     /// Editor the plugin runs in.
     #[arg(long, value_enum, default_value_t = EditorType::Figma, value_name = "EDITOR")]
     pub editor_type: EditorType,
@@ -184,6 +266,23 @@ pub struct RevokeArgs {
     /// Runtime directory that holds the owner only runtime files.
     #[arg(long, value_name = "PATH")]
     pub runtime_dir: Option<PathBuf>,
+}
+
+/// Arguments of `figtether stop`.
+#[derive(Debug, Args)]
+pub struct StopArgs {
+    /// Port of the daemon. Defaults to the port in the runtime file, otherwise 38947.
+    #[arg(long, value_name = "PORT")]
+    pub port: Option<u16>,
+    /// Runtime directory that holds the owner only runtime files.
+    #[arg(long, value_name = "PATH")]
+    pub runtime_dir: Option<PathBuf>,
+    /// Seconds to wait for the daemon to release its port.
+    #[arg(long, value_name = "SECONDS")]
+    pub timeout_seconds: Option<u64>,
+    /// Print the result as JSON so tooling can consume it.
+    #[arg(long)]
+    pub json: bool,
 }
 
 /// Verbosity of the local log file.
@@ -219,6 +318,12 @@ impl LogLevel {
 pub enum ClientKind {
     /// The generic MCP server entry every client understands.
     Generic,
+    /// Codex CLI / local IDE extension (TOML).
+    Codex,
+    /// Gemini CLI (settings JSON).
+    Gemini,
+    /// Claude Code (project MCP JSON).
+    Claude,
 }
 
 impl ClientKind {
@@ -226,6 +331,9 @@ impl ClientKind {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Generic => "generic",
+            Self::Codex => "codex",
+            Self::Gemini => "gemini",
+            Self::Claude => "claude",
         }
     }
 }
@@ -246,6 +354,38 @@ impl EditorType {
     }
 }
 
+/// The port a command works with.
+///
+/// A command takes a fixed port, or `auto` to let the CLI pick a free one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PortSelection {
+    /// The port the user asked for.
+    Fixed(u16),
+    /// Let the CLI pick a free port.
+    Auto,
+}
+
+impl std::fmt::Display for PortSelection {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Fixed(port) => write!(f, "{port}"),
+            Self::Auto => f.write_str("auto"),
+        }
+    }
+}
+
+/// Parse a port argument that also accepts `auto`.
+fn parse_port_selection(raw: &str) -> Result<PortSelection, String> {
+    let trimmed = raw.trim();
+    if trimmed.eq_ignore_ascii_case("auto") {
+        return Ok(PortSelection::Auto);
+    }
+    let port: u16 = trimmed
+        .parse()
+        .map_err(|_| format!("{raw} is neither a port number nor auto"))?;
+    Ok(PortSelection::Fixed(port))
+}
+
 /// Parse a session id from the command line.
 fn parse_session_id(raw: &str) -> Result<SessionId, String> {
     raw.parse::<SessionId>()
@@ -263,6 +403,44 @@ mod tests {
     }
 
     #[test]
+    fn bare_invocation_matches_explicit_daemon_defaults() {
+        let implicit = Cli::try_parse_from(["figtether"])
+            .expect("bare command parses")
+            .into_command();
+        let explicit = Cli::try_parse_from(["figtether", "daemon"])
+            .expect("daemon parses")
+            .into_command();
+        let (Command::Daemon(implicit), Command::Daemon(explicit)) = (implicit, explicit) else {
+            panic!("both invocations must launch the daemon");
+        };
+        assert_eq!(implicit.port, explicit.port);
+        assert_eq!(implicit.runtime_dir, explicit.runtime_dir);
+        assert_eq!(implicit.log_level, explicit.log_level);
+    }
+
+    #[test]
+    fn pair_remains_a_separate_explicit_command() {
+        let cli = Cli::try_parse_from(["figtether", "pair"]).expect("pair parses");
+        assert!(matches!(cli.into_command(), Command::Pair(_)));
+    }
+
+    #[test]
+    fn help_version_and_typos_do_not_start_the_daemon() {
+        for (argument, kind) in [
+            ("--help", clap::error::ErrorKind::DisplayHelp),
+            ("--version", clap::error::ErrorKind::DisplayVersion),
+            ("daemno", clap::error::ErrorKind::InvalidSubcommand),
+        ] {
+            assert_eq!(
+                Cli::try_parse_from(["figtether", argument])
+                    .unwrap_err()
+                    .kind(),
+                kind
+            );
+        }
+    }
+
+    #[test]
     fn the_surface_has_the_documented_subcommands() {
         let command = Cli::command();
         let names: Vec<String> = command
@@ -271,14 +449,17 @@ mod tests {
             .collect();
         assert_eq!(
             names,
-            vec!["doctor", "daemon", "mcp", "status", "pair", "config", "manifest", "revoke",]
+            vec![
+                "doctor", "daemon", "mcp", "status", "pair", "config", "manifest", "revoke",
+                "stop", "update", "setup",
+            ]
         );
     }
 
     #[test]
     fn the_defaults_match_the_documented_surface() {
         let cli = Cli::try_parse_from(["figtether", "doctor"]).expect("parses");
-        match cli.command {
+        match cli.into_command() {
             Command::Doctor(args) => {
                 assert_eq!(args.port, None);
                 assert!(!args.json);
@@ -301,7 +482,7 @@ mod tests {
             "debug",
         ])
         .expect("parses");
-        match cli.command {
+        match cli.into_command() {
             Command::Daemon(args) => {
                 assert_eq!(args.port, 38948);
                 assert_eq!(args.runtime_dir, Some(PathBuf::from("runtime")));
@@ -314,7 +495,7 @@ mod tests {
     #[test]
     fn the_daemon_port_defaults_to_the_bridge_port() {
         let cli = Cli::try_parse_from(["figtether", "daemon"]).expect("parses");
-        match cli.command {
+        match cli.into_command() {
             Command::Daemon(args) => assert_eq!(args.port, DEFAULT_PORT),
             other => panic!("unexpected command: {other:?}"),
         }
@@ -323,7 +504,7 @@ mod tests {
     #[test]
     fn the_mcp_transport_defaults_to_stdio() {
         let cli = Cli::try_parse_from(["figtether", "mcp"]).expect("parses");
-        match cli.command {
+        match cli.into_command() {
             Command::Mcp(args) => {
                 assert!(args.stdio);
                 assert_eq!(args.port, None);
@@ -335,7 +516,7 @@ mod tests {
     #[test]
     fn the_mcp_accepts_the_explicit_stdio_flag() {
         let cli = Cli::try_parse_from(["figtether", "mcp", "--stdio"]).expect("parses");
-        match cli.command {
+        match cli.into_command() {
             Command::Mcp(args) => assert!(args.stdio),
             other => panic!("unexpected command: {other:?}"),
         }
@@ -345,7 +526,7 @@ mod tests {
     fn the_config_print_selects_the_generic_client() {
         let cli = Cli::try_parse_from(["figtether", "config", "print", "--client", "generic"])
             .expect("parses");
-        match cli.command {
+        match cli.into_command() {
             Command::Config(args) => match args.command {
                 ConfigCommand::Print(print_args) => {
                     assert_eq!(print_args.client, ClientKind::Generic)
@@ -358,7 +539,7 @@ mod tests {
     #[test]
     fn the_config_client_defaults_to_generic() {
         let cli = Cli::try_parse_from(["figtether", "config", "print"]).expect("parses");
-        match cli.command {
+        match cli.into_command() {
             Command::Config(args) => match args.command {
                 ConfigCommand::Print(print_args) => {
                     assert_eq!(print_args.client, ClientKind::Generic)
@@ -390,16 +571,60 @@ mod tests {
             "figma",
         ])
         .expect("parses");
-        match cli.command {
+        match cli.into_command() {
             Command::Manifest(args) => {
-                assert_eq!(args.plugin_id, "123456789");
-                assert_eq!(args.port, 38948);
+                assert_eq!(args.plugin_id.as_deref(), Some("123456789"));
+                assert_eq!(args.port, PortSelection::Fixed(38948));
                 assert_eq!(args.out, Some(PathBuf::from("out.json")));
                 assert_eq!(args.editor_type, EditorType::Figma);
                 assert_eq!(args.action, "generate");
             }
             other => panic!("unexpected command: {other:?}"),
         }
+    }
+
+    #[test]
+    fn the_manifest_port_defaults_to_the_bridge_port() {
+        let cli = Cli::try_parse_from(["figtether", "manifest", "--plugin-id", "123456789"])
+            .expect("parses");
+        match cli.into_command() {
+            Command::Manifest(args) => assert_eq!(args.port, PortSelection::Fixed(DEFAULT_PORT)),
+            other => panic!("unexpected command: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn the_manifest_accepts_the_auto_port() {
+        let cli = Cli::try_parse_from([
+            "figtether",
+            "manifest",
+            "--plugin-id",
+            "123456789",
+            "--port",
+            "auto",
+        ])
+        .expect("parses");
+        match cli.into_command() {
+            Command::Manifest(args) => {
+                assert_eq!(args.port, PortSelection::Auto);
+                assert!(matches!(args.port, PortSelection::Auto));
+            }
+            other => panic!("unexpected command: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn an_unknown_manifest_port_is_refused() {
+        let err = Cli::try_parse_from([
+            "figtether",
+            "manifest",
+            "--plugin-id",
+            "123456789",
+            "--port",
+            "nope",
+        ])
+        .expect_err("refused");
+        assert_eq!(err.kind(), clap::error::ErrorKind::ValueValidation);
     }
 
     #[test]
@@ -412,19 +637,22 @@ mod tests {
             "123456789",
         ])
         .expect("parses");
-        match cli.command {
+        match cli.into_command() {
             Command::Manifest(args) => {
                 assert_eq!(args.action, "generate");
-                assert_eq!(args.plugin_id, "123456789");
+                assert_eq!(args.plugin_id.as_deref(), Some("123456789"));
             }
             other => panic!("unexpected command: {other:?}"),
         }
     }
 
     #[test]
-    fn the_manifest_requires_a_plugin_id() {
-        let err = Cli::try_parse_from(["figtether", "manifest"]).expect_err("refused");
-        assert_eq!(err.kind(), clap::error::ErrorKind::MissingRequiredArgument);
+    fn the_manifest_accepts_a_missing_plugin_id() {
+        let cli = Cli::try_parse_from(["figtether", "manifest"]).expect("parsed");
+        match cli.into_command() {
+            Command::Manifest(args) => assert_eq!(args.plugin_id, None),
+            other => panic!("unexpected command: {other:?}"),
+        }
     }
 
     #[test]
@@ -455,7 +683,7 @@ mod tests {
             "11111111-1111-4111-8111-111111111111",
         ])
         .expect("parses");
-        match cli.command {
+        match cli.into_command() {
             Command::Revoke(args) => {
                 assert!(args.session.is_some());
                 assert!(!args.all);
@@ -467,7 +695,7 @@ mod tests {
     #[test]
     fn the_revoke_accepts_all_sessions() {
         let cli = Cli::try_parse_from(["figtether", "revoke", "--all"]).expect("parses");
-        match cli.command {
+        match cli.into_command() {
             Command::Revoke(args) => {
                 assert!(args.session.is_none());
                 assert!(args.all);

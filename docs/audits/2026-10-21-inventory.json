@@ -1,0 +1,621 @@
+{
+  "schema_version": 1,
+  "kind": "documentation-consistency-inventory",
+  "expected_language": "en",
+  "documents": 100,
+  "checks": [
+    "Known non-English phrase regression screen",
+    "Known stale-capability phrase screen",
+    "Local Markdown/HTML link targets",
+    "Explicit Markdown heading anchors"
+  ],
+  "limitations": [
+    "The language screen is not a general language detector or grammar certification.",
+    "This inventory does not establish every technical claim. The accompanying audit records the code/evidence passages reviewed.",
+    "External URL availability, all inline-code paths, and unlinked prose references are not checked.",
+    "Historical design-reference statuses are preserved; see docs/documentation-status.md."
+  ],
+  "issues": [],
+  "inventory": [
+    {
+      "file": ".agents/skills/design-evidence/SKILL.md",
+      "role": "skill",
+      "bytes": 3870,
+      "sha256": "0521e098e19068eef5c405f973402df534c2b81c76cf5570ce9af6b9b80007d0"
+    },
+    {
+      "file": ".agents/skills/design-evidence/references/research.md",
+      "role": "skill",
+      "bytes": 12128,
+      "sha256": "902c4360ff8bd9b89866caea9f60c3dbd781c603175ad7f4a7c03105b0888cf8"
+    },
+    {
+      "file": ".agents/skills/design-evidence/references/rules.md",
+      "role": "skill",
+      "bytes": 9327,
+      "sha256": "9ae970cdbc9e37e20461a3e40b2ac759f8ac46d91f87dcb652a959080d69eb64"
+    },
+    {
+      "file": ".github/pull_request_template.md",
+      "role": "operational",
+      "bytes": 677,
+      "sha256": "ce59efcf6b9e7e669ad1327a907ecec34aa4dae0f0ceb2e17f3fa010918ed075"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "role": "operational",
+      "bytes": 2898,
+      "sha256": "e6d065f5c2e876e179d7c6b0c189c0788e5362a6c089e56287b9f1c4a602a720"
+    },
+    {
+      "file": "CODE_OF_CONDUCT.md",
+      "role": "operational",
+      "bytes": 6292,
+      "sha256": "6b84927e2b3a40d65f45099c0f9855fac1550cb0ee739f0a28000fc2cfcc6e5d"
+    },
+    {
+      "file": "CONTRIBUTING.md",
+      "role": "operational",
+      "bytes": 8876,
+      "sha256": "4caaba7b9b21173f1d2d60e3e522f47e336033a75b70ceeaaee27bbf3fba045e"
+    },
+    {
+      "file": "README.md",
+      "role": "operational",
+      "bytes": 13655,
+      "sha256": "8fcaa3bd467b9267aacd2f9e989a3bc9091675241153c3b51bbc4693ce5ab185"
+    },
+    {
+      "file": "SECURITY.md",
+      "role": "operational",
+      "bytes": 3343,
+      "sha256": "d460af913a1233620c71add3f6a93fdf950b81407e0f1e88dcaa4022d6e0c1ad"
+    },
+    {
+      "file": "SUPPORT.md",
+      "role": "operational",
+      "bytes": 2452,
+      "sha256": "376bce11095d27a4c2dd6cc0f56767c6a3c7a105395b94fc0fb28e7263c4fec7"
+    },
+    {
+      "file": "assets/DESIGN.md",
+      "role": "visual-provenance",
+      "bytes": 5302,
+      "sha256": "6b49bca6375606bd82ccab1339b46fdb7e09a5aa3bb6b44402d72655eaff0952"
+    },
+    {
+      "file": "assets/README.md",
+      "role": "visual-provenance",
+      "bytes": 8232,
+      "sha256": "d0511714826e14c4b1ec624cb3875678949101a8b91f3a353f13e3c491ee6103"
+    },
+    {
+      "file": "benchmarks/README.md",
+      "role": "operational",
+      "bytes": 4910,
+      "sha256": "b15e7f49595ccd3ac1f7428b141660397ff389604df494d5e0d905b397ba3102"
+    },
+    {
+      "file": "benchmarks/desktop-testing.md",
+      "role": "operational",
+      "bytes": 4691,
+      "sha256": "e96021da943149603cafa321a6abf77585af1d63c3ba99e1be09d426f5772e0c"
+    },
+    {
+      "file": "benchmarks/published/README.md",
+      "role": "dated-evidence",
+      "bytes": 2997,
+      "sha256": "8f9e14e9c8c02e8363fe4917745f9d437ec0c20e736a2e8336a45e9940f76c76"
+    },
+    {
+      "file": "benchmarks/published/desktop-2026-10-20-before-depth-fix.md",
+      "role": "dated-evidence",
+      "bytes": 3512,
+      "sha256": "cbc273f2a5e1c8f51ba9fd9d8b63b4641f2aa9bc4a4b6aa715b879ede39ccfa6"
+    },
+    {
+      "file": "benchmarks/published/desktop-2026-10-20.md",
+      "role": "dated-evidence",
+      "bytes": 5652,
+      "sha256": "4a31ed188215b65e696689203fbf2b4cf5c42cd877f2974b9c4a99677ca8ae16"
+    },
+    {
+      "file": "docs/00-overview/01-prd-analysis.md",
+      "role": "design-reference",
+      "bytes": 25896,
+      "sha256": "5b9f4a38daa1212455b0168f8659d86dd18f7ca1ab9a66922f97fca765a1d8c3"
+    },
+    {
+      "file": "docs/00-overview/02-competitive-landscape.md",
+      "role": "design-reference",
+      "bytes": 31556,
+      "sha256": "5618407ec9b5ce34e6e856c17bf9ede005c5770e6087eb21e5ced03fe59f9d52"
+    },
+    {
+      "file": "docs/00-overview/03-personas-journeys.md",
+      "role": "design-reference",
+      "bytes": 27039,
+      "sha256": "86c4f1bb75cb82fffae0cf3b7fcc9fab41a8936bb657c6c6010b2065fe66109e"
+    },
+    {
+      "file": "docs/01-agile/01-sdlc-process.md",
+      "role": "design-reference",
+      "bytes": 22883,
+      "sha256": "fe4e9c511202036ed977b7f34be8fdf5d4189aa815a9f11c7cd8a94ea9aea226"
+    },
+    {
+      "file": "docs/01-agile/02-product-backlog.md",
+      "role": "design-reference",
+      "bytes": 30639,
+      "sha256": "56972a98c2897a6241ac280594068d383200bc637a286c3150a005bbee0af3f0"
+    },
+    {
+      "file": "docs/01-agile/03-roadmap-sprints.md",
+      "role": "design-reference",
+      "bytes": 28093,
+      "sha256": "a6e6f080d1bbc5833c9aadc1a7e6c8bb5e0cdd163fb45218ae018269b037212a"
+    },
+    {
+      "file": "docs/01-agile/04-risk-register.md",
+      "role": "design-reference",
+      "bytes": 27324,
+      "sha256": "24796d0a69b73639cb71f562bd36370fac2d8e63d88c61a936c2b38b8daf774d"
+    },
+    {
+      "file": "docs/02-architecture/01-system-design.md",
+      "role": "design-reference",
+      "bytes": 36178,
+      "sha256": "19a438eadae7a3964c98784a48c9a125cda76ace35dafeff916db0e6f2622728"
+    },
+    {
+      "file": "docs/02-architecture/02-bridge-design.md",
+      "role": "design-reference",
+      "bytes": 24833,
+      "sha256": "42f337d5cb199cc7c6479b558a6db41a30ef42d4f45f3de32b588f5ed9e55155"
+    },
+    {
+      "file": "docs/02-architecture/03-mcp-design.md",
+      "role": "design-reference",
+      "bytes": 17512,
+      "sha256": "4af672468f35988432a5c9ab798a14ccbfbf44b6251b9ac25e1925a55b88908d"
+    },
+    {
+      "file": "docs/02-architecture/04-plugin-design.md",
+      "role": "design-reference",
+      "bytes": 15417,
+      "sha256": "e66af95547333f2c2cd3fa168a687d26360a2ac948800452be6e1821023d332e"
+    },
+    {
+      "file": "docs/02-architecture/05-state-machines.md",
+      "role": "design-reference",
+      "bytes": 26694,
+      "sha256": "c86ef32417e163d711b3231c65f93c7b4f9c6c2c8ca8a52ca0d8c124630e12b7"
+    },
+    {
+      "file": "docs/02-architecture/adr/ADR-000-template.md",
+      "role": "design-reference",
+      "bytes": 5281,
+      "sha256": "ceda2afc1b7e17bc7e967898afb6e68e2dc2f30117fbb09cd72371b5b4560ef8"
+    },
+    {
+      "file": "docs/02-architecture/adr/ADR-001-language-boundary.md",
+      "role": "design-reference",
+      "bytes": 5514,
+      "sha256": "5a53747d9abfc631cea6a60a451221c286805af42f9bed62e2ddcb0c1bf88a99"
+    },
+    {
+      "file": "docs/02-architecture/adr/ADR-002-transport-selection.md",
+      "role": "design-reference",
+      "bytes": 6076,
+      "sha256": "f305a2cfe4ecbcd0ffc317ddea8d3131542513b2bdce48b6cf580b53ccb94c99"
+    },
+    {
+      "file": "docs/02-architecture/adr/ADR-003-mcp-sdk-rmcp.md",
+      "role": "design-reference",
+      "bytes": 5327,
+      "sha256": "f88472d8576d85eeeddbd1072a8153d96ec7771814403d77be263f556b4901f5"
+    },
+    {
+      "file": "docs/02-architecture/adr/ADR-004-grant-scope-model.md",
+      "role": "design-reference",
+      "bytes": 7349,
+      "sha256": "0efe9165904fbea16c78d68ea8c3bc248434e8f8ccc33b657ebbd95f1c65ab5a"
+    },
+    {
+      "file": "docs/02-architecture/adr/ADR-005-consistency-model.md",
+      "role": "design-reference",
+      "bytes": 6177,
+      "sha256": "d077bb767faf55f44f0d81d1855173ed51883fa955f2f5ad8df753e423725d68"
+    },
+    {
+      "file": "docs/02-architecture/adr/ADR-006-pagination-projection.md",
+      "role": "design-reference",
+      "bytes": 5661,
+      "sha256": "8c14c85fd9fb467cf2d52f5a949237f75a7b565954c9139e7fc25506286d3611"
+    },
+    {
+      "file": "docs/02-architecture/adr/ADR-007-cache-asset-store.md",
+      "role": "design-reference",
+      "bytes": 6243,
+      "sha256": "e00cbcca184a7d95a23df599b9e40e26ff383c29f0d6964c5536c15c325b3d72"
+    },
+    {
+      "file": "docs/02-architecture/adr/ADR-008-resource-budgets.md",
+      "role": "design-reference",
+      "bytes": 8553,
+      "sha256": "f00aa7eb7115653494003182be227b07242415c01aa5e0a27eee6f79625f1355"
+    },
+    {
+      "file": "docs/02-architecture/adr/ADR-009-licensing.md",
+      "role": "design-reference",
+      "bytes": 5613,
+      "sha256": "981fb96b8fbbd2641cf398344e9f7a7b30132fd8fcd2b081eb192eea65c15dad"
+    },
+    {
+      "file": "docs/02-architecture/adr/ADR-010-session-identity.md",
+      "role": "design-reference",
+      "bytes": 6119,
+      "sha256": "d401d9d79201be2d0c2c06ed8fa409a113ecb29778023d6a63ab97209dd0dc24"
+    },
+    {
+      "file": "docs/02-architecture/adr/ADR-011-error-taxonomy.md",
+      "role": "design-reference",
+      "bytes": 8640,
+      "sha256": "effa8d3c57e46f2f5d261db11d7ec4999214a95a5a7926c90f4676c0c0e585e7"
+    },
+    {
+      "file": "docs/02-architecture/adr/ADR-012-harness2-integration.md",
+      "role": "design-reference",
+      "bytes": 6075,
+      "sha256": "21b22b2c7ee4a94924edebdfafe098347159e8d837e4e7f7ff024e120d70adbd"
+    },
+    {
+      "file": "docs/02-architecture/adr/ADR-013-bidirectional-write-path.md",
+      "role": "design-reference",
+      "bytes": 10516,
+      "sha256": "d3a5437a5a87e9ed8876eddc3e5c44e83e6d4e4c3e5a658567d89a7ab4997498"
+    },
+    {
+      "file": "docs/03-uml/01-use-case-diagrams.md",
+      "role": "design-reference",
+      "bytes": 8370,
+      "sha256": "23c4f8ef28c286b122b90a7bd985ae68937480da95df0e3ef32a4bbe6fff99c3"
+    },
+    {
+      "file": "docs/03-uml/02-class-diagrams.md",
+      "role": "design-reference",
+      "bytes": 8701,
+      "sha256": "3b3323bea88e8044806183d947261006a117929b7f9e793f66bf40147741c4dd"
+    },
+    {
+      "file": "docs/03-uml/03-sequence-diagrams.md",
+      "role": "design-reference",
+      "bytes": 11855,
+      "sha256": "72d15ec2317a5c0961a139ca69f28615250e6fa3419127f82d86dd35fb115ce1"
+    },
+    {
+      "file": "docs/03-uml/04-state-diagrams.md",
+      "role": "design-reference",
+      "bytes": 17070,
+      "sha256": "d89859753971a3af03cc6cd1bf7f13e8be1a81484d6a2f8997645cdd0b5ac8e9"
+    },
+    {
+      "file": "docs/03-uml/05-activity-diagrams.md",
+      "role": "design-reference",
+      "bytes": 7760,
+      "sha256": "2873a7bdda7b1d3e4880761cbeecb918c30712a954988ecd539a03b282b69e1d"
+    },
+    {
+      "file": "docs/03-uml/06-deployment.md",
+      "role": "design-reference",
+      "bytes": 9452,
+      "sha256": "1f7767579a977e288e70fb5d297cbb74e7156a2674001c496a13aceb5881ced9"
+    },
+    {
+      "file": "docs/04-data-contracts/01-mcp-envelope.md",
+      "role": "design-reference",
+      "bytes": 19289,
+      "sha256": "f96273761cb39dee2bf87c5ce294e92e067b6bd1e8768308afc35369d86f4c52"
+    },
+    {
+      "file": "docs/04-data-contracts/02-tool-catalog.md",
+      "role": "design-reference",
+      "bytes": 22559,
+      "sha256": "8528347c47ebd2a24ae73e70721958224d8970921ccfaaaeea92984ce5a93702"
+    },
+    {
+      "file": "docs/04-data-contracts/03-bridge-protocol.md",
+      "role": "design-reference",
+      "bytes": 17888,
+      "sha256": "91503475574810453a74ad6542f314a7933e1b79f53bee343c7484d75ef806c4"
+    },
+    {
+      "file": "docs/04-data-contracts/04-normalized-model.md",
+      "role": "design-reference",
+      "bytes": 21314,
+      "sha256": "de8e99292998c1ba6e3b0f29860e5eaf85d1b482ee7e0ce7214c0025d1c124a9"
+    },
+    {
+      "file": "docs/04-data-contracts/05-error-catalog.md",
+      "role": "design-reference",
+      "bytes": 23770,
+      "sha256": "1a09c6da1779ca05c101752b6604903dc85fb466e8754c60bc5e2a950501da10"
+    },
+    {
+      "file": "docs/04-data-contracts/06-resource-limits.md",
+      "role": "design-reference",
+      "bytes": 17930,
+      "sha256": "6dda65290d38662786f90b0f7abb394aee69e536372ca7f37b41129c29562cc3"
+    },
+    {
+      "file": "docs/05-security/01-threat-model.md",
+      "role": "design-reference",
+      "bytes": 36916,
+      "sha256": "c33958e18a8ecd7f85fb47f037d2ec79c1f6bc4457f21d62ae3ba63457d3df0a"
+    },
+    {
+      "file": "docs/05-security/02-access-control.md",
+      "role": "design-reference",
+      "bytes": 23819,
+      "sha256": "b8ed0d3a213ce9683445e347b6ca5b8aaadaae7c755f768db267f9b48ffea022"
+    },
+    {
+      "file": "docs/05-security/03-privacy-data-handling.md",
+      "role": "design-reference",
+      "bytes": 14381,
+      "sha256": "c660a42681ff156a1bfbce7bc301db17bbc7ad18676d9109fa9ea441cc036500"
+    },
+    {
+      "file": "docs/05-security/04-pentagi-validation.md",
+      "role": "design-reference",
+      "bytes": 16352,
+      "sha256": "02589a794ff3c093a8d25296c02c51403dd6685c8211ac7f4786886684f9a957"
+    },
+    {
+      "file": "docs/06-testing/01-test-strategy.md",
+      "role": "design-reference",
+      "bytes": 32801,
+      "sha256": "93ae9ee11482d8a702179ee77ab4b8a3eb1fe65161900708505bcb2ae171f85a"
+    },
+    {
+      "file": "docs/06-testing/02-acceptance-catalog.md",
+      "role": "design-reference",
+      "bytes": 50910,
+      "sha256": "0fef1bcb85e6e2320853ef28df77c202453f7b1f47b19e2e9bbbabbe801781c4"
+    },
+    {
+      "file": "docs/06-testing/03-traceability-matrix.md",
+      "role": "design-reference",
+      "bytes": 55988,
+      "sha256": "ae678609f77eb81ee12fc91b11416cb12683132960a308ca9104ffe721891912"
+    },
+    {
+      "file": "docs/06-testing/04-benchmark-plan.md",
+      "role": "design-reference",
+      "bytes": 46439,
+      "sha256": "b347a46ebe61f96445f02f1755912f4a0094abe50d5a1b010d56567258a73c03"
+    },
+    {
+      "file": "docs/07-ops/01-dev-environment.md",
+      "role": "design-reference",
+      "bytes": 14731,
+      "sha256": "a0302d19b13af0e20e9050c6e9381c66a97faa3cd96ef3cab30ab9692312d670"
+    },
+    {
+      "file": "docs/07-ops/02-end-user-install.md",
+      "role": "design-reference",
+      "bytes": 11136,
+      "sha256": "0ef2175f830cf6a5934a2cb8a4e5542f4fec304f31b4465db555d0ad7ac3d591"
+    },
+    {
+      "file": "docs/07-ops/03-runbook.md",
+      "role": "design-reference",
+      "bytes": 14024,
+      "sha256": "8f49cb5dfcbc36054b0ed3e5fab5d561f00ff769fd5d6f5395013b794f40a7ec"
+    },
+    {
+      "file": "docs/07-ops/04-release-process.md",
+      "role": "design-reference",
+      "bytes": 17637,
+      "sha256": "d31eebde121fabc97f587b278220f1e74d01eb027286c77865cd9615a92e8edd"
+    },
+    {
+      "file": "docs/08-harness2/01-harness2-overview.md",
+      "role": "design-reference",
+      "bytes": 17509,
+      "sha256": "f26df561c507638df420ec2ffbe998ab70e845cfde59ea1974ebbc2773e72446"
+    },
+    {
+      "file": "docs/08-harness2/02-integration-architecture.md",
+      "role": "design-reference",
+      "bytes": 17299,
+      "sha256": "4ebd1e02bba2d4606b69242e04d08593e4aad8daebf7d877f1e4bac613946a91"
+    },
+    {
+      "file": "docs/08-harness2/03-harness-pack-spec.md",
+      "role": "design-reference",
+      "bytes": 17190,
+      "sha256": "cd1c0aea3419c97623d925260e9f46c8ca16de6564af4e617ff89cd6e678ef23"
+    },
+    {
+      "file": "docs/08-harness2/04-evaluation-protocol.md",
+      "role": "design-reference",
+      "bytes": 17077,
+      "sha256": "c197b576f7486db0b3e0d154a41f3002baf5e8a6d826bc984524f318769a9525"
+    },
+    {
+      "file": "docs/08-harness2/05-runbook.md",
+      "role": "design-reference",
+      "bytes": 16716,
+      "sha256": "5a5dc04803d6a0f30130647e0d9125d55238009096d8342d15242bd5e6f187c2"
+    },
+    {
+      "file": "docs/10-implementation/01-implementation-status.md",
+      "role": "operational",
+      "bytes": 20937,
+      "sha256": "427ab11b087c316de9add0f45b5bd730cbe51158d2f84a82b7627062e7a6ca84"
+    },
+    {
+      "file": "docs/10-implementation/02-code-map.md",
+      "role": "operational",
+      "bytes": 15845,
+      "sha256": "ece3e68f126dc7124bfee411aeb968b5582744e1e7a609714eacbe3b72f726ab"
+    },
+    {
+      "file": "docs/10-implementation/03-integration-findings.md",
+      "role": "operational",
+      "bytes": 3936,
+      "sha256": "a4e7d0e5723d8b25673c13eee17ceaa6026b631207f3d2080af620ed894d0fc1"
+    },
+    {
+      "file": "docs/11-write-path/01-write-path-design.md",
+      "role": "design-reference",
+      "bytes": 18535,
+      "sha256": "05a03d44f1a5121ba3d69d9e0b772eb649b51351477187f771e8a90130cfb474"
+    },
+    {
+      "file": "docs/99-appendices/01-glossary.md",
+      "role": "design-reference",
+      "bytes": 21172,
+      "sha256": "68605019b60e6285578d319cf94b712b220c1265d7a53cef066b311705219c0e"
+    },
+    {
+      "file": "docs/99-appendices/02-source-register.md",
+      "role": "design-reference",
+      "bytes": 10318,
+      "sha256": "945c79b47e429ade9855e92b5363b49e63a3e43fa72e19fa35456d5a48b9b478"
+    },
+    {
+      "file": "docs/99-appendices/03-approval-record.md",
+      "role": "design-reference",
+      "bytes": 19669,
+      "sha256": "f25b171eaabd654b5fe3db080593567a4cbecb9f9fe0d95cbde3032a5fdc1f51"
+    },
+    {
+      "file": "docs/README.md",
+      "role": "operational",
+      "bytes": 7969,
+      "sha256": "0cc9d3df6bbd1100b3ac41e77ab7e10125bc655f22962e41feee9874f7fbecb9"
+    },
+    {
+      "file": "docs/audits/2026-10-21-documentation.md",
+      "role": "operational",
+      "bytes": 7538,
+      "sha256": "b54ab08631e83a90e224018991d5f44e536a090127fe87abcb968edf4cdbb5e1"
+    },
+    {
+      "file": "docs/bridge-ui-guide.md",
+      "role": "operational",
+      "bytes": 9005,
+      "sha256": "cb81e27135dd153615e0d0a518f4d72cbd16186e0c83794e37b9a7d487921faf"
+    },
+    {
+      "file": "docs/design-review.md",
+      "role": "operational",
+      "bytes": 4778,
+      "sha256": "4e53818e980618d7eca5181bae4b5779b0da1440f022f8cd34af4237e869b39f"
+    },
+    {
+      "file": "docs/documentation-status.md",
+      "role": "operational",
+      "bytes": 3562,
+      "sha256": "58ec189b18189bee66f71f75aca4507d5933e5962d003313b685b605e01ce6ab"
+    },
+    {
+      "file": "docs/maintainers/publication-review.md",
+      "role": "dated-evidence",
+      "bytes": 5045,
+      "sha256": "36ccc8e8ef7cf3f95c424bf7312aa42d5d3140897c8e9b9fc4be1b4948c177f3"
+    },
+    {
+      "file": "docs/maintainers/publication.md",
+      "role": "operational",
+      "bytes": 5115,
+      "sha256": "c95812b5087567278709f6358283e2ce528667987993ddd2d605028d347e0ece"
+    },
+    {
+      "file": "docs/quickstart.md",
+      "role": "operational",
+      "bytes": 6359,
+      "sha256": "447117807ba068d5fc05559e2e6fd052344d9e30a30c36e7d22688de15f26605"
+    },
+    {
+      "file": "docs/write-path-verification.md",
+      "role": "operational",
+      "bytes": 6917,
+      "sha256": "90fb60f7f98e6b54d27c20b92cc47131543f3e123e98b5bcb298e5c7b456c615"
+    },
+    {
+      "file": "fixtures/README.md",
+      "role": "operational",
+      "bytes": 9343,
+      "sha256": "beeb3df061f1adcac7fd11a8c877584ad6fb0d167eb8e8f11c663e1b822f8a2a"
+    },
+    {
+      "file": "plugins/figma/README.md",
+      "role": "operational",
+      "bytes": 3881,
+      "sha256": "501960c84183f209f23f3ef07ad508bd7973d8721733b352de5e4f1df680bfc2"
+    },
+    {
+      "file": "plugins/figma/main/README.md",
+      "role": "operational",
+      "bytes": 16083,
+      "sha256": "801bcbb3f377419e69e29c1136a11754ad947f2f37e05626d1ff3b6024df5f98"
+    },
+    {
+      "file": "plugins/figma/ui/README.md",
+      "role": "operational",
+      "bytes": 19135,
+      "sha256": "8ab41db0298c3477673ea3390b98603a99ad46365ac6ab9ff86819d918588eec"
+    },
+    {
+      "file": "schemas/README.md",
+      "role": "operational",
+      "bytes": 7876,
+      "sha256": "e42de03cf5aa4d0ca2be7e59839f2f6cb014a17490350a4431e7455bcccbd00e"
+    },
+    {
+      "file": "security/pentagi/README.md",
+      "role": "operational",
+      "bytes": 26961,
+      "sha256": "fae41d232595cee5857bcd7bb47c0055efba5d6a13f99cdf8bcc3938c60673a7"
+    },
+    {
+      "file": "security/pentagi/flows/01-foreign-web-page-reaches-the-loopback-daemon.md",
+      "role": "operational",
+      "bytes": 6231,
+      "sha256": "5175db68a4133970a3fae552bab48cc9922b8b3bdcf896dee37e5f4a19ff730f"
+    },
+    {
+      "file": "security/pentagi/flows/02-control-endpoints-reachable-from-a-browser.md",
+      "role": "operational",
+      "bytes": 6051,
+      "sha256": "eeebe4b7d1ce59ceecef1c0ceb0b7fe40eea0fcd00cc9301fd354e8697fb60a8"
+    },
+    {
+      "file": "security/pentagi/flows/03-credential-replay-and-channel-confusion.md",
+      "role": "operational",
+      "bytes": 7188,
+      "sha256": "cbdadcd00dbbdc3cd12f696a012ce6a87a0bf613631e7658d0584a7fd5e92514"
+    },
+    {
+      "file": "security/pentagi/flows/04-cross-session-scope-escape.md",
+      "role": "operational",
+      "bytes": 7283,
+      "sha256": "68845f6685fa70fbccbda30f66f1257afa5c34ecc55c4da405e734684ddccf8b"
+    },
+    {
+      "file": "security/pentagi/flows/05-editor-slot-denial-of-service.md",
+      "role": "operational",
+      "bytes": 7829,
+      "sha256": "21235858ad8ae1d55481b8d687f6bddaf77eca7120aee4f7643ac68fb4d45111"
+    },
+    {
+      "file": "security/pentagi/flows/06-health-and-status-information-disclosure.md",
+      "role": "operational",
+      "bytes": 6954,
+      "sha256": "d6bd954a13a0842d286109bc40b9a76b5e519fb9ee777c28a07a2aed50975dda"
+    }
+  ]
+}

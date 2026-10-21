@@ -1,5 +1,9 @@
 # Plugin Design (Figma Adapter)
 
+> **Design reference.** Original requirements and approval labels below are historical design
+> records, not a feature-availability list. See [current documentation status](../documentation-status.md)
+> for implemented reads/writes, observed desktop evidence, and remaining gaps.
+
 Status: `Proposed`
 
 This document fixes the design of the TypeScript plugin inside Figma Design: the division of

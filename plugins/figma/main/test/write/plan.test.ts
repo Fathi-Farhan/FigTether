@@ -66,9 +66,7 @@ describe("the plan of the write path", () => {
   });
 
   it("refuses a fill operation that carries no paints", () => {
-    expect(() =>
-      parseWritePlan(planPayload([{ kind: "set_fills", node_id: "1:2" }])),
-    ).toThrow();
+    expect(() => parseWritePlan(planPayload([{ kind: "set_fills", node_id: "1:2" }]))).toThrow();
   });
 
   it("refuses an operation of an unknown kind", () => {
@@ -167,9 +165,7 @@ describe("the plan of the write path", () => {
     const document = sampleDocument();
     const context = createWriteContext(document, ["1:1"]);
     const preview = await handlePreviewWrite(
-      planPayload([
-        { kind: "set_properties", node_id: "1:2", properties: { x: "four" } },
-      ]),
+      planPayload([{ kind: "set_properties", node_id: "1:2", properties: { x: "four" } }]),
       context,
     );
     expect(preview.blocked).toBe(true);

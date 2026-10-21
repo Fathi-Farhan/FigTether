@@ -1,0 +1,15 @@
+{
+  "name": "figtether-design",
+  "description": "Create or revise editable Figma designs through FigTether MCP. Start with the shared canvas and render. Use source code for implementation or bridge debugging when needed.",
+  "introduction": "FigTether reads, creates, and edits native Figma designs. Use Figma tools first for design tasks; repository exploration is not a prerequisite.",
+  "steps": [
+    "Call open_design with the user's frame_name or known session_id/frame_id. Multiple matches return choices. If tools are missing, connect the host's FigTether MCP entry; pairing Figma alone does not register a host.",
+    "Inspect the returned PNG and bounded tree. If unavailable, use get_bridge_status and list_sessions; discover granted_root_ids and grant_mode, then list_nodes with small depth and explicit get_nodes fields. Never guess IDs or interpret partial coverage as complete.",
+    "Follow the user's audience, content, and visual brief. Do not insert bridge specifications, benchmark tables, or audit findings into the design unless requested.",
+    "Group a coherent native edit into preview_write within reported budgets. create_node supports fills and TEXT text, font_family, font_style. Use real created IDs; no invented aliases.",
+    "Check get_write_approval. A user-enabled Auto mode may approve a new clean plan. Otherwise ask the user to review it in the Bridge. Never enable Auto, approve for the user, or expand a grant. Apply only the unchanged approved plan with its token.",
+    "Read back changed nodes and inspect a fresh image. export_assets creates metadata; get_asset delivers its PNG within the active grant. Oversized renders need a smaller section or lower scale. Report absent visual evidence honestly.",
+    "Keep shared sessions running for other agents. Changing grants invalidates approvals. Inspect partial writes before retrying; diagnose observed bridge failures using source when needed. Required host instructions, user briefs, and assets remain valid inputs."
+  ],
+  "report": "Report the edited frame, verification and unfinished work. Record timings, failures, host/model versions and available token/cost data separately; missing cost is unmeasured. Static rules do not establish design quality."
+}

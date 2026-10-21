@@ -1,5 +1,9 @@
 # PRD Deep Analysis: FigTether v1.1 (FGT-PRD-001)
 
+> **Design reference.** Original requirements and approval labels below are historical design
+> records, not a feature-availability list. See [current documentation status](../documentation-status.md)
+> for implemented reads/writes, observed desktop evidence, and remaining gaps.
+
 Status: `Proposed` (analysis of record). Source: `FigTether_PRD_Confluence_v1.1.md` / `.docx`,
 v1.1, 2026-10-20. This document is the canonical interpretation of the PRD. Where the PRD is open
 or ambiguous, this document records a **commitment**; commitments must never contradict PRD IDs.
@@ -211,19 +215,20 @@ and undoable in Figma itself, and it fixes the concrete contracts in
 
 Three states have to stay apart:
 
-| State           | What is true                                                                                                                                                                                 |
-| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| PRD v1.1        | Write-back is not available. `D03` and `FR24` stand as written. The shipped contract is the PRD wording.                                                                                     |
-| `ADR-013`       | Proposed. It changes `D03` for a future release. It is a product decision that has not been made; no product approval is recorded in `docs/99-appendices/03-approval-record.md`.             |
-| This repository | The read path is implemented and tested. The write path is specified and under implementation, it is not verified in a Figma Desktop session, and no editor level undo behaviour is claimed. |
+| State           | What is true                                                                                                                                                                                                                                    |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PRD v1.1        | Write-back is not available. `D03` and `FR24` stand as written. The shipped contract is the PRD wording.                                                                                                                                        |
+| `ADR-013`       | Proposed. It changes `D03` for a future release. It is a product decision that has not been made; no product approval is recorded in `docs/99-appendices/03-approval-record.md`.                                                                |
+| This repository | Read and approval-gated write paths are implemented. A limited Windows/Figma Desktop test created 71 editable children and verified readback. Apply reported an undo commit; manual undo restoration and version checkpoints remain unverified. |
 
 Consequences of the proposed change:
 
 - Today the invariant is "a read never mutates". It stays true for every read tool, and `AT18`
   continues to prove it.
 - `ADR-013` restates `FR24` as "reads never mutate; writes mutate only inside an approved write
-  grant". That restatement is proposed, not in force. Until the product decision is made, the
-  contract is the PRD wording.
+  grant". Its formal release decision remains proposed; the current source implements these
+  controls. The original PRD baseline is preserved as a historical design decision, not a
+  description of every tool implemented in this checkout.
 - The restatement reaches beyond `FR24`: the MCP tool surface stops being uniformly read only
   (`docs/04-data-contracts/02-tool-catalog.md`), the grant model gains a mode (`ADR-004`,
   amendment), the budget model gains write budgets (`ADR-008`, amendment), the threat model gains

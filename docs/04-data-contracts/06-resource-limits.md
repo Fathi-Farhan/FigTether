@@ -1,5 +1,9 @@
 # Data Contracts: Resource Limits and Backpressure
 
+> **Design reference.** Original requirements and approval labels below are historical design
+> records, not a feature-availability list. See [current documentation status](../documentation-status.md)
+> for implemented reads/writes, observed desktop evidence, and remaining gaps.
+
 Status: `Proposed`
 
 Purpose: this document fixes the default resource limits from PRD 8.5.5, the on-exceed behavior

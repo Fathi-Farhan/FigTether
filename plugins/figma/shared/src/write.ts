@@ -51,7 +51,7 @@ export interface WriteOperation {
   /**
    * Paints the operation sets on the node.
    *
-   * Only the `set_fills` operation reads this field, and it is the only
+   * The `create_node` and `set_fills` operations read this field. It is the
    * place a paint travels: fills are not a property, so they are not on the
    * property allowlist. The values are the raw paints of the plan, so the
    * plan hash covers them.

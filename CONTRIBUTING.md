@@ -8,6 +8,11 @@ For a suspected vulnerability, use [SECURITY.md](SECURITY.md) instead of a publi
 
 ## Set up a checkout
 
+Write public documentation, UI help, examples, and research notes in English. Keep historical
+decisions distinct from current behavior: link to [documentation status](docs/documentation-status.md)
+and measured evidence when changing capability claims. Research-derived design checks must
+state their inputs, exceptions, and limits; visual style is not evidence of AI authorship.
+
 Install git, [rustup](https://rustup.rs/), and Node.js **22.14 or newer** with npm. On Windows,
 Rust's MSVC target also needs the Visual Studio C++ build tools. `just` is optional.
 
@@ -61,6 +66,9 @@ cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo test --workspace --locked
 npm run format:check
 npm run public:check
+npm run public:test
+npm run ci:test
+npm run design:test
 npm --prefix plugins/figma run build:types
 npm --prefix plugins/figma run typecheck
 npm --prefix plugins/figma run lint:all
@@ -146,6 +154,11 @@ fixes and small documentation improvements do not need a new requirement or a de
 
 For a small fix, include the bug, the change, and the command that proves it. For larger work,
 open an issue first so the scope and compatibility impact are clear.
+
+Every pull request runs the [CI quality checks](docs/ci.md), including Rust tests across
+Linux, Windows, and both macOS architectures. `CI required` fails if any prerequisite fails,
+is cancelled, or is skipped. Maintainers must configure it as a required GitHub status check
+to prevent merges; workflow YAML alone does not enforce that repository setting.
 
 Before requesting review:
 

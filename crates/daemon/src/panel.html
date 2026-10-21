@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>FigTether Bridge</title>
+    <link rel="stylesheet" href="/panel.css" />
+    <script src="/panel.js" defer></script>
+  </head>
+  <body class="companion">
+    <header class="companion-banner">
+      <h1>FigTether Bridge</h1>
+      <p class="help">
+        Your controls, outside Figma. Drag this tab into its own window to move it anywhere. Keep
+        the Figma plugin running.
+      </p>
+    </header>
+    <main>
+      <p id="connection" class="next-step" role="status">Connecting to your Figma plugin…</p>
+      <section class="panel" aria-labelledby="share-title">
+        <h2 id="share-title">Shared with your agent</h2>
+        <p id="shared">Waiting for the plugin…</p>
+        <p id="editing-state" class="help"></p>
+        <div class="companion-actions">
+          <button id="refresh" class="button" type="button" disabled>
+            Update selection from Figma</button
+          ><button id="editing" class="button" type="button" disabled>Allow editing</button>
+        </div>
+        <fieldset class="fieldset">
+          <legend>Selected in Figma</legend>
+          <ul id="candidates" class="candidate-list"></ul>
+          <p id="selection-empty" class="empty">
+            Select a frame in Figma, then update the selection.
+          </p>
+        </fieldset>
+        <button id="share" class="button button--primary" type="button" disabled>
+          Share selected frames
+        </button>
+      </section>
+      <section class="panel">
+        <h2>How changes are reviewed</h2>
+        <label class="auto-choice"><input id="auto" type="checkbox" disabled />Auto mode</label>
+        <p id="auto-state" class="help">Off. You review each change.</p>
+        <p class="note">
+          Only new warning-free plans without blocks or deletions can be approved automatically.
+          Warnings pause auto mode. Reconnecting or changing sharing turns it off.
+        </p>
+      </section>
+      <section id="proposal" class="panel" hidden>
+        <h2>Proposed change</h2>
+        <p id="intent"></p>
+        <p id="counts"></p>
+        <p id="decision" class="help"></p>
+        <ul id="warnings" class="write-list companion-warning"></ul>
+        <div class="companion-actions">
+          <button id="approve" class="button button--primary" type="button" disabled>
+            Approve this plan</button
+          ><button id="reject" class="button" type="button" disabled>Reject this plan</button>
+        </div>
+      </section>
+      <section class="panel">
+        <h2>Activity</h2>
+        <p class="help">
+          Recent actions, counts and timings. Design content and secrets are excluded.
+        </p>
+        <ul id="activity" class="log-list" role="log"></ul>
+      </section>
+      <section class="panel">
+        <h2>Sharing controls</h2>
+        <button id="stop" class="button button--danger" type="button" disabled>Stop sharing</button>
+        <div id="stop-confirmation" class="confirm" hidden>
+          <p>Stop reading and editing for all agents using this session?</p>
+          <div class="companion-actions">
+            <button id="stop_confirm" type="button" class="button button--danger">
+              Stop sharing</button
+            ><button id="stop_cancel" type="button" class="button">Keep sharing</button>
+          </div>
+        </div>
+      </section>
+      <p id="feedback" class="help" role="status"></p>
+      <p class="note">
+        Closing this window does not stop sharing or turn Auto mode off. Use Stop sharing to end
+        access for all agents. This window expires after 30 minutes; reopen it from the plugin.
+      </p>
+    </main>
+  </body>
+</html>

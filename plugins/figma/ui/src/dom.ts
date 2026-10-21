@@ -9,8 +9,54 @@
 import type { ActionName, CapabilityView, UiModel, UiPort } from "./controller.js";
 import type { CandidateRoot } from "./protocol.js";
 
+/** Human labels over the existing content-free log format. Unknown text is dropped. */
+export function readableActivity(line: string): string {
+  const match =
+    /^(\d{2}:\d{2}:\d{2}) op=([a-z_]+)(?: count=(\d+))?(?: duration=(\d+)ms)?(?: error=([A-Z_]+))?$/.exec(
+      line,
+    );
+  if (!match) return "Activity received";
+  const labels: Record<string, string> = {
+    pair: "Bridge connected",
+    reauth: "Connection renewed",
+    reconnect: "Reconnecting",
+    heartbeat: "Connection check",
+    grant_update: "Frames shared",
+    write_grant: "Editing access changed",
+    read: "Design read",
+    list_nodes: "Layers read",
+    inspect: "Design inspected",
+    export: "Export prepared",
+    preview: "Change previewed",
+    approve: "Plan approved",
+    reject: "Plan rejected",
+    write_result: "Changes applied",
+    create_node: "Create layers",
+    set_text: "Change text",
+    set_fills: "Change colors",
+    set_properties: "Change properties",
+    delete_node: "Remove layers",
+    move_node: "Move layers",
+    insert_child: "Arrange layers",
+    revoke: "Sharing stopped",
+    pause: "Sharing paused",
+    resume: "Sharing resumed",
+  };
+  return `${match[1]}  ${labels[match[2] ?? ""] ?? "Activity"}${match[3] ? ` · ${match[3]} items` : ""}${match[4] ? ` · ${match[4]} ms` : ""}${match[5] ? ` · ${match[5]}` : ""}`;
+}
+
 /** The elements the user interface renders into. */
 export interface UiElements {
+  readonly nextStep: HTMLElement;
+  readonly pairDetails: HTMLDetailsElement;
+  readonly selectionSummary: HTMLElement;
+  readonly sharedFrames: HTMLElement;
+  readonly autoMode: HTMLInputElement;
+  readonly autoStatus: HTMLElement;
+  readonly externalPanel: HTMLButtonElement;
+  readonly clearLog: HTMLButtonElement;
+  readonly logCount: HTMLElement;
+  readonly logEmpty: HTMLElement;
   readonly connectionSummary: HTMLElement;
   readonly connectionState: HTMLElement;
   readonly sessionName: HTMLElement;
@@ -70,6 +116,9 @@ export interface UiElements {
 
 /** Callbacks the user interface triggers. */
 export interface UiCallbacks {
+  onClearActivity?(): void;
+  onAutoMode?(enabled: boolean): void;
+  onExternalPanel?(): void;
   onPair(secret: string): void;
   onSelectionChanged(rootIds: readonly string[]): void;
   onSelectionRefresh(): void;
@@ -96,6 +145,16 @@ function requireElement<T extends HTMLElement>(doc: Document, id: string): T {
 /** Collect the elements of the user interface from a document. */
 export function collectElements(doc: Document): UiElements {
   return {
+    nextStep: requireElement(doc, "next-step"),
+    pairDetails: requireElement<HTMLDetailsElement>(doc, "pair-details"),
+    selectionSummary: requireElement(doc, "selection-summary"),
+    sharedFrames: requireElement(doc, "shared-frames"),
+    autoMode: requireElement<HTMLInputElement>(doc, "auto-mode"),
+    autoStatus: requireElement(doc, "auto-mode-status"),
+    externalPanel: requireElement<HTMLButtonElement>(doc, "external-panel-button"),
+    clearLog: requireElement<HTMLButtonElement>(doc, "clear-log-button"),
+    logCount: requireElement(doc, "log-count"),
+    logEmpty: requireElement(doc, "log-empty"),
     connectionSummary: requireElement(doc, "connection-summary"),
     connectionState: requireElement(doc, "status-connection"),
     sessionName: requireElement(doc, "session-name"),
@@ -155,13 +214,11 @@ export function collectElements(doc: Document): UiElements {
 }
 
 function setText(element: HTMLElement, text: string): void {
-  element.textContent = text;
+  if (element.textContent !== text) element.textContent = text;
 }
 
 function describeRoot(root: CandidateRoot, index: number): string {
-  const type = root.node_type.length > 0 ? root.node_type : "node";
-  const children = root.child_count === null ? "" : `, ${root.child_count} children`;
-  return `Root ${index + 1}, ${type}${children}, id ${root.node_id}`;
+  return root.name?.trim() || `Unnamed frame ${index + 1}`;
 }
 
 function describeCapability(capability: CapabilityView): string {
@@ -188,6 +245,8 @@ function describeDecision(model: UiModel): string {
   }
   switch (model.writeDecision) {
     case "approved":
+      if (model.writeApprovedAutomatically)
+        return "Auto mode approved this warning-free plan. Waiting for the agent to apply it.";
       return "You approved this plan. The daemon applies it, and the change lands as one step in the undo history of Figma.";
     case "rejected":
       return "You rejected this plan. The daemon will not apply it.";
@@ -198,6 +257,9 @@ function describeDecision(model: UiModel): string {
 
 /** The DOM backed user interface. */
 export class DomUi implements UiPort {
+  private candidateKey = "";
+  private candidateInputs: HTMLInputElement[] = [];
+  private previousConnection = "";
   private readonly elements: UiElements;
   private readonly callbacks: UiCallbacks;
   private readonly doc: Document;
@@ -211,6 +273,15 @@ export class DomUi implements UiPort {
 
   private wire(): void {
     const elements = this.elements;
+    elements.autoMode.addEventListener("change", () =>
+      this.callbacks.onAutoMode?.(elements.autoMode.checked),
+    );
+    elements.externalPanel.addEventListener("click", () => this.callbacks.onExternalPanel?.());
+    elements.clearLog.addEventListener("click", () => {
+      while (elements.logList.firstChild) elements.logList.removeChild(elements.logList.firstChild);
+      this.updateLogCount();
+      this.callbacks.onClearActivity?.();
+    });
     elements.pairForm.addEventListener("submit", (event: Event): void => {
       event.preventDefault();
       const secret = elements.secretInput.value;
@@ -244,9 +315,35 @@ export class DomUi implements UiPort {
 
   render(model: UiModel): void {
     const elements = this.elements;
+    setText(elements.nextStep, model.nextStepText ?? "Connect to get started.");
+    setText(elements.sharedFrames, model.sharedFrameNames?.join(", ") || "Nothing yet");
+    setText(
+      elements.selectionSummary,
+      `${model.selectedRootIds.length} selected. Share to confirm access.`,
+    );
+    elements.autoMode.checked = model.autoMode === true;
+    elements.autoMode.disabled = model.canUseAutoMode !== true;
+    elements.externalPanel.disabled = model.canOpenPanel !== true;
+    elements.externalPanel.title =
+      model.connection === "connected" && !model.canOpenPanel
+        ? "Update and restart the local daemon to use the browser companion."
+        : "Open your controls in a local browser tab.";
+    setText(
+      elements.autoStatus,
+      model.connection === "connected" && model.automaticReviewAvailable === false
+        ? "Update and restart the local daemon to use Auto mode."
+        : (model.autoModeReason ??
+            (model.autoMode
+              ? "On. New warning-free plans can be approved automatically."
+              : "Off. You review each change.")),
+    );
+    if (this.previousConnection !== model.connection) {
+      elements.pairDetails.open = model.connection !== "connected";
+      this.previousConnection = model.connection;
+    }
     setText(
       elements.connectionSummary,
-      `Connection: ${model.connectionText}. Session phase: ${model.phaseText}.`,
+      `${model.connectionText}${model.connection === "connected" ? ` · ${model.grantedRootCount} ${model.grantedRootCount === 1 ? "frame" : "frames"} shared` : ""}`,
     );
     setText(elements.connectionState, `${model.connectionMarker} ${model.connectionText}`);
     setText(elements.sessionName, model.sessionName);
@@ -283,13 +380,15 @@ export class DomUi implements UiPort {
   private renderWriteGrant(model: UiModel): void {
     const elements = this.elements;
     elements.writeGrantButton.textContent = model.writeGrantEnabled
-      ? "Restrict the session to reading"
-      : "Allow write session";
+      ? "Turn editing off"
+      : "Allow editing";
     setText(
       elements.writeGrantState,
       model.writeGrantEnabled
-        ? "Editing inside the granted roots is allowed. Every plan still needs your approval before anything changes."
-        : "Editing inside the granted roots is not allowed. The read grant never allows a change.",
+        ? model.autoMode
+          ? "Editing is allowed. Auto mode reviews new warning-free plans; warnings need you."
+          : "Editing is allowed in the shared frames. Each plan needs your approval."
+        : "Agent editing is off. Share a frame, then allow editing. Each proposed plan needs your approval.",
     );
   }
 
@@ -377,6 +476,16 @@ export class DomUi implements UiPort {
   private renderCandidates(model: UiModel): void {
     const elements = this.elements;
     const list = elements.candidateList;
+    const key = JSON.stringify(model.candidates);
+    if (key === this.candidateKey) {
+      const selected = new Set(model.selectedRootIds);
+      this.candidateInputs.forEach((box) => {
+        box.checked = selected.has(box.value);
+      });
+      return;
+    }
+    this.candidateKey = key;
+    this.candidateInputs = [];
     while (list.firstChild !== null) {
       list.removeChild(list.firstChild);
     }
@@ -395,9 +504,10 @@ export class DomUi implements UiPort {
       input.value = root.node_id;
       input.checked = selected.has(root.node_id);
       input.dataset["rootId"] = root.node_id;
+      this.candidateInputs.push(input);
       input.addEventListener("change", (): void => {
         const checked: string[] = [];
-        const inputs = list.querySelectorAll("input[type='checkbox']");
+        const inputs = this.candidateInputs;
         inputs.forEach((node) => {
           const box = node as HTMLInputElement;
           if (box.checked) {
@@ -408,6 +518,10 @@ export class DomUi implements UiPort {
       });
       const text = this.doc.createElement("span");
       text.textContent = describeRoot(root, index);
+      const meta = this.doc.createElement("small");
+      meta.className = "candidate-meta";
+      meta.textContent = `${root.node_type.toLowerCase().replace(/_/g, " ")}${root.child_count === null ? "" : ` · ${root.child_count} items`}`;
+      text.appendChild(meta);
       label.appendChild(input);
       label.appendChild(text);
       item.appendChild(label);
@@ -435,7 +549,7 @@ export class DomUi implements UiPort {
 
   appendLog(line: string): void {
     const item = this.doc.createElement("li");
-    item.textContent = line;
+    item.textContent = readableActivity(line);
     this.elements.logList.appendChild(item);
     while (this.elements.logList.childElementCount > 200) {
       const first = this.elements.logList.firstChild;
@@ -444,6 +558,16 @@ export class DomUi implements UiPort {
       }
       this.elements.logList.removeChild(first);
     }
+    this.updateLogCount();
+  }
+
+  private updateLogCount(): void {
+    const count = this.elements.logList.childElementCount;
+    setText(
+      this.elements.logCount,
+      `${count} ${count === 1 ? "event" : "events"}${count === 200 ? " (latest)" : ""}`,
+    );
+    this.elements.logEmpty.hidden = count > 0;
   }
 
   setPairError(message: string | null): void {
@@ -458,6 +582,8 @@ export class DomUi implements UiPort {
   }
 
   setActionResult(action: ActionName, ok: boolean, message: string): void {
+    if (action === "write_grant") setText(this.elements.grantFeedback, "");
+    if (action === "grant") setText(this.elements.writeGrantFeedback, "");
     const element = this.feedbackFor(action);
     element.textContent = message;
     element.dataset["state"] = ok ? "ok" : "error";

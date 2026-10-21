@@ -11,8 +11,8 @@
 
     The check fails when a committed schema differs from the generated one,
     when a committed schema is missing from the generated set, or when a
-    generated schema is not committed yet. When the generator does not exist
-    yet the check reports a skip and exits with zero.
+    generated schema is not committed yet. Missing generators and empty schema
+    sets also fail; required contract checks cannot be skipped.
 
 .EXAMPLE
     pwsh -File scripts/schema-check.ps1
@@ -43,9 +43,9 @@ foreach ($candidate in $candidates) {
 }
 
 if ($null -eq $found) {
-    Write-Host "schema check: skipped, no schema generator example named $Example was found"
+    Write-Host "schema check: failed, no schema generator example named $Example was found"
     Write-Host "schema check: expected one of crates/{model,protocol,cli,core}/examples/$Example.rs"
-    exit 0
+    exit 1
 }
 
 Write-Host "schema check: generator $found"
@@ -66,6 +66,11 @@ if (-not (Test-Path $SchemaDir)) {
 
 $temp = Join-Path ([System.IO.Path]::GetTempPath()) ("figtether-schema-" + [System.Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $temp | Out-Null
+$tempBase = (Resolve-Path -LiteralPath ([System.IO.Path]::GetTempPath())).Path.TrimEnd('\', '/')
+$temp = (Resolve-Path -LiteralPath $temp).Path
+if (-not $temp.StartsWith($tempBase + [System.IO.Path]::DirectorySeparatorChar, [System.StringComparison]::OrdinalIgnoreCase)) {
+    throw 'Schema temporary directory is outside the expected temporary root'
+}
 
 try {
     $arguments = @('run')
@@ -85,6 +90,13 @@ try {
     $committed = Get-ChildItem -Path $SchemaDir -Recurse -File -Filter '*.schema.json' | ForEach-Object {
         $_.FullName.Substring($schemaRoot.Length + 1)
     } | Sort-Object
+
+    if (@($committed).Count -eq 0) {
+        throw 'schema check: no committed schemas were found'
+    }
+    if (@(Get-ChildItem -LiteralPath $temp -Recurse -File -Filter '*.schema.json').Count -eq 0) {
+        throw 'schema check: the generator produced no schemas'
+    }
 
     foreach ($relative in $committed) {
         $generated = Join-Path $temp $relative
@@ -120,5 +132,5 @@ try {
     Write-Host 'schema check: the committed schemas match the generated ones'
 }
 finally {
-    Remove-Item -Path $temp -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $temp -Recurse -Force -ErrorAction SilentlyContinue
 }

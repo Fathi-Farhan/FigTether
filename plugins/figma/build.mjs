@@ -20,6 +20,17 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const distDir = path.join(here, "dist");
 const manifestSource = path.join(here, "manifest.json");
 const watch = process.argv.includes("--watch");
+const localManifestPath = path.join(here, "manifest.local.json");
+const localManifest = existsSync(localManifestPath)
+  ? JSON.parse(await readFile(localManifestPath, "utf8"))
+  : null;
+const localPort = localManifest?.networkAccess?.devAllowedDomains
+  ?.map((domain) => /^ws:\/\/localhost:(\d+)$/.exec(domain)?.[1])
+  .find(Boolean);
+const selectedPort = process.env.FIGTETHER_PORT ?? localPort ?? "38947";
+if (!/^\d{1,5}$/.test(selectedPort) || Number(selectedPort) < 1 || Number(selectedPort) > 65535)
+  throw Error("FIGTETHER_PORT must be an integer from 1 to 65535");
+const bridgePort = Number(selectedPort);
 
 /**
  * Entry points of the plugin.
@@ -104,6 +115,7 @@ function buildOptions(entry) {
     target: "es2020",
     sourcemap: true,
     logLevel: "warning",
+    define: { __FIGTETHER_PORT__: String(bridgePort) },
     alias: {
       "@figtether/shared": path.join(here, "shared", "src", "index.ts"),
     },
@@ -132,6 +144,26 @@ async function copyUiDocument() {
       `warning: ${relative(found.absolute)} does not load ./ui.js, the UI bundle will not run`,
     );
   }
+  // showUI receives an HTML string, not a document hosted beside the bundles.
+  // Relative script/style URLs therefore cannot load inside the plugin iframe.
+  const script = await readFile(path.join(distDir, "ui.js"), "utf8");
+  const css = await readFile(path.join(distDir, "ui.css"), "utf8");
+  html = html.replace(
+    /<script\b[^>]*src="\.\/ui\.js"[^>]*><\/script>/g,
+    () =>
+      `<script>${script.replace(/\/\/# sourceMappingURL=.*$/gm, "").replace(/<\/script/gi, "<\\/script")}</script>`,
+  );
+  html = html.replace(
+    /<link\b[^>]*href="\.\/ui\.css"[^>]*>/g,
+    () => `<style>${css.replace(/\/\*# sourceMappingURL=.*?\*\//g, "")}</style>`,
+  );
+  // The Figma iframe has no relative asset host. Keep the small local icon
+  // inside the HTML, just like the bundled stylesheet and script.
+  const icon = await readFile(path.join(here, "ui/assets/figtether-icon.png"));
+  html = html.replace(
+    'src="./assets/figtether-icon.png"',
+    `src="data:image/png;base64,${icon.toString("base64")}"`,
+  );
   await writeFile(path.join(distDir, "ui.html"), html, "utf8");
   return relative(found.absolute);
 }
@@ -146,6 +178,10 @@ async function writeManifest() {
     ...manifest,
     main: "main.js",
     ui: "ui.html",
+    networkAccess: {
+      ...manifest.networkAccess,
+      devAllowedDomains: [`http://localhost:${bridgePort}`, `ws://localhost:${bridgePort}`],
+    },
   };
   await writeFile(
     path.join(distDir, "manifest.json"),
@@ -189,7 +225,7 @@ async function runWatch() {
     }
   };
 
-  for (const candidate of [...HTML_CANDIDATES, "manifest.json"]) {
+  for (const candidate of [...HTML_CANDIDATES, "manifest.json", "ui/assets/figtether-icon.png"]) {
     const absolute = path.join(here, candidate);
     if (!existsSync(absolute)) {
       continue;

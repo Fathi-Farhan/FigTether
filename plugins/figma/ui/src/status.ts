@@ -28,7 +28,7 @@ export type ConnectionEvent =
  *
  * Unknown or impossible transitions keep the current state. The machine never
  * leaves the terminal state `revoked` except through an explicit `reset`,
- * which is what the Revoke button does after it cleared the local state.
+ * which an explicit Pair action uses before authenticating a new session.
  */
 export function reduceConnection(state: ConnectionState, event: ConnectionEvent): ConnectionState {
   switch (event.type) {

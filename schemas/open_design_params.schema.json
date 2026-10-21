@@ -1,0 +1,41 @@
+{
+  "$defs": {
+    "SessionId": {
+      "description": "Identity of one plugin run or tab.",
+      "format": "uuid",
+      "type": "string"
+    }
+  },
+  "$id": "urn:figtether:schema:open_design_params",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Open one named or unambiguous granted design without changing access.",
+  "properties": {
+    "frame_id": {
+      "description": "Exact granted frame id. Ambiguous targets return choices.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "frame_name": {
+      "description": "Exact frame name, useful when the user names their working frame.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "session_id": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SessionId"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Limit discovery to this session when known."
+    }
+  },
+  "title": "OpenDesignParams",
+  "type": "object"
+}

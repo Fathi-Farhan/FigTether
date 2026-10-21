@@ -720,6 +720,79 @@ async fn a_revoke_clears_the_cache_and_the_asset_store() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn missed_plugin_heartbeats_close_the_socket_and_allow_authenticated_recovery() {
+    let (handle, temp) = start_daemon().await;
+    let port = handle.port();
+    let mut plugin = Socket::open(port, "/bridge").await;
+    let hello = |secret: String| {
+        serde_json::to_value(BridgeFrame::new(
+            MessageType::HelloAuth,
+            "hello",
+            json!({
+                "secret": secret,
+                "client_id": PLUGIN_LABEL,
+                "protocol_version": PROTOCOL_VERSION,
+            }),
+        ))
+        .expect("hello serializes")
+    };
+    plugin.send(&hello(mint_secret(port))).await;
+    let accepted: BridgeFrame =
+        serde_json::from_value(plugin.next().await.expect("auth")).expect("auth frame");
+    let auth: AuthAccepted = accepted.payload_of().expect("accepted");
+    let grant = serde_json::to_value(BridgeFrame::new(
+        MessageType::GrantUpdate,
+        "grant",
+        json!({ "root_ids": ["1:2"], "grant_epoch": 0, "mode": "read" }),
+    ))
+    .expect("grant serializes");
+    plugin.send(&grant).await;
+    let mut client = open_client(port, &credential(&temp)).await.expect("client");
+    wait_for_state(&mut client, &auth.session_id, "ready").await;
+
+    // Receive daemon heartbeats but send none: the plugin-side watchdog
+    // would otherwise see traffic forever while every read is refused.
+    tokio::time::timeout(Duration::from_secs(22), async {
+        while plugin.next().await.is_some() {}
+    })
+    .await
+    .expect("daemon closes the timed-out connection");
+    wait_for_state(&mut client, &auth.session_id, "offline").await;
+    assert_eq!(handle.status().plugin_connections, 0);
+
+    let mut reconnected = Socket::open(port, "/bridge").await;
+    reconnected.send(&hello(auth.session_credential)).await;
+    let accepted: BridgeFrame =
+        serde_json::from_value(reconnected.next().await.expect("auth")).expect("auth frame");
+    let recovered: AuthAccepted = accepted.payload_of().expect("re-authenticated");
+    assert_eq!(recovered.session_id, auth.session_id);
+    assert!(recovered.connection_epoch > auth.connection_epoch);
+    // Authentication alone does not make an offline grant ready.
+    wait_for_state(&mut client, &auth.session_id, "paired").await;
+    reconnected.send(&grant).await;
+    wait_for_state(&mut client, &auth.session_id, "ready").await;
+    handle.shutdown();
+    handle.wait_stopped().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn fresh_pairing_with_the_same_plugin_label_does_not_inherit_a_grant() {
+    let (handle, temp) = start_daemon().await;
+    let port = handle.port();
+    let plugin = FakePlugin::connect(port, &mint_secret(port)).await;
+    plugin.grant(&["1:2"]).await;
+    let mut client = open_client(port, &credential(&temp)).await.expect("client");
+    wait_for_state(&mut client, &plugin.session_id, "ready").await;
+    let replacement = FakePlugin::connect(port, &mint_secret(port)).await;
+    assert_ne!(replacement.session_id, plugin.session_id);
+    let paired = wait_for_state(&mut client, &replacement.session_id, "paired").await;
+    assert_eq!(paired["granted_root_ids"], json!([]));
+    assert!(paired["grant_mode"].is_null());
+    handle.shutdown();
+    handle.wait_stopped().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn a_reconnect_never_revives_a_revoked_grant() {
     let (handle, temp) = start_daemon().await;
     let port = handle.port();

@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="680" viewBox="0 0 1100 680" role="img" aria-labelledby="title desc">
+<title id="title">FigTether Bridge pairing guide</title><desc id="desc">Start figtether in terminal one. Run figtether pair in terminal two. Copy its one-time, five-minute secret into the plugin and press Pair. Pairing is separate from granting design access. Select and refresh a frame, check the root, and allow a read session. Enable a write session only when desired; approve each exact plan.</desc>
+<style>text{fill:#111111;font-family:Arial,Helvetica,sans-serif;font-size:16px}.heading{font-family:Gelasio,Georgia,serif;font-size:36px;font-weight:400;letter-spacing:-.6px}.subhead{font-family:Gelasio,Georgia,serif;font-size:24px}.label{font-size:18px;font-weight:600}.body{font-size:16px}.small{font-size:14px;fill:#525252}.meta{font-family:"Ubuntu Mono",Consolas,monospace;font-size:13px;letter-spacing:.5px}.code{font-family:"Ubuntu Mono",Consolas,monospace;font-size:19px}.value{font-family:Consolas,monospace;font-size:16px}.warn{fill:#9a4b00;font-size:14px}</style>
+<rect width="1100" height="680" fill="#ffffff"/>
+<defs><marker id="arrow" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M 0 0 L 7 3.5 L 0 7" fill="#111111"/></marker></defs>
+
+<text x="40" y="40" class="meta" >03 / FIGTETHER - BRIDGE GUIDE</text><path d="M 40 58 L 1060 58" stroke="#d4d4d4" /><text x="40" y="106" class="heading" >The pairing secret comes from your terminal.</text><text x="40" y="138" class="small" >Run the daemon locally, connect the plugin, then choose what the agent can access.</text>
+<text x="40" y="195" class="meta" >ON YOUR COMPUTER</text><text x="640" y="195" class="meta" >IN THE FIGMA PLUGIN</text>
+<text x="40" y="235" class="small" >Terminal 1 - keep it running</text>
+<text x="40" y="270" class="code" >figtether</text>
+<text x="40" y="321" class="small" >Terminal 2 - request a secret</text>
+<text x="40" y="356" class="code" >figtether pair</text>
+<text x="40" y="402" class="value" >[one-time secret printed here]</text>
+<text x="640" y="235" class="label" >Pairing secret</text>
+<rect x="640" y="254" width="420" height="46" fill="#ffffff" stroke="#111111"/><text x="658" y="285" class="value" >••••••••••••••••••••••••</text>
+<rect x="640" y="318" width="76" height="42" fill="#f1f1f1" stroke="#111111"/><text x="678" y="345" class="body" text-anchor="middle">Pair</text>
+<text x="740" y="344" class="small" >Paste the secret, then press Pair.</text>
+<path d="M 430 397 H 563 V 277 H 630" fill="none" stroke="#111111" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="521" y="425" class="meta" text-anchor="middle">copy</text>
+<text x="640" y="401" class="small" >One use. Expires after 5 minutes.</text>
+<text x="640" y="430" class="small" >A new secret replaces the previous pending secret.</text>
+<path d="M 40 466 L 1060 466" stroke="#d4d4d4" />
+<text x="40" y="504" class="meta" >NEXT: GRANT DESIGN ACCESS</text>
+<text x="40" y="544" class="label" >Select a frame</text><path d="M 189 538 H 236" fill="none" stroke="#111111" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="254" y="544" class="label" >Refresh + check</text><path d="M 422 538 H 474" fill="none" stroke="#111111" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="492" y="544" class="label" >Allow read session</text><path d="M 692 538 H 744" fill="none" stroke="#111111" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="762" y="544" class="label" >Agent can read</text>
+<text x="40" y="583" class="body" >To create or edit: enable Allow write session, review the preview, and approve each plan.</text>
+<path d="M 40 611 L 1060 611" stroke="#d4d4d4" />
+<text x="40" y="643" class="small" >Pairing connects the bridge; it does not grant design access. Never paste the secret into chat or MCP config.</text>
+<text x="40" y="667" class="small" >Illustrated walkthrough; controls simplified. See the Bridge UI guide for the actual screenshot and recovery steps.</text>
+
+</svg>

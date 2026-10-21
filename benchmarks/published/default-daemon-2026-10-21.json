@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "kind": "default-daemon-launch-verification",
+  "created_at": "2026-10-21T04:33:37.174Z",
+  "platform": "win32",
+  "binary_sha256": "6c01c9d5891a0fd1d0bb920e8016867d55cb93e6e2a94613eb3d3c8d83c1cb1c",
+  "behavior": {
+    "bare_invocation": "foreground daemon defaults",
+    "explicit_daemon_retained": true,
+    "pairing": "Separate explicit figtether pair; startup prints instructions but no secret",
+    "shared_daemon_restarted": false
+  },
+  "checks": [
+    {
+      "label": "help",
+      "elapsed_ms": 294.4805,
+      "exit_code": 0,
+      "ok": true
+    },
+    {
+      "label": "version",
+      "elapsed_ms": 17.770400000000052,
+      "exit_code": 0,
+      "ok": true
+    },
+    {
+      "label": "typo",
+      "elapsed_ms": 11.5308,
+      "exit_code": 2,
+      "ok": true
+    },
+    {
+      "label": "explicit-daemon-isolated-start",
+      "elapsed_ms": 36.705600000000004,
+      "ok": true
+    },
+    {
+      "label": "isolated-status",
+      "elapsed_ms": 16.887,
+      "exit_code": 0,
+      "ok": true
+    },
+    {
+      "label": "bare-existing-listener",
+      "elapsed_ms": 12.859899999999982,
+      "exit_code": 1,
+      "ok": true
+    },
+    {
+      "label": "explicit-existing-listener",
+      "elapsed_ms": 17.620400000000018,
+      "exit_code": 1,
+      "ok": true
+    }
+  ],
+  "automated": {
+    "cli_tests_passed": 86,
+    "plugin_tests_passed": 483,
+    "cli_clippy": "passed"
+  },
+  "costs": {
+    "model_input_tokens": null,
+    "model_output_tokens": null,
+    "billed_cost_usd": null,
+    "status": "unmeasured"
+  },
+  "limits": [
+    "One Windows machine; CLI diagnostic samples are single calls, not a performance benchmark",
+    "Default port was occupied by the shared daemon, so bare and explicit default starts were tested for identical refusal without disturbing it",
+    "Successful startup/status used an isolated runtime and explicit daemon port; unit tests verify the bare invocation resolves to identical defaults",
+    "The existing Figma plugin was not reopened; this test does not claim a new Figma design session"
+  ],
+  "raw_directory": "benchmarks/results/default-daemon-2026-10-21"
+}

@@ -1,5 +1,9 @@
 # FigTether Source Register
 
+> **Design reference.** Original requirements and approval labels below are historical design
+> records, not a feature-availability list. See [current documentation status](../documentation-status.md)
+> for implemented reads/writes, observed desktop evidence, and remaining gaps.
+
 Status: `Proposed`
 
 This register fixes which external sources FigTether documentation and design may cite. Section 1

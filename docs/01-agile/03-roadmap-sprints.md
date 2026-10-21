@@ -1,5 +1,9 @@
 # FigTether Sprint Roadmap
 
+> **Design reference.** Original requirements and approval labels below are historical design
+> records, not a feature-availability list. See [current documentation status](../documentation-status.md)
+> for implemented reads/writes, observed desktop evidence, and remaining gaps.
+
 Status: `Proposed`
 
 Purpose. This document sequences the backlog from `docs/01-agile/02-product-backlog.md` into

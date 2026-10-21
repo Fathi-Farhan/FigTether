@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "kind": "source-update-verification",
+  "created_at": "2026-10-21T04:22:11.423Z",
+  "environment": "Windows 11 x64, Node 22.14.0, Rust 1.95.0",
+  "binary_before_sha256": "e62febd632508431876b301bcf1ee2290043a077fdfabeb716ca984c032c5493",
+  "checks": [
+    {
+      "label": "dry-run",
+      "elapsed_ms": 383.40319999999997,
+      "exit_code": 0,
+      "ok": true,
+      "executable_unchanged": true
+    },
+    {
+      "label": "dirty-refused",
+      "elapsed_ms": 98.21429999999998,
+      "exit_code": 1,
+      "ok": true,
+      "executable_unchanged": true
+    },
+    {
+      "label": "missing-source",
+      "elapsed_ms": 14.668700000000058,
+      "exit_code": 1,
+      "ok": true,
+      "executable_unchanged": true
+    },
+    {
+      "label": "local-update",
+      "elapsed_ms": 17710.1823,
+      "exit_code": 0,
+      "ok": true,
+      "executable_sha256": "e62febd632508431876b301bcf1ee2290043a077fdfabeb716ca984c032c5493",
+      "lock_released": true
+    },
+    {
+      "label": "replacement-launch",
+      "exit_code": 0,
+      "ok": true
+    }
+  ],
+  "native_smoke": "Isolated executable copy under a path containing spaces: --local staged a release CLI, installed locked plugin dependencies, rebuilt the plugin, replaced the running Windows executable, and launched the replacement. Shared debug daemon was not stopped.",
+  "git_coverage": "Unit integration uses a local Git upstream to verify fast-forward and divergence refusal. No real project upstream was fetched: this working checkout has local changes and no configured remote.",
+  "automated": {
+    "cli_tests_passed": 83,
+    "cli_tests_failed": 0,
+    "clippy": "passed with -D warnings",
+    "documentation_audit": "passed",
+    "formatting": "passed"
+  },
+  "hashes": [
+    {
+      "file": "crates/cli/src/commands/update.rs",
+      "sha256": "23dac431a56d0071d6737186309b5aad640d982cd4ee247281153a8fdae048ca"
+    },
+    {
+      "file": "crates/cli/src/cli.rs",
+      "sha256": "db6c11dd26823ba403dba6400cd11c0b46cfaa79e51a77f936030e5593381ec9"
+    },
+    {
+      "file": "plugins/figma/dist/main.js",
+      "sha256": "5962c947f4d86feab3c9f558b5237928dac7739eef6c7909ed18ef9fc9f0eee2"
+    },
+    {
+      "file": "plugins/figma/dist/ui.html",
+      "sha256": "0356567d201b61fbda53f884e1622c8a79d5f4f6e5c65fd7695b3fc6c20c4cfd"
+    }
+  ],
+  "cost": {
+    "model_input_tokens": null,
+    "model_output_tokens": null,
+    "billed_cost_usd": null,
+    "status": "unmeasured"
+  },
+  "limits": [
+    "No public release/package or signed release download is provided",
+    "Only the local rebuild/replacement was tested end-to-end on Windows; macOS/Linux updater execution remains unverified",
+    "Git/checkout/plugin dependencies and output can change before a later failure; the whole update is not transactional",
+    "Windows retains the previous executable backup until old processes exit",
+    "Existing running daemon and Figma plugin continue their loaded versions until manually restarted/reopened"
+  ],
+  "raw": {
+    "directory": "benchmarks/results/update-2026-10-21",
+    "summary_sha256": "dbd89d4cf71f4b6976d59ffa59032b253d9d5f175809fbc639f8ff243e44d25f",
+    "local_update_log_sha256": "12d14c7efc262fd2f1788b75d40822d95653d5e12e0ef2cc819cfd66270b5c6b"
+  }
+}

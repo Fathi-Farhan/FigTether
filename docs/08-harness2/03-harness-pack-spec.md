@@ -1,5 +1,9 @@
 # FigTether Harness Pack Specification
 
+> **Design reference.** Original requirements and approval labels below are historical design
+> records, not a feature-availability list. See [current documentation status](../documentation-status.md)
+> for implemented reads/writes, observed desktop evidence, and remaining gaps.
+
 Status: `Proposed`
 
 Purpose: This document specifies the harness pack that FigTether ships so that agent harnesses

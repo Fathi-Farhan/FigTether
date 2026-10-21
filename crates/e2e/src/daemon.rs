@@ -803,7 +803,7 @@ impl DaemonState {
                 let _ = outbound.send(frame.clone()).await;
             }
             MessageType::Cancel | MessageType::Progress | MessageType::HelloAuth => {}
-            MessageType::Approval => {}
+            MessageType::Approval | MessageType::UiControl => {}
         }
     }
 
@@ -883,6 +883,13 @@ impl DaemonState {
             ClientRequest::GetSelection { request_id, params } => {
                 self.get_selection(client_id, request_id, params).await
             }
+            ClientRequest::GetAsset { request_id, .. } => error_response(
+                request_id,
+                FigError::new(
+                    ErrorCode::CapabilityUnavailable,
+                    "use shipped daemon asset tests",
+                ),
+            ),
             ClientRequest::GetSnapshotInfo { request_id, params } => {
                 self.get_snapshot_info(request_id, params)
             }

@@ -191,6 +191,7 @@ export class FakeBridge implements BridgePort {
       approval_id: decision.approval_id,
       plan_hash: decision.plan_hash,
       approved: decision.approved,
+      ...(decision.automatic === undefined ? {} : { automatic: decision.automatic }),
     };
     if (decision.reason !== undefined) {
       payload["reason"] = decision.reason;
@@ -311,6 +312,7 @@ export function acceptHandshake(bridge: FakeBridge): void {
     grant_epoch: 0,
     capabilities: { list_nodes: { status: "available" } },
     session_name: "Design review",
+    ui_features: ["companion_window", "warning_gated_auto"],
   });
 }
 

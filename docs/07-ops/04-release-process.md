@@ -1,5 +1,9 @@
 # Release Process
 
+> **Design reference.** Original requirements and approval labels below are historical design
+> records, not a feature-availability list. See [current documentation status](../documentation-status.md)
+> for implemented reads/writes, observed desktop evidence, and remaining gaps.
+
 Status: `Proposed`
 
 This document defines the FigTether release machinery: the gate flow `G0` to `G4` with exit

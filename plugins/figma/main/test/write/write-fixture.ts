@@ -12,10 +12,7 @@ import { TokenResolver } from "../../src/tokens.js";
 import { createFakeDocument, type FakeDocument } from "../fake-figma.js";
 
 /** Build a handler context with a grant over the given roots. */
-export function createWriteContext(
-  document: FakeDocument,
-  rootIds: string[],
-): HandlerContext {
+export function createWriteContext(document: FakeDocument, rootIds: string[]): HandlerContext {
   const guard = new ScopeGuard(document.api);
   guard.setGrant({ rootIds, grantEpoch: 1 });
   return {
@@ -39,9 +36,7 @@ export function createWriteContext(
  * frame `1:5` is read only, the instance `1:6` holds a child that cannot
  * move, and the component `1:9` holds a frame a component cannot move into.
  */
-export function sampleDocument(options?: {
-  versionHistory?: boolean;
-}): FakeDocument {
+export function sampleDocument(options?: { versionHistory?: boolean }): FakeDocument {
   return createFakeDocument(
     [
       {

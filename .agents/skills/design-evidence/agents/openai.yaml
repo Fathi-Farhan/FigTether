@@ -1,0 +1,4 @@
+interface:
+  display_name: "Design Evidence"
+  short_description: "Audit UI quality with measurable, sourced rules"
+  default_prompt: "Use $design-evidence to review this UI against its brief and run the deterministic checks with explicit coverage limits."

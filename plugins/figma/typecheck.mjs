@@ -29,7 +29,11 @@ const PROJECTS = [
 ];
 
 function runTsc(project) {
-  const result = spawnSync(process.execPath, [tsc, "--noEmit", "-p", project.config], {
+  const arguments_ =
+    project.name === "shared"
+      ? [tsc, "--build", "--force", project.config]
+      : [tsc, "--noEmit", "-p", project.config];
+  const result = spawnSync(process.execPath, arguments_, {
     cwd: here,
     encoding: "utf8",
   });

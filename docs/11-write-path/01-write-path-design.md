@@ -1,5 +1,9 @@
 # Write path design
 
+> **Design reference.** Original requirements and approval labels below are historical design
+> records, not a feature-availability list. See [current documentation status](../documentation-status.md)
+> for implemented reads/writes, observed desktop evidence, and remaining gaps.
+
 Status: `Proposed` (implementation target of `ADR-013`)
 
 This document fixes the contracts of the write path: what a plan is, how it is validated, how it is

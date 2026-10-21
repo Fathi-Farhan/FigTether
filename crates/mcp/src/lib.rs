@@ -30,6 +30,7 @@ mod error;
 mod result;
 mod runtime;
 mod tools;
+mod tools_canvas;
 mod tools_write;
 mod ws;
 

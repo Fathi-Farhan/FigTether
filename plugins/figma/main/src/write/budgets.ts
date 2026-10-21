@@ -126,7 +126,12 @@ export class BudgetLedger {
 
 /** Build the detail of a budget breach. */
 function budgetBreach(message: string, operation: number | null): WriteErrorDetail {
-  return writeError(WRITE_ERROR_CODES.BUDGET_EXCEEDED, WRITE_ERROR_REASONS.BUDGET_EXCEEDED, message, {
-    operation,
-  });
+  return writeError(
+    WRITE_ERROR_CODES.BUDGET_EXCEEDED,
+    WRITE_ERROR_REASONS.BUDGET_EXCEEDED,
+    message,
+    {
+      operation,
+    },
+  );
 }

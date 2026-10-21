@@ -8,9 +8,9 @@
 //!
 //! The command exits with a non zero status when a blocking check fails.
 
-use std::net::{Ipv4Addr, TcpListener};
 use std::path::{Path, PathBuf};
 
+use figtether_daemon::port::PortProblem;
 use figtether_protocol::client::ClientRequest;
 use serde::Serialize;
 use serde_json::Value;
@@ -60,6 +60,9 @@ pub struct DoctorReport {
     pub runtime_dir: String,
     /// The port the daemon is expected to use.
     pub port: u16,
+    /// A free port the user can pass to `--port`, when the expected port
+    /// cannot be bound.
+    pub port_suggestion: Option<u16>,
     /// The individual checks.
     pub checks: Vec<CheckEntry>,
 }
@@ -106,9 +109,10 @@ pub async fn build_report(args: &DoctorArgs) -> anyhow::Result<DoctorReport> {
 
     let port = control::expected_port(args.port, args.runtime_dir.as_deref());
     let probe = probe_daemon(port, args.runtime_dir.as_deref()).await;
+    let PortCheck { entry, suggestion } = port_check(port, &probe);
 
-    checks.push(port_check(port, &probe));
-    checks.push(manifest_check(&manifest_path(args), port));
+    checks.push(entry);
+    checks.push(manifest_check_for(args, port));
     checks.push(daemon_check(&probe));
     checks.push(pairing_check(&probe));
     checks.push(capability_check(&probe));
@@ -124,6 +128,7 @@ pub async fn build_report(args: &DoctorArgs) -> anyhow::Result<DoctorReport> {
         schema_version: figtether_model::SCHEMA_VERSION.to_string(),
         runtime_dir: directory.path,
         port,
+        port_suggestion: suggestion,
         checks,
     })
 }
@@ -164,35 +169,67 @@ fn version_check() -> CheckEntry {
     }
 }
 
+/// The result of the bridge port check.
+struct PortCheck {
+    /// The check shown in the report.
+    entry: CheckEntry,
+    /// A port that can be bound instead, when the expected port cannot.
+    suggestion: Option<u16>,
+}
+
 /// The bridge port.
-fn port_check(port: u16, probe: &DaemonProbe) -> CheckEntry {
-    let free = match TcpListener::bind((Ipv4Addr::LOCALHOST, port)) {
-        Ok(listener) => {
-            drop(listener);
-            true
-        }
-        Err(_) => false,
+///
+/// The check names the reason the port cannot be bound and the port to use
+/// instead. A port that the operating system reserved is told apart from a
+/// port that another process holds, because the two need different steps.
+fn port_check(port: u16, probe: &DaemonProbe) -> PortCheck {
+    let problem = figtether_daemon::port::diagnose(port);
+    let served = probe.status.is_some();
+    let suggestion = match problem {
+        Some(_) if !served => Some(figtether_daemon::port::suggest_free_port(port)),
+        _ => None,
     };
-    if free {
-        return CheckEntry {
-            name: "bridge port".to_string(),
-            status: OK.to_string(),
-            detail: format!("port {port} on 127.0.0.1 is free"),
-        };
-    }
-    if probe.status.is_some() {
-        return CheckEntry {
-            name: "bridge port".to_string(),
-            status: OK.to_string(),
-            detail: format!("port {port} on 127.0.0.1 is served by the FigTether daemon"),
-        };
-    }
-    CheckEntry {
-        name: "bridge port".to_string(),
-        status: FAIL.to_string(),
-        detail: format!(
-            "port {port} on 127.0.0.1 is in use by another process; stop it or run figtether daemon --port <free-port> and regenerate the plugin manifest"
-        ),
+    port_check_from(port, problem, served, suggestion)
+}
+
+/// Build the port check from a known problem and a known suggestion.
+fn port_check_from(
+    port: u16,
+    problem: Option<PortProblem>,
+    served_by_daemon: bool,
+    suggestion: Option<u16>,
+) -> PortCheck {
+    let name = "bridge port".to_string();
+    match problem {
+        None => PortCheck {
+            entry: CheckEntry {
+                name,
+                status: OK.to_string(),
+                detail: format!("port {port} on 127.0.0.1 is free"),
+            },
+            suggestion: None,
+        },
+        Some(_) if served_by_daemon => PortCheck {
+            entry: CheckEntry {
+                name,
+                status: OK.to_string(),
+                detail: format!("port {port} on 127.0.0.1 is served by the FigTether daemon"),
+            },
+            suggestion: None,
+        },
+        Some(problem) => {
+            let suggestion = suggestion.unwrap_or(port);
+            PortCheck {
+                entry: CheckEntry {
+                    name,
+                    status: FAIL.to_string(),
+                    detail: format!(
+                        "port {port} on 127.0.0.1 cannot be bound: {problem} Start the daemon on port {suggestion} and regenerate the plugin manifest for the same port: figtether daemon --port {suggestion}"
+                    ),
+                },
+                suggestion: Some(suggestion),
+            }
+        }
     }
 }
 
@@ -209,13 +246,36 @@ fn manifest_check(path: &Path, port: u16) -> CheckEntry {
             ),
         };
     }
-    let text = match std::fs::read_to_string(path) {
-        Ok(text) => text,
+    let bytes = match std::fs::read(path) {
+        Ok(bytes) => bytes,
         Err(err) => {
             return CheckEntry {
                 name,
                 status: FAIL.to_string(),
                 detail: format!("the manifest {} cannot be read: {err}", path.display()),
+            }
+        }
+    };
+    if crate::commands::manifest::has_byte_order_mark(&bytes) {
+        return CheckEntry {
+            name,
+            status: FAIL.to_string(),
+            detail: format!(
+                "the manifest {} starts with a byte order mark; Figma cannot parse it. Write the \
+                 file again without the mark, for example with figtether manifest --plugin-id \
+                 <plugin-id> --out {}",
+                path.display(),
+                path.display()
+            ),
+        };
+    }
+    let text = match String::from_utf8(bytes) {
+        Ok(text) => text,
+        Err(err) => {
+            return CheckEntry {
+                name,
+                status: FAIL.to_string(),
+                detail: format!("the manifest {} is not valid UTF-8: {err}", path.display()),
             }
         }
     };
@@ -356,7 +416,7 @@ fn daemon_check(probe: &DaemonProbe) -> CheckEntry {
             name: "daemon".to_string(),
             status: WARN.to_string(),
             detail: format!(
-                "no daemon answers on the loopback interface ({}); start it with figtether daemon",
+                "no daemon answers on the loopback interface ({}); start it with figtether",
                 probe
                     .error
                     .clone()
@@ -495,10 +555,27 @@ fn capability_summary(status: &Value) -> Option<CapabilitySummary> {
 }
 
 /// The manifest path the doctor inspects.
-fn manifest_path(args: &DoctorArgs) -> PathBuf {
-    args.manifest
-        .clone()
-        .unwrap_or_else(|| PathBuf::from(crate::commands::manifest::DEFAULT_FILE_NAME))
+///
+/// The path that the user names wins. Otherwise the nearest manifest of the
+/// current directory or of one of its parents is used, so the doctor works
+/// from any directory inside a checkout.
+fn manifest_path(args: &DoctorArgs) -> Option<PathBuf> {
+    crate::commands::manifest::discover_manifest(args.manifest.as_deref())
+}
+
+/// The manifest check, with the search for the file included.
+fn manifest_check_for(args: &DoctorArgs, port: u16) -> CheckEntry {
+    match manifest_path(args) {
+        Some(path) => manifest_check(&path, port),
+        None => CheckEntry {
+            name: "plugin manifest".to_string(),
+            status: WARN.to_string(),
+            detail: "no plugin manifest was found in this directory or in a parent directory; \
+                     generate one with figtether manifest --plugin-id <plugin-id>, or name the \
+                     file with --manifest <path>"
+                .to_string(),
+        },
+    }
 }
 
 /// The result of the daemon probe.
@@ -548,6 +625,18 @@ mod tests {
     fn a_missing_manifest_only_warns() {
         let check = manifest_check(Path::new("no-such-manifest-12345.json"), 38947);
         assert_eq!(check.status, WARN);
+    }
+
+    #[test]
+    fn a_manifest_with_a_byte_order_mark_fails() {
+        let (_temp, path) = temp_manifest("\u{feff}{\"id\": \"figtether-dev\"}");
+        let check = manifest_check(&path, 38947);
+        assert_eq!(check.status, FAIL);
+        assert!(
+            check.detail.contains("byte order mark"),
+            "the detail does not name the cause: {}",
+            check.detail
+        );
     }
 
     #[test]
@@ -624,6 +713,71 @@ mod tests {
         assert!(is_loopback("localhost"));
         assert!(!is_loopback("example.com"));
         assert!(!is_loopback("0.0.0.0"));
+    }
+
+    #[test]
+    fn a_free_port_passes_the_port_check() {
+        let check = port_check_from(38947, None, false, None);
+        assert_eq!(check.entry.status, OK, "{}", check.entry.detail);
+        assert!(
+            check.entry.detail.contains("38947"),
+            "{}",
+            check.entry.detail
+        );
+        assert_eq!(check.suggestion, None);
+    }
+
+    #[test]
+    fn a_reserved_port_names_the_range_and_the_port_to_use() {
+        let problem = PortProblem::ReservedByOs {
+            start: 38929,
+            end: 39028,
+        };
+        let check = port_check_from(38947, Some(problem), false, Some(39147));
+        assert_eq!(check.entry.status, FAIL, "{}", check.entry.detail);
+        assert!(
+            check.entry.detail.contains("38929-39028"),
+            "{}",
+            check.entry.detail
+        );
+        assert!(
+            check.entry.detail.contains("figtether daemon --port 39147"),
+            "{}",
+            check.entry.detail
+        );
+        assert_eq!(check.suggestion, Some(39147));
+    }
+
+    #[test]
+    fn a_port_in_use_names_the_port_to_use() {
+        let check = port_check_from(38947, Some(PortProblem::InUse), false, Some(39147));
+        assert_eq!(check.entry.status, FAIL, "{}", check.entry.detail);
+        assert!(
+            check.entry.detail.contains("figtether daemon --port 39147"),
+            "{}",
+            check.entry.detail
+        );
+        assert_eq!(check.suggestion, Some(39147));
+    }
+
+    #[test]
+    fn a_port_that_the_daemon_serves_passes_the_port_check() {
+        let check = port_check_from(38947, Some(PortProblem::InUse), true, None);
+        assert_eq!(check.entry.status, OK, "{}", check.entry.detail);
+        assert_eq!(check.suggestion, None);
+    }
+
+    #[test]
+    fn the_report_carries_the_port_suggestion() {
+        let args = DoctorArgs {
+            json: false,
+            port: None,
+            runtime_dir: None,
+            manifest: None,
+        };
+        let report = block_on(build_report(&args)).expect("builds");
+        let value = serde_json::to_value(&report).expect("encodes");
+        assert!(value.get("port_suggestion").is_some(), "{value}");
     }
 
     #[test]

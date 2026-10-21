@@ -25,6 +25,7 @@ import {
 } from "./figma-api.js";
 import type { ReferenceResolver } from "./tokens.js";
 import { boundVariableId } from "./tokens.js";
+import { isProjected, type NodeField } from "./projection.js";
 import {
   UNAVAILABLE_REASON,
   unavailable,
@@ -42,6 +43,8 @@ import {
 
 /** Everything the normalizer needs besides the node itself. */
 export interface NormalizeContext {
+  /** Requested fields; excluded blocks must not invoke editor APIs. */
+  fields?: readonly NodeField[] | null | undefined;
   /** The editor API, used to detect mixed values. */
   api: FigmaApi;
   /** Resolves variable and style references. */
@@ -141,6 +144,7 @@ export async function normalizeNode(
   node: FigmaNode,
   context: NormalizeContext,
 ): Promise<PluginNode> {
+  const selected = (field: NodeField): boolean => isProjected(field, context.fields ?? null);
   const unavailableFields: string[] = [];
   const result: PluginNode = {
     id: node.id,
@@ -161,28 +165,33 @@ export async function normalizeNode(
     result.parent_id = context.parentId;
   }
 
-  const geometry = buildGeometry(node, unavailableFields);
+  const geometry = selected("geometry") ? buildGeometry(node, unavailableFields) : undefined;
   if (geometry !== undefined) {
     result.geometry = geometry;
   }
-  const layout = buildLayout(node, unavailableFields);
+  const layout = selected("layout") ? buildLayout(node, unavailableFields) : undefined;
   if (layout !== undefined) {
     result.layout = layout;
   }
-  const text = await buildText(node, context, unavailableFields);
+  const text = selected("text") ? await buildText(node, context, unavailableFields) : undefined;
   if (text !== undefined) {
     result.text = text;
   }
-  result.fills = buildPaints(node.fills, context.api, "fills", unavailableFields);
-  result.strokes = buildPaints(node.strokes, context.api, "strokes", unavailableFields);
-  result.effects = buildEffects(node.effects, context.api, unavailableFields);
+  if (selected("fills"))
+    result.fills = buildPaints(node.fills, context.api, "fills", unavailableFields);
+  if (selected("strokes"))
+    result.strokes = buildPaints(node.strokes, context.api, "strokes", unavailableFields);
+  if (selected("effects"))
+    result.effects = buildEffects(node.effects, context.api, unavailableFields);
 
-  const component = await buildComponent(node, unavailableFields);
+  const component = selected("component")
+    ? await buildComponent(node, unavailableFields)
+    : undefined;
   if (component !== undefined) {
     result.component = component;
   }
 
-  if (context.includeReferences === true) {
+  if (context.includeReferences === true && (selected("variables") || selected("styles"))) {
     const references = await buildReferences(node, context, unavailableFields);
     result.variables = references.variables;
     result.styles = references.styles;
@@ -664,7 +673,7 @@ export async function buildReferences(
   }
 
   const variables: PluginVariable[] = [];
-  for (const id of variableIds) {
+  for (const id of isProjected("variables", context.fields ?? null) ? variableIds : []) {
     const resolved = await context.resolver.resolveVariable(id);
     if (!resolved.resolved) {
       unavailableFields.push(
@@ -675,7 +684,7 @@ export async function buildReferences(
   }
 
   const styles: PluginVariable[] = [];
-  for (const id of styleIds) {
+  for (const id of isProjected("styles", context.fields ?? null) ? styleIds : []) {
     const resolved = await context.resolver.resolveStyle(id);
     if (!resolved.resolved) {
       unavailableFields.push(unavailable(`styles.${id}`, UNAVAILABLE_REASON.NOT_IN_GRANT));

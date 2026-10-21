@@ -9,10 +9,9 @@ describe("refusals of the write path", () => {
     const document = sampleDocument();
     const context = createWriteContext(document, ["1:1"]);
     const preview = await handlePreviewWrite(
-      planPayload(
-        [{ kind: "insert_child", parent_id: "1:4", node_id: "1:3" }],
-        { destructive: true },
-      ),
+      planPayload([{ kind: "insert_child", parent_id: "1:4", node_id: "1:3" }], {
+        destructive: true,
+      }),
       context,
     );
     expect(preview.blocked).toBe(true);
@@ -23,10 +22,9 @@ describe("refusals of the write path", () => {
     const document = sampleDocument();
     const context = createWriteContext(document, ["1:1"]);
     const preview = await handlePreviewWrite(
-      planPayload(
-        [{ kind: "insert_child", parent_id: "1:3", node_id: "1:5" }],
-        { destructive: true },
-      ),
+      planPayload([{ kind: "insert_child", parent_id: "1:3", node_id: "1:5" }], {
+        destructive: true,
+      }),
       context,
     );
     expect(preview.blocked).toBe(true);
@@ -37,10 +35,9 @@ describe("refusals of the write path", () => {
     const document = sampleDocument();
     const context = createWriteContext(document, ["1:1"]);
     const preview = await handlePreviewWrite(
-      planPayload(
-        [{ kind: "insert_child", parent_id: "1:3", node_id: "1:7" }],
-        { destructive: true },
-      ),
+      planPayload([{ kind: "insert_child", parent_id: "1:3", node_id: "1:7" }], {
+        destructive: true,
+      }),
       context,
     );
     expect(preview.blocked).toBe(true);
@@ -51,10 +48,9 @@ describe("refusals of the write path", () => {
     const document = sampleDocument();
     const context = createWriteContext(document, ["1:1"]);
     const preview = await handlePreviewWrite(
-      planPayload(
-        [{ kind: "insert_child", parent_id: "1:10", node_id: "1:9" }],
-        { destructive: true },
-      ),
+      planPayload([{ kind: "insert_child", parent_id: "1:10", node_id: "1:9" }], {
+        destructive: true,
+      }),
       context,
     );
     expect(preview.blocked).toBe(true);
@@ -65,10 +61,9 @@ describe("refusals of the write path", () => {
     const document = sampleDocument();
     const context = createWriteContext(document, ["1:1"]);
     const result = await handleApplyWrite(
-      planPayload(
-        [{ kind: "insert_child", parent_id: "1:3", node_id: "1:2", index: 9 }],
-        { destructive: true },
-      ),
+      planPayload([{ kind: "insert_child", parent_id: "1:3", node_id: "1:2", index: 9 }], {
+        destructive: true,
+      }),
       context,
     );
     expect(result.status).toBe("partial");
@@ -128,9 +123,7 @@ describe("refusals of the write path", () => {
   it("refuses a plan that targets another session", async () => {
     const document = sampleDocument();
     const context = createWriteContext(document, ["1:1"]);
-    const payload = planPayload([
-      { kind: "set_properties", node_id: "1:2", properties: { x: 1 } },
-    ]);
+    const payload = planPayload([{ kind: "set_properties", node_id: "1:2", properties: { x: 1 } }]);
     const plan = payload["plan"] as Record<string, unknown>;
     plan["session_id"] = "session_2";
     const error = await handleApplyWrite(payload, context).catch((reason: unknown) => reason);
@@ -150,9 +143,7 @@ describe("refusals of the write path", () => {
   it("applies a plan that names no session under the session that asked for it", async () => {
     const document = sampleDocument();
     const context = createWriteContext(document, ["1:1"]);
-    const payload = planPayload([
-      { kind: "set_properties", node_id: "1:2", properties: { x: 1 } },
-    ]);
+    const payload = planPayload([{ kind: "set_properties", node_id: "1:2", properties: { x: 1 } }]);
     const plan = payload["plan"] as Record<string, unknown>;
     delete plan["session_id"];
     const result = await handleApplyWrite(payload, context);

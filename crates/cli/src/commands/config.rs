@@ -30,7 +30,6 @@ pub fn run(args: ConfigArgs) -> anyhow::Result<CommandOutcome> {
 /// Print the MCP client entry.
 pub fn print_config(args: ConfigPrintArgs) -> anyhow::Result<CommandOutcome> {
     let binary = current_binary();
-    let snippet = snippet(args.client, &binary);
     output::blank();
     output::line(&format!(
         "MCP client entry for FigTether ({})",
@@ -41,7 +40,7 @@ pub fn print_config(args: ConfigPrintArgs) -> anyhow::Result<CommandOutcome> {
     output::line("FigTether only prints it and never writes another application");
     output::line("configuration file.");
     output::blank();
-    let text = serde_json::to_string_pretty(&snippet)?;
+    let text = render(args.client, &binary, &MCP_ARGUMENTS.map(str::to_string));
     output::line(&text);
     output::blank();
     output::line("The entry starts the local MCP adapter over stdio. It carries no");
@@ -52,14 +51,27 @@ pub fn print_config(args: ConfigPrintArgs) -> anyhow::Result<CommandOutcome> {
 /// Build the configuration snippet for a client.
 pub fn snippet(client: ClientKind, binary: &Path) -> Value {
     match client {
-        ClientKind::Generic => json!({
-            "mcpServers": {
-                SERVER_NAME: {
-                    "command": binary.display().to_string(),
-                    "args": MCP_ARGUMENTS,
+        ClientKind::Generic | ClientKind::Gemini | ClientKind::Claude | ClientKind::Codex => {
+            json!({
+                "mcpServers": {
+                    SERVER_NAME: {
+                        "command": binary.display().to_string(),
+                        "args": MCP_ARGUMENTS,
+                    }
                 }
-            }
-        }),
+            })
+        }
+    }
+}
+
+/// Render the actual host format, with JSON escaping also valid in TOML basic strings.
+pub fn render(client: ClientKind, binary: &Path, args: &[String]) -> String {
+    if client == ClientKind::Codex {
+        format!("[mcp_servers.figtether]\ncommand = {}\nargs = {}\nstartup_timeout_sec = 15\ntool_timeout_sec = 150\n", serde_json::to_string(&binary.display().to_string()).unwrap(), serde_json::to_string(args).unwrap())
+    } else {
+        let mut entry = snippet(client, binary);
+        entry["mcpServers"][SERVER_NAME]["args"] = json!(args);
+        serde_json::to_string_pretty(&entry).unwrap()
     }
 }
 
@@ -102,5 +114,23 @@ mod tests {
     #[test]
     fn the_generic_client_is_the_only_variant() {
         assert_eq!(ClientKind::Generic.as_str(), "generic");
+    }
+
+    #[test]
+    fn codex_output_is_actual_toml_and_other_hosts_receive_json() {
+        let args = ["mcp".into(), "--stdio".into()];
+        let binary = Path::new("C:/tools with spaces/figtether.exe");
+        let codex: toml::Value = toml::from_str(&render(ClientKind::Codex, binary, &args)).unwrap();
+        assert_eq!(
+            codex["mcp_servers"]["figtether"]["command"].as_str(),
+            Some("C:/tools with spaces/figtether.exe")
+        );
+        for client in [ClientKind::Gemini, ClientKind::Claude] {
+            let json: Value = serde_json::from_str(&render(client, binary, &args)).unwrap();
+            assert_eq!(
+                json["mcpServers"]["figtether"]["args"],
+                json!(["mcp", "--stdio"])
+            );
+        }
     }
 }

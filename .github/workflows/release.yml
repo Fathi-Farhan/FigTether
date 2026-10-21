@@ -90,9 +90,11 @@ jobs:
             git status --porcelain >&2
             exit 1
           fi
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "commit=$head" >> "$GITHUB_OUTPUT"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
+          {
+            echo "tag=$tag"
+            echo "commit=$head"
+            echo "version=$version"
+          } >> "$GITHUB_OUTPUT"
           echo "building $tag at $head"
 
   build:

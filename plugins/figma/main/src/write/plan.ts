@@ -146,6 +146,24 @@ function readCreateNode(record: Record<string, unknown>): CreateNodeOperation {
     properties,
     children_ids: childrenIds,
   };
+  if (record["fills"] !== undefined) {
+    if (!Array.isArray(record["fills"])) invalid("Initial fills must be a list of paints");
+    operation.fills = (record["fills"] as unknown[]).map((paint) => readJsonValue(paint, "fills"));
+  }
+  if (record["text"] !== undefined) {
+    if (typeof record["text"] !== "string") invalid("Initial text must be a string");
+    operation.text = record["text"] as string;
+  }
+  const family = readString(record["font_family"]);
+  const style = readString(record["font_style"]);
+  if ((family === undefined) !== (style === undefined))
+    invalid("Initial fonts require both family and style");
+  if (nodeType !== "TEXT" && (operation.text !== undefined || family !== undefined))
+    invalid("Only TEXT nodes accept initial text or fonts");
+  if (family !== undefined && style !== undefined) {
+    operation.font_family = family;
+    operation.font_style = style;
+  }
   const x = readNumber(record["x"]);
   if (x !== undefined) {
     operation.x = x;

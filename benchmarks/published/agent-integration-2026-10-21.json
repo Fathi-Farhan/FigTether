@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-21T11:10:54.901Z",
+  "kind": "read-only source and protocol analysis; no production integration changes",
+  "source_sha256": {
+    "crates/mcp/src/tools.rs": "a6e9b5005fb6a8af7bae4698ebba0ce0eed236e2938e273c2b5ac59f313e079c",
+    "crates/mcp/src/tools_write.rs": "affb8d84e3e3557451902aff8ba89de508c43ba0af6e2f64e3a29bd583465573",
+    "crates/mcp/src/result.rs": "30a10d9614faf71d3f8eba9c892947bee82894b53dc657c5a9ede5b6580d114e",
+    "crates/cli/src/commands/config.rs": "df743fb0eaa4e36295308ab11cb855cad9ba386bc6cceb6a86fbdf98ea4bc288",
+    ".agents/skills/figtether-design/SKILL.md": "490e4a20d3d287f0e270c635828073aa336ff3208d45fd7ce0b5e63fece0c911",
+    "docs/agent-workflow.md": "17d36f3dbda68631002ce15af215f1db78d248973acc70b93dca80b6ddbf8fec"
+  },
+  "observed": {
+    "mcp_server_instructions_present": true,
+    "instruction_characters": 1841,
+    "tool_count": 15,
+    "write_tools": ["apply_write", "get_write_approval", "preview_write"],
+    "server_advertises": ["tools"],
+    "config_client_variants": ["generic"],
+    "mcp_results": ["text", "structuredContent"],
+    "mcp_image_content_implemented": false,
+    "mcp_resource_delivery_implemented": false,
+    "shared_project_skill": ".agents/skills/figtether-design/SKILL.md",
+    "native_client_versions": {
+      "codex_cli": "0.163.0",
+      "claude_code": "2.1.198",
+      "gemini_cli": null
+    },
+    "gemini_cli_status": "not found on current PATH; user may be using another Gemini host",
+    "docker_status": "not found on current PATH",
+    "client_version_probe_only": true,
+    "current_session_tool_catalog": {
+      "figtether_named_tools": 0,
+      "meaning": "No FigTether-named tool was present in the available catalog at inspection; this does not establish the contents of private host configuration."
+    }
+  },
+  "fresh_protocol_smoke": {
+    "ok": true,
+    "build": {
+      "started_at": "2026-10-21T11:05:27.129Z",
+      "node": "v22.14.0",
+      "os": "win32 10.0.26200 x64",
+      "binary_sha256": "2875959807961fe326cbb80e349fd474c23e92629d5e6b333cc239c363156be4",
+      "harness_sha256": "67a95776dc1a4cb39389ac504cd1562b11d2349b3488b7580e33804827c9b070",
+      "plugin_sha256": "2131c6e8a40742951c3f9cf122dfaa2c58e142d15f732cca41afba5e2ecca583",
+      "ui_sha256": "fe2180c0855273ff62a1ae8eb1cffbffe4cddd70c1c2550eaeb7315683d7dec7"
+    },
+    "kind": "isolated-real-binary-and-MCP-with-simulated-plugin",
+    "pair_json": {
+      "keys": ["secret", "expires_in_seconds"],
+      "expires_in_seconds": 300,
+      "secret_retained": false
+    },
+    "automatic_instructions": true,
+    "write_tools": ["apply_write", "get_write_approval", "preview_write"],
+    "discoverable_granted_roots": ["synthetic:root"],
+    "grant_mode": "write",
+    "calls": [
+      {
+        "method": "initialize",
+        "elapsed_ms": 19.46169999999995
+      },
+      {
+        "method": "tools/list",
+        "elapsed_ms": 1.6241999999999734
+      },
+      {
+        "method": "tools/call",
+        "elapsed_ms": 1.1148000000000025
+      }
+    ],
+    "cost": {
+      "tokens": null,
+      "billed_cost": null,
+      "status": "unmeasured"
+    },
+    "native_figma": false,
+    "local_raw_artifact": {
+      "path": "benchmarks/results/bridge-smoke-2026-10-21T11-05-27-127Z/isolated-mcp.json",
+      "sha256": "c67018272b92c43f9839a6cb339cad140a74e4e1bd9646a0ac57b7c8b4ec9e0f"
+    }
+  },
+  "cost": {
+    "model_calls": 0,
+    "model_tokens": null,
+    "model_cost_usd": null,
+    "status": "no model-backed compatibility run; token and billing metrics unmeasured"
+  },
+  "not_tested": [
+    "Real Codex/Claude/Gemini model task behavior",
+    "Current host config contents and whether their registered executable is this tested build",
+    "Gemini IDE/desktop/other harness behavior",
+    "Vision rendering inside each real harness",
+    "Fresh live Figma mutations",
+    "PentAGI autonomous assessment"
+  ],
+  "interpretation": "Confirmed interface gaps can encourage source exploration; no collected real-host trace proves a particular model ignored the instructions. Protocol success does not prove agent workflow success."
+}

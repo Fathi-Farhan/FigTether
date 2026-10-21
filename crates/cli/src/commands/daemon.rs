@@ -5,11 +5,10 @@
 //!
 //! A port collision is a loud failure: the daemon never moves to another port
 //! on its own, because the plugin reads the port from the manifest. The error
-//! message names `--port` and says that the plugin manifest has to be
-//! regenerated for the new port.
+//! message names the port, the reason, the port to use instead, and the
+//! commands that start the daemon and the plugin on that port.
 
 use std::io::ErrorKind;
-use std::net::{Ipv4Addr, TcpListener};
 
 use figtether_daemon::{DaemonConfig, DaemonError};
 
@@ -19,30 +18,6 @@ use crate::output;
 
 /// Version of the daemon.
 pub const DAEMON_VERSION: &str = figtether_daemon::DAEMON_VERSION;
-
-/// The port is already taken by another process.
-#[derive(Debug)]
-pub struct PortInUse {
-    /// The port that could not be bound.
-    pub port: u16,
-}
-
-impl std::fmt::Display for PortInUse {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "port {} on 127.0.0.1 is already in use by another process.\n\
-The port is never changed silently, because the plugin manifest references it.\n\
-Stop the other process or choose a free port explicitly, then regenerate the plugin manifest for the same port:\n  \
-figtether daemon --port <free-port>\n  \
-figtether manifest --plugin-id \"<plugin-id>\" --port <free-port>\n\
-Then reload the plugin in Figma.",
-            self.port
-        )
-    }
-}
-
-impl std::error::Error for PortInUse {}
 
 /// Run the daemon in the foreground.
 pub fn run(args: DaemonArgs) -> anyhow::Result<CommandOutcome> {
@@ -63,6 +38,9 @@ pub fn run(args: DaemonArgs) -> anyhow::Result<CommandOutcome> {
     }
     output::blank();
     output::note("press Ctrl+C to stop the daemon");
+    output::note(
+        "leave this terminal open; run figtether pair in another terminal to pair the Figma plugin",
+    );
 
     block_on(async move {
         match figtether_daemon::run_until_stopped(config).await {
@@ -71,42 +49,91 @@ pub fn run(args: DaemonArgs) -> anyhow::Result<CommandOutcome> {
                 output::line("the daemon stopped");
                 Ok(CommandOutcome::ok())
             }
+            Err(DaemonError::PortUnavailable {
+                port,
+                problem,
+                suggestion,
+            }) => Err(anyhow::Error::new(DaemonError::PortUnavailable {
+                port,
+                problem,
+                suggestion,
+            })),
             Err(DaemonError::Bind(err)) if err.kind() == ErrorKind::AddrInUse => {
-                Err(anyhow::Error::new(PortInUse { port: args.port }))
+                Err(anyhow::Error::new(port_unavailable(
+                    args.port,
+                    figtether_daemon::port::PortProblem::InUse,
+                )))
             }
             Err(err) => Err(anyhow::anyhow!("the daemon could not start: {err}")),
         }
     })
 }
 
-/// Fail early when the port is already taken.
+/// Fail early when the port cannot be bound.
 ///
 /// The daemon binds the port itself. The check here only makes the failure
 /// message the one the user needs, before the daemon writes any runtime file.
 fn ensure_port_is_free(port: u16) -> anyhow::Result<()> {
-    match TcpListener::bind((Ipv4Addr::LOCALHOST, port)) {
-        Ok(listener) => {
-            drop(listener);
-            Ok(())
-        }
-        Err(err) if err.kind() == ErrorKind::AddrInUse => {
-            Err(anyhow::Error::new(PortInUse { port }))
-        }
-        Err(err) => Err(anyhow::anyhow!(
-            "the bridge port {port} on 127.0.0.1 could not be bound: {err}"
-        )),
+    match figtether_daemon::port::diagnose(port) {
+        None => Ok(()),
+        Some(problem) => Err(anyhow::Error::new(port_unavailable(port, problem))),
+    }
+}
+
+/// The error of a port that cannot be bound.
+///
+/// The error names the port, the reason, and a port that can be bound
+/// instead. The port is never changed on its own, so the message always
+/// carries the commands that move the daemon and the plugin together.
+fn port_unavailable(port: u16, problem: figtether_daemon::port::PortProblem) -> DaemonError {
+    DaemonError::PortUnavailable {
+        port,
+        problem,
+        suggestion: figtether_daemon::port::suggest_free_port(port),
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::net::{Ipv4Addr, TcpListener};
 
     #[test]
     fn the_port_error_names_the_flag_and_the_manifest() {
-        let text = PortInUse { port: 38947 }.to_string();
+        let text = port_unavailable(38947, figtether_daemon::port::PortProblem::InUse).to_string();
         assert!(text.contains("--port"), "{text}");
         assert!(text.contains("manifest"), "{text}");
+    }
+
+    #[test]
+    fn the_port_error_names_a_port_to_use_instead() {
+        let error = port_unavailable(
+            38947,
+            figtether_daemon::port::PortProblem::ReservedByOs {
+                start: 38929,
+                end: 39028,
+            },
+        );
+        let text = error.to_string();
+        assert!(text.contains("38929-39028"), "{text}");
+        match error {
+            DaemonError::PortUnavailable { suggestion, .. } => {
+                assert!(
+                    text.contains(&format!("figtether daemon --port {suggestion}")),
+                    "{text}"
+                );
+            }
+            other => panic!("unexpected error: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn the_port_error_never_asks_for_a_policy_change() {
+        let text = port_unavailable(38947, figtether_daemon::port::PortProblem::InUse)
+            .to_string()
+            .to_lowercase();
+        assert!(!text.contains("firewall"), "{text}");
+        assert!(!text.contains("delete"), "{text}");
     }
 
     #[test]

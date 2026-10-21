@@ -1,0 +1,260 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-10-21T10:58:43.976Z",
+  "subject": "Bridge usability, browser companion, and warning-gated Auto mode",
+  "source": {
+    "head": "fc345d0146eb6a617179e9a3fe6e3d590e6dc00b",
+    "worktree": "modified, uncommitted; HEAD alone does not identify the tested source",
+    "sha256": {
+      "plugins/figma/dist/main.js": "2131c6e8a40742951c3f9cf122dfaa2c58e142d15f732cca41afba5e2ecca583",
+      "plugins/figma/dist/ui.html": "fe2180c0855273ff62a1ae8eb1cffbffe4cddd70c1c2550eaeb7315683d7dec7",
+      "plugins/figma/dist/ui.js": "b7fe8ec1139e86e0889558491540f67f972af6507f0ac80a5209dc91c95dcaf0",
+      "plugins/figma/ui/src/controller.ts": "80fc098f8ab1892bef69b01082b52315eb644fc046a98669cd1695be3a13e237",
+      "plugins/figma/ui/src/dom.ts": "72f7765dad4ea8f58f508e141ea4cf89fb877f7349e35e5edd9b371149e5f0b8",
+      "plugins/figma/ui/styles.css": "027fcc9165b4294b133d7ca64dfa24e077b1211b7343c0fe5d4ba696b6621f7e",
+      "crates/daemon/src/panel.rs": "5e18856d2772c6513c1d67e8474ebaa72168a31c078659dc794f22f7f6e77438",
+      "crates/daemon/src/panel.js": "ea5d3b8b5cdb417988e032c1f6334cfdc01735190fa8fc363865685015ff1168",
+      "crates/daemon/src/panel.html": "b624bf7f5a256a360b232a55559425795f8cfd418e72a078e7fabd37241db90b",
+      "crates/daemon/src/write_path.rs": "1e98403899bf51ed258fef6d1bcb8c9f01904792f87af946fe45532b69a957e4",
+      "scripts/validation/bridge-ux/companion.mjs": "ac28e946c20431b63a92c781adbdd33e9855e7f3e0d7a675dae9afa199c77408",
+      "scripts/validation/bridge-ux/browser.mjs": "8346d7e307d7a725b389e7bae89e8d4ef8b83fcdacc48e8bff6f1980eef249ee",
+      "scripts/validation/bridge-ux/render.mjs": "16d41d547d6671dd0c2a91403ada75b105d2e08f8363a72487a7f85954fcd336",
+      "scripts/validation/bridge-ux/fixture.ts": "3cf22d688f7eea815018f2e515b3b74ee0cd310a32575586991b160882aafaf3",
+      "assets/bridge-ui-sharing.png": "3d8d4855d86bb67d199cb3e5600c9bf05035488f93eb0fe221b6bf3cd9cdf008",
+      "assets/bridge-ui-companion.png": "cb783b8e5a3d1f290971fdf36fd0840eaf08d4c02a2e0774d8c814eeff9cf26b"
+    }
+  },
+  "environment": {
+    "platform": "Windows",
+    "browser": "Chrome/155.0.8059.85",
+    "node": "v22.14.0",
+    "build": "Rust release daemon; built TypeScript plugin; isolated headless Chrome profile"
+  },
+  "verification": {
+    "rust_workspace": {
+      "passed": 637,
+      "failed": 0,
+      "ignored": 1
+    },
+    "plugin": {
+      "files": 40,
+      "passed": 503,
+      "failed": 0
+    },
+    "checks": [
+      "cargo fmt --all",
+      "cargo clippy --locked --workspace --all-targets -- -D warnings",
+      "plugin typecheck",
+      "plugin lint:all",
+      "plugin build",
+      "plugin format:check",
+      "root format:check",
+      "public:check",
+      "git diff --check"
+    ],
+    "controlled_ui": {
+      "kind": "controlled-browser-fixture",
+      "chrome": "Chrome/155.0.8059.85",
+      "observations": [
+        {
+          "name": "named frame is visible",
+          "ok": true
+        },
+        {
+          "name": "sharing confirmed by name",
+          "ok": true
+        },
+        {
+          "name": "clean new plan auto approved",
+          "ok": true
+        },
+        {
+          "name": "warning pauses auto mode",
+          "ok": true
+        },
+        {
+          "name": "activity has no numbered markers",
+          "ok": true
+        },
+        {
+          "name": "activity clear and count agree",
+          "ok": true
+        },
+        {
+          "name": "checkbox focus survives render",
+          "ok": true
+        },
+        {
+          "name": "no horizontal overflow at 320px",
+          "ok": true
+        },
+        {
+          "name": "no horizontal overflow at 440px",
+          "ok": true
+        },
+        {
+          "name": "no horizontal overflow at 740px",
+          "ok": true
+        }
+      ],
+      "limits": [
+        "Synthetic plugin/daemon ports, not a native Figma connection",
+        "Screenshots establish appearance; interaction checks use actual DOM and production controller with test ports",
+        "No real design mutations or approval clicks in Figma"
+      ]
+    },
+    "native_companion": {
+      "kind": "isolated-daemon-and-browser-with-synthetic-plugin",
+      "created_at": "2026-10-21T10:56:23.315Z",
+      "binary_sha256": "2875959807961fe326cbb80e349fd474c23e92629d5e6b333cc239c363156be4",
+      "rows": [
+        {
+          "name": "daemon advertises supported UI features",
+          "ok": true
+        },
+        {
+          "name": "state rejects unauthenticated request",
+          "ok": true
+        },
+        {
+          "name": "cross-origin companion request rejected",
+          "ok": true
+        },
+        {
+          "name": "native control remains inaccessible to browser",
+          "ok": true
+        },
+        {
+          "name": "only the opened session snapshot is exposed",
+          "ok": true
+        },
+        {
+          "name": "protected snapshot sample 1",
+          "ok": true
+        },
+        {
+          "name": "protected snapshot sample 2",
+          "ok": true
+        },
+        {
+          "name": "protected snapshot sample 3",
+          "ok": true
+        },
+        {
+          "name": "protected snapshot sample 4",
+          "ok": true
+        },
+        {
+          "name": "protected snapshot sample 5",
+          "ok": true
+        },
+        {
+          "name": "protected snapshot sample 6",
+          "ok": true
+        },
+        {
+          "name": "protected snapshot sample 7",
+          "ok": true
+        },
+        {
+          "name": "protected snapshot sample 8",
+          "ok": true
+        },
+        {
+          "name": "protected snapshot sample 9",
+          "ok": true
+        },
+        {
+          "name": "protected snapshot sample 10",
+          "ok": true
+        },
+        {
+          "name": "fragment capability removed from browser address",
+          "ok": true
+        },
+        {
+          "name": "named frame rendered in companion",
+          "ok": true
+        },
+        {
+          "name": "browser auto toggle relayed to plugin with epoch",
+          "ok": true
+        },
+        {
+          "name": "warning and paused mode visible in browser",
+          "ok": true
+        },
+        {
+          "name": "manual decision is bound to the displayed plan",
+          "ok": true
+        },
+        {
+          "name": "stop sharing requires separate confirmation",
+          "ok": true
+        },
+        {
+          "name": "reopening invalidates old capability",
+          "ok": true
+        },
+        {
+          "name": "expired companion controls disabled",
+          "ok": true
+        }
+      ],
+      "latency": {
+        "workload": "authorized companion snapshot, synthetic state, local HTTP",
+        "samples": 10,
+        "p50_ms": 1.3132999999999129,
+        "p95_ms": 2.288099999999986
+      },
+      "cost": {
+        "tokens": null,
+        "billed_cost_usd": null,
+        "status": "unmeasured"
+      },
+      "limits": [
+        "Synthetic plugin on a real authenticated WebSocket; no actual Figma editor mutations",
+        "Shared daemon/session not restarted or revoked",
+        "Browser controls and HTTP security tested separately from native Figma openExternal click"
+      ]
+    }
+  },
+  "prior_failures_retained": [
+    "Plugin format check reported eight existing formatting mismatches; mechanically formatted and final check passed.",
+    "First full workspace compile found an unhandled UiControl message in the simulated e2e daemon; fixed with an explicit no-op arm.",
+    "Clippy found an unnecessary lifetime on capability; fixed.",
+    "Initial isolated browser capture omitted CSS and icon because the fixture matched the wrong stylesheet name; rejected as visual evidence and corrected.",
+    "Initial controller/contract checks required updates for the extended message enum and preserved feature negotiation; final plugin suite passes."
+  ],
+  "cost": {
+    "model_tokens": null,
+    "billed_usd": null,
+    "status": "unmeasured; not zero",
+    "browser_and_daemon_test_calls": "local; no paid model API invoked by the validation scripts"
+  },
+  "reproduction": {
+    "prerequisites": "Node 22.14+, built plugin, release CLI, locally installed Chrome; run from repository root",
+    "windows_commands": [
+      "cargo test --locked --workspace",
+      "cargo clippy --locked --workspace --all-targets -- -D warnings",
+      "npm --prefix plugins/figma run typecheck",
+      "npm --prefix plugins/figma run lint:all",
+      "npm --prefix plugins/figma test",
+      "npm --prefix plugins/figma run build",
+      "cargo build --locked --release -p figtether-cli",
+      "$env:FIGTETHER_TEST_BINARY='target/release/figtether.exe'",
+      "node scripts/validation/bridge-ux/companion.mjs",
+      "node scripts/validation/bridge-ux/render.mjs"
+    ],
+    "notes": "Set FIGTETHER_TEST_BINARY for a custom Cargo target directory, and CHROME_BINARY for another Chrome location. Results use an isolated runtime/port and do not use the shared Figma daemon."
+  },
+  "limitations": [
+    "Native Figma plugin was closed in the fresh before capture; this revision did not reopen it or click real approvals.",
+    "Native Figma openExternal launch, actual two-monitor dragging, and editor mutation are untested in this revision.",
+    "Synthetic plugin evidence does not establish full Figma compatibility; previous live editor reports remain separate.",
+    "Snapshot timings measure ten authenticated local HTTP reads of synthetic state, not design reads, exports, model inference, or end-to-end agent latency.",
+    "No competitor comparison, confidence interval, usability study, screen-reader pass, or accessibility certification.",
+    "Agent frame naming does not enforce per-agent access isolation.",
+    "Closing the companion does not disable Auto or stop sharing."
+  ]
+}

@@ -1,13 +1,21 @@
 {
-  "name": "FigTether Bridge",
-  "id": "figtether-dev",
   "api": "1.0.0",
-  "main": "dist/main.js",
-  "ui": "dist/ui.html",
-  "editorType": ["figma"],
   "documentAccess": "dynamic-page",
+  "editorType": [
+    "figma"
+  ],
+  "id": "figtether-dev",
+  "main": "dist/main.js",
+  "name": "FigTether Bridge",
   "networkAccess": {
-    "allowedDomains": ["http://127.0.0.1"],
-    "reason": "The plugin talks to the FigTether daemon on the local loopback interface only. No request ever leaves this machine, and no wildcard domain is reachable from the plugin."
-  }
+    "allowedDomains": [
+      "none"
+    ],
+    "devAllowedDomains": [
+      "http://localhost:38947",
+      "ws://localhost:38947"
+    ],
+    "reasoning": "FigTether contacts no remote service. The plugin talks to the local daemon on 127.0.0.1:38947 only."
+  },
+  "ui": "dist/ui.html"
 }

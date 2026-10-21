@@ -1,5 +1,9 @@
 # Personas and Journeys
 
+> **Design reference.** Original requirements and approval labels below are historical design
+> records, not a feature-availability list. See [current documentation status](../documentation-status.md)
+> for implemented reads/writes, observed desktop evidence, and remaining gaps.
+
 Status: `Proposed`
 
 This document registers the six personas exactly as the PRD fixes them in section 4.2, extended with one capabilities column so that docs, tests, and UI derive role behavior from a single inventory. It then walks four journeys in which product behavior is normative and observable: first onboarding (PRD 5.1 under the N10 budget), the daily agent loop (PRD 8.5.1), the designer control loop (PRD 5.3, FR15, N07), and the maintainer failure reproduction (FR18, R13). It closes with the failure moments an agent meets in the daily loop and the recovery the product must express (PRD 8.7). Every number in this file is a target, never a result, because G0 has not run (PRD 2.1).

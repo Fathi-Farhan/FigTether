@@ -1,0 +1,390 @@
+{
+  "schema_version": 1,
+  "kind": "ci-workflow-review",
+  "review_date": "2026-10-21",
+  "source": {
+    "commit": "fc345d0146eb6a617179e9a3fe6e3d590e6dc00b",
+    "working_tree_dirty": true,
+    "files": [
+      {
+        "file": ".github/workflows/ci.yml",
+        "sha256": "295c5a1e3ad34f0e285a0ba9881f9a1861c530db90be13adf39d0d906f9ade91"
+      },
+      {
+        "file": ".github/workflows/release.yml",
+        "sha256": "8f257333db676bbcf3a02ea5c5884f5a64fa15c81233a8fbd504a43e7a0d8448"
+      },
+      {
+        "file": "scripts/ci-gate.mjs",
+        "sha256": "ed863287c496a51396ae58b70b45191db606da8eb17f28f67b8c18a2fd3a75f1"
+      },
+      {
+        "file": "scripts/ci-gate.test.mjs",
+        "sha256": "3b7406b0cd689e0c9de8b286b8b8338e21638a6e3c452aaf23cb5ebc8d4a9c4a"
+      },
+      {
+        "file": "scripts/schema-check.sh",
+        "sha256": "79e570be689f646eff8398ad569f7a1dff15be5a87f45cef2cad3fe15f1da334"
+      },
+      {
+        "file": "scripts/schema-check.ps1",
+        "sha256": "8fd8058a2a5caf3581e12cda20d1ff9e472642cb58d4d8865f103aabc6aabd19"
+      },
+      {
+        "file": "scripts/schema-check.test.mjs",
+        "sha256": "5616c364fb5e9046d26693f3e02ab62790780e3dce655a297577a881dcab1cf8"
+      },
+      {
+        "file": "package.json",
+        "sha256": "111a94633e1ed0f888087d23e1eaadb18881239a488272ce422ffce069b8f671"
+      },
+      {
+        "file": "Cargo.lock",
+        "sha256": "249dff3d86444ecfa577a8c3afcff08e2ef9757efdc6eef31081d4d22f123203"
+      },
+      {
+        "file": "package-lock.json",
+        "sha256": "9263cc94b825b0db4018f622bad0a3ca42d1270cc64cd51470ea8654798278a1"
+      },
+      {
+        "file": "plugins/figma/package-lock.json",
+        "sha256": "c8ff4efdbc6b701df26d38a46da49b98f9735f2b5db8f991ced7acf081a9bfa0"
+      },
+      {
+        "file": "plugins/figma/ui/src/sandbox.ts",
+        "sha256": "28b8ee5946b70a3d46735cf9df03ae3972838c8e35945d2a0056416fa990955c"
+      }
+    ]
+  },
+  "environment": {
+    "os": "Windows",
+    "architecture": "x64",
+    "node": "v22.14.0",
+    "rust": "1.95.0",
+    "go": "1.26.4",
+    "actionlint": "1.7.11",
+    "shellcheck": "0.11.0",
+    "cargo_deny": "0.20.2",
+    "cargo_audit": "0.22.2",
+    "cargo_cyclonedx": "0.5.9",
+    "gitleaks": "8.24.3"
+  },
+  "observations": {
+    "rust_tests": {
+      "passed": 608,
+      "failed": 0,
+      "ignored": 1
+    },
+    "plugin_tests": {
+      "passed": 467,
+      "failed": 0
+    },
+    "ci_gate_tests": {
+      "passed": 15,
+      "failed": 0
+    },
+    "design_detector_tests": {
+      "passed": 35,
+      "failed": 0
+    },
+    "publication_tests": {
+      "passed": 5,
+      "failed": 0
+    },
+    "sbom_crates": 9,
+    "required_prerequisite_jobs": 11,
+    "configured_rust_runners": ["ubuntu-latest", "windows-latest", "macos-15-intel", "macos-15"],
+    "clean_checkout_files": 466
+  },
+  "runs": {
+    "rust": [
+      {
+        "id": "rust-fmt",
+        "exit_code": 0,
+        "elapsed_ms": 891.6333999999999,
+        "log": "benchmarks/results/ci-review-2026-10-21/rust-fmt.log",
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "id": "rust-clippy",
+        "exit_code": 0,
+        "elapsed_ms": 13613.5325,
+        "log": "benchmarks/results/ci-review-2026-10-21/rust-clippy.log",
+        "log_sha256": "1206ee611f4c402f015b83911a8369c48b2b04c6ece02b17aca8cd41d7c438e0"
+      },
+      {
+        "id": "rust-test",
+        "exit_code": 0,
+        "elapsed_ms": 62787.9495,
+        "log": "benchmarks/results/ci-review-2026-10-21/rust-test.log",
+        "log_sha256": "4d56b7f7f6da07c233253bafb171a9b4db0bd1b1b830e9642818da8d7f00f8f4"
+      },
+      {
+        "id": "schema-powershell",
+        "exit_code": 0,
+        "elapsed_ms": 1980.0464000000065,
+        "log": "benchmarks/results/ci-review-2026-10-21/schema-powershell.log",
+        "log_sha256": "db1aa7954ee2bfcc74125e029b8b4e2697b9393183fd3984a9ace0ddb72e6b2f"
+      },
+      {
+        "id": "schema-shell",
+        "exit_code": 0,
+        "elapsed_ms": 4134.8735000000015,
+        "log": "benchmarks/results/ci-review-2026-10-21/schema-shell.log",
+        "log_sha256": "42b7f413027ca431e538e5f1ee0bb7ff24d0f60f016ecb0600c49d46337429fc"
+      }
+    ],
+    "initial_plugin": [
+      {
+        "id": "plugin-types",
+        "exit_code": 0,
+        "elapsed_ms": 640.2144000000001,
+        "log": "benchmarks/results/ci-review-2026-10-21/plugin-types.log",
+        "log_sha256": "8d61bda1e217ca5d89af8880874aa068d4e2d10072dc477b1655994d542bcaa2"
+      },
+      {
+        "id": "plugin-typecheck",
+        "exit_code": 0,
+        "elapsed_ms": 5976.6194,
+        "log": "benchmarks/results/ci-review-2026-10-21/plugin-typecheck.log",
+        "log_sha256": "bc66b804d74afbad0685cc91b96605a06bebb8f2524fa0efca9653cde1ce26bb"
+      },
+      {
+        "id": "plugin-lint",
+        "exit_code": 1,
+        "elapsed_ms": 7999.951300000001,
+        "log": "benchmarks/results/ci-review-2026-10-21/plugin-lint.log",
+        "log_sha256": "869502cc0732b117fbf571432152a2726abac1ceeb15fb58545e4e7c3aff6cf8"
+      },
+      {
+        "id": "plugin-build",
+        "exit_code": 0,
+        "elapsed_ms": 758.6144999999997,
+        "log": "benchmarks/results/ci-review-2026-10-21/plugin-build.log",
+        "log_sha256": "b2314d746d4e6deb7574f92915ad9fcef46995954ea28b9e99937fb7731df718"
+      },
+      {
+        "id": "plugin-tests",
+        "exit_code": 0,
+        "elapsed_ms": 6269.943300000001,
+        "log": "benchmarks/results/ci-review-2026-10-21/plugin-tests.log",
+        "log_sha256": "467e55118d5135507c3f1cf943465c304845207c171ff00ab562de4ef4a08ce2"
+      },
+      {
+        "id": "ci-gate-tests",
+        "exit_code": 0,
+        "elapsed_ms": 1205.9734000000026,
+        "log": "benchmarks/results/ci-review-2026-10-21/ci-gate-tests.log",
+        "log_sha256": "11ebb2e2c0d9b7746f513ff6fb09bf00eb7345599941aa0be31c354b7345c938"
+      },
+      {
+        "id": "public-tests",
+        "exit_code": 0,
+        "elapsed_ms": 1162.4292999999998,
+        "log": "benchmarks/results/ci-review-2026-10-21/public-tests.log",
+        "log_sha256": "03acbc52275e62a4c2baba518d27b777a9196f73174af5f5cdb2fd3568301153"
+      },
+      {
+        "id": "design-tests",
+        "exit_code": 0,
+        "elapsed_ms": 973.1314999999995,
+        "log": "benchmarks/results/ci-review-2026-10-21/design-tests.log",
+        "log_sha256": "158a0ccbb030927a1de6138f89f88c6280e2f337853ea6bfa102e8ca7a5fc91c"
+      }
+    ],
+    "security": [
+      {
+        "id": "cargo-deny",
+        "exit_code": 0,
+        "elapsed_ms": 15136.217499999999,
+        "log": "benchmarks/results/ci-review-2026-10-21/cargo-deny.log",
+        "log_sha256": "f5aadf108c6b2646a9601ad8d38d3d186aeb130b902b872d5ebadcf52ce6c90e"
+      },
+      {
+        "id": "cargo-audit",
+        "exit_code": 0,
+        "elapsed_ms": 5607.529500000002,
+        "log": "benchmarks/results/ci-review-2026-10-21/cargo-audit.log",
+        "log_sha256": "af2f368637d212c5a0b035aa30d802f33c52a5de1e643deec476e1192debdd76"
+      },
+      {
+        "id": "sbom",
+        "exit_code": 0,
+        "elapsed_ms": 994.5956000000006,
+        "log": "benchmarks/results/ci-review-2026-10-21/sbom.log",
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "id": "secret-history",
+        "exit_code": 0,
+        "elapsed_ms": 2163.6654000000017,
+        "log": "benchmarks/results/ci-review-2026-10-21/secret-history.log",
+        "log_sha256": "72368c219ab50cd8083bd68c4e898533a6d0cffbf332b45b7b002cfd1b2e989f"
+      }
+    ],
+    "clean_checkout": [
+      {
+        "id": "clean-root-install",
+        "exit_code": 0,
+        "elapsed_ms": 2431.6454,
+        "log": "benchmarks/results/ci-review-2026-10-21/clean-root-install.log",
+        "log_sha256": "0823c1f0dc1e9af216fb479bc6bd45f8fb7de108a2c447a85eda77af9151eae3"
+      },
+      {
+        "id": "clean-plugin-install",
+        "exit_code": 0,
+        "elapsed_ms": 10017.1306,
+        "log": "benchmarks/results/ci-review-2026-10-21/clean-plugin-install.log",
+        "log_sha256": "a45d79cc7cb1fc146a37fb9d44452bde45f1b9d490f5636d5ab27deffe79ccac"
+      },
+      {
+        "id": "clean-plugin-types",
+        "exit_code": 0,
+        "elapsed_ms": 1697.9243000000006,
+        "log": "benchmarks/results/ci-review-2026-10-21/clean-plugin-types.log",
+        "log_sha256": "8d61bda1e217ca5d89af8880874aa068d4e2d10072dc477b1655994d542bcaa2"
+      },
+      {
+        "id": "clean-plugin-typecheck",
+        "exit_code": 0,
+        "elapsed_ms": 7197.033300000001,
+        "log": "benchmarks/results/ci-review-2026-10-21/clean-plugin-typecheck.log",
+        "log_sha256": "bc66b804d74afbad0685cc91b96605a06bebb8f2524fa0efca9653cde1ce26bb"
+      },
+      {
+        "id": "clean-plugin-lint",
+        "exit_code": 0,
+        "elapsed_ms": 6199.589899999999,
+        "log": "benchmarks/results/ci-review-2026-10-21/clean-plugin-lint.log",
+        "log_sha256": "aa2e615be199ba367678c70c4a8a69a57519e5cc6a121d509309d4ca346c2bc8"
+      },
+      {
+        "id": "clean-plugin-build",
+        "exit_code": 0,
+        "elapsed_ms": 792.6972000000023,
+        "log": "benchmarks/results/ci-review-2026-10-21/clean-plugin-build.log",
+        "log_sha256": "b2314d746d4e6deb7574f92915ad9fcef46995954ea28b9e99937fb7731df718"
+      },
+      {
+        "id": "clean-plugin-tests",
+        "exit_code": 0,
+        "elapsed_ms": 4250.990700000002,
+        "log": "benchmarks/results/ci-review-2026-10-21/clean-plugin-tests.log",
+        "log_sha256": "42e59225c8f9cd658913bced2e2e98f2fde33433abc8599496a3988244742ccd"
+      },
+      {
+        "id": "clean-ci-tests",
+        "exit_code": 0,
+        "elapsed_ms": 2600.8842000000004,
+        "log": "benchmarks/results/ci-review-2026-10-21/clean-ci-tests.log",
+        "log_sha256": "724822a5f1f84a5e9a86f358bde2b04a247235ac0e7c2305c88c4f039af350cc"
+      },
+      {
+        "id": "clean-public-check",
+        "exit_code": 0,
+        "elapsed_ms": 1486.1180000000022,
+        "log": "benchmarks/results/ci-review-2026-10-21/clean-public-check.log",
+        "log_sha256": "36d84cd9ba29f9bfd73175797407abff4a573052f7d8277648920ae3eb5783f1"
+      },
+      {
+        "id": "clean-em-dash",
+        "exit_code": 0,
+        "elapsed_ms": 925.5685000000012,
+        "log": "benchmarks/results/ci-review-2026-10-21/clean-em-dash.log",
+        "log_sha256": "6ede62d52d1ea431be408854e26218bdcd42ed031950a4a54aace762df54530e"
+      }
+    ],
+    "extra": [
+      {
+        "id": "workflow-lint",
+        "exit_code": 0,
+        "expected_exit_code": 0,
+        "passed": true,
+        "elapsed_ms": 369.7854,
+        "log": "benchmarks/results/ci-review-2026-10-21/workflow-lint.log"
+      },
+      {
+        "id": "schema-shell-lint",
+        "exit_code": 0,
+        "expected_exit_code": 0,
+        "passed": true,
+        "elapsed_ms": 102.10870000000006,
+        "log": "benchmarks/results/ci-review-2026-10-21/schema-shell-lint.log"
+      },
+      {
+        "id": "missing-generator-powershell",
+        "exit_code": 1,
+        "expected_exit_code": 1,
+        "passed": true,
+        "elapsed_ms": 446.95039999999995,
+        "log": "benchmarks/results/ci-review-2026-10-21/missing-generator-powershell.log"
+      },
+      {
+        "id": "diff-whitespace",
+        "exit_code": 0,
+        "expected_exit_code": 0,
+        "passed": true,
+        "elapsed_ms": 188.51059999999995,
+        "log": "benchmarks/results/ci-review-2026-10-21/diff-whitespace.log"
+      }
+    ]
+  },
+  "npm_audits": [
+    {
+      "scope": "root",
+      "exit_code": 0,
+      "vulnerabilities": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      }
+    },
+    {
+      "scope": "plugin",
+      "exit_code": 0,
+      "vulnerabilities": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      }
+    }
+  ],
+  "retained_draft_findings": [
+    {
+      "area": "plugin lint",
+      "result": "failed before correction",
+      "diagnostic": "eqeqeq at sandbox top-window null check",
+      "resolution": "Explicit null and undefined checks; clean-checkout lint and all plugin tests passed."
+    },
+    {
+      "area": "schema regression-test fixture",
+      "result": "Initial Windows harness draft: 11 passed, 4 failed",
+      "diagnostic": "Windows drive-letter PATH prevented the fixture cargo shim from being selected.",
+      "resolution": "Resolve POSIX fixture path before modifying PATH; all 15 CI tests passed in the clean checkout."
+    },
+    {
+      "area": "workflow shell lint",
+      "result": "SC2129 in release workflow",
+      "resolution": "Group related GITHUB_OUTPUT writes; complete actionlint and shellcheck passed."
+    }
+  ],
+  "limitations": [
+    "Hosted GitHub Actions was not run; no Git remote is configured.",
+    "Linux and macOS execution is configured but not locally verified.",
+    "Branch protection/rulesets were not changed or inspected.",
+    "One real-Figma acceptance test remains explicitly ignored.",
+    "Local timings include an uncontrolled host and concurrent validation; not a benchmark regression threshold."
+  ],
+  "cost": {
+    "github_actions_minutes": null,
+    "model_tokens": null,
+    "billed_cost": null,
+    "status": "unmeasured"
+  }
+}

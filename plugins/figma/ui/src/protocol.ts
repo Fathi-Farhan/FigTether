@@ -7,7 +7,7 @@
  * payloads of the messages that the two sides exchange on that channel.
  */
 
-import { BRIDGE_CHANNEL, INBOUND_MESSAGE_KINDS } from "@figtether/shared";
+import { BRIDGE_CHANNEL, INBOUND_MESSAGE_KINDS, LOCAL_BRIDGE_PORT } from "@figtether/shared";
 import type {
   BridgeFrame,
   CapabilityMap,
@@ -99,6 +99,7 @@ export interface UiError {
  * the capabilities of the session.
  */
 export interface AuthAcceptedPayload {
+  readonly ui_features?: readonly string[];
   readonly session_credential: string;
   readonly session_id: string;
   readonly connection_epoch: number;
@@ -108,7 +109,7 @@ export interface AuthAcceptedPayload {
 }
 
 /** Loopback bridge endpoint owned by the daemon. */
-export const BRIDGE_URL = "ws://127.0.0.1:38947/bridge";
+export const BRIDGE_URL = `ws://localhost:${LOCAL_BRIDGE_PORT}/bridge`;
 
 /**
  * Channel of the postMessage bridge between the UI and the main sandbox.
@@ -150,6 +151,7 @@ export type UiInboundType = (typeof UI_INBOUND_TYPES)[number];
 
 /** A candidate root of the current selection. */
 export interface CandidateRoot {
+  readonly name?: string;
   readonly node_id: string;
   readonly node_type: string;
   readonly child_count: number | null;

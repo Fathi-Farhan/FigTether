@@ -74,6 +74,13 @@ pub enum ClientRequest {
         /// Tool parameters.
         params: serde_json::Value,
     },
+    /// Retrieve a bounded image produced under the current grant.
+    GetAsset {
+        /// Correlation id.
+        request_id: String,
+        /// Session and opaque asset id.
+        params: serde_json::Value,
+    },
     /// Read the current selection.
     GetSelection {
         /// Correlation id.

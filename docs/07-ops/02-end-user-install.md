@@ -1,16 +1,24 @@
 # End User Installation Guide
 
+> **Design reference.** Original requirements and approval labels below are historical design
+> records, not a feature-availability list. See [current documentation status](../documentation-status.md)
+> for implemented reads/writes, observed desktop evidence, and remaining gaps.
+
 Status: `Proposed`
 
 > **Planned distribution guide.** There are no public binaries or Community plugin releases yet.
-> For commands that work with the current source checkout, use the [quickstart](../quickstart.md).
+> For installation and first-use commands that work with the current source checkout, use the
+> [README tutorial](../../README.md#build-and-connect) or [quickstart](../quickstart.md).
+> Cargo can install a locally built `figtether.exe`; npm builds the Figma plugin. There is no
+> published FigTether CLI package for npm, npx, or pnpm.
 > Archive names and release instructions below describe a future distribution, not a download available today.
 
 This document is the end-user quickstart for FigTether v0.1, following PRD section 5.1 step by
 step, then the post-install controls, an error cheat sheet, upgrade and rollback pointers, and the
-privacy wording. Gate `G0` has not run, so the `figtether` commands below are the **proposed CLI
-surface**; distribution itself begins at `G2` (FR01), and this guide is the quickstart deliverable
-of the v0.1 Definition of Done (PRD 8.10.2).
+privacy wording. The release sequence below remains a historical proposal. The CLI now exists
+and has limited desktop evidence, but public distribution remains planned for `G2` (FR01).
+This document is the proposed release quickstart deliverable of the v0.1 Definition of Done
+(PRD 8.10.2); it is not the current source-install tutorial.
 
 ## 1. Quickstart (PRD 5.1, exactly eight steps)
 
@@ -63,6 +71,24 @@ figtether daemon --port 38948
 
 After any port override, regenerate the manifest (Step 5) so the plugin targets the same port.
 
+On Windows the port can also be unusable without any process on it: the operating system reserves
+port ranges for the hypervisor (Hyper-V, WSL, Docker Desktop) and re-reserves them at every boot.
+The daemon then reports error 10013. The doctor names the reserved range and the free port to use:
+
+```sh
+figtether doctor
+```
+
+Let the CLI pick that port and write it into the manifest (Step 5):
+
+```sh
+figtether manifest generate --plugin-id "<your-plugin-id>" --port auto
+```
+
+The command prints the matching `figtether daemon --port <port>` command, because the plugin
+manifest and the daemon have to agree on the port. Do not delete Windows port reservations or
+disable a firewall to work around the error.
+
 ### Step 5: generate or import the development manifest
 
 ```sh
@@ -71,7 +97,7 @@ figtether manifest generate --plugin-id "<your-plugin-id>"
 
 Use your own plugin id. The release bundle already contains the prebuilt UI and adapter binary; you
 point a development manifest at them. On a port change, rerun this command with the new
-`--port`.
+`--port`, or with `--port auto` to let the CLI pick a free port.
 
 ### Step 6: open the plugin and pair
 

@@ -1,7 +1,11 @@
 # Benchmarks
 
-FigTether has **offline Rust-core benchmarks**, not a validated live-editor performance claim.
-They use the real `figtether-core` scheduler, cache, normalizer, and asset store with synthetic
+FigTether has **offline Rust-core benchmarks** and a limited
+[Figma Desktop website test](published/desktop-2026-10-20.md). The desktop test includes raw
+per-call measurements, earlier-build failures and a corrected-build comparison; it is not a
+general live-editor performance claim. [Repeat it for each version](desktop-testing.md).
+
+The offline benchmarks below use the real `figtether-core` scheduler, cache, normalizer, and asset store with synthetic
 data. They do not start Figma or a model provider.
 
 ## Read the README chart

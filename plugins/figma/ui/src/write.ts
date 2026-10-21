@@ -61,6 +61,8 @@ export interface WriteOperationCount {
 
 /** The preview of a plan, as the user interface shows it. */
 export interface WritePreviewView {
+  /** True only when all safety fields are explicitly present and warning-free. */
+  readonly autoApprovalSafe?: boolean;
   /** Id of the plan, minted by the agent. */
   readonly planId: string;
   /** Hash of the plan, the token of the approval. */
@@ -105,6 +107,7 @@ export interface WriteResultView {
 
 /** The decision the user takes about a plan. */
 export interface ApprovalDecision {
+  readonly automatic?: boolean;
   /** The approval the decision answers. */
   readonly approval_id: string;
   /** The hash of the plan the user was shown. */
@@ -163,6 +166,18 @@ export function readWritePreview(
   const intent = context.intent ?? readString(source["intent"]);
   return {
     planId: readString(source["plan_id"]) ?? "",
+    autoApprovalSafe:
+      source["blocked"] === false &&
+      Array.isArray(source["warnings"]) &&
+      source["warnings"].length === 0 &&
+      (source["reasons"] === undefined ||
+        (Array.isArray(source["reasons"]) && source["reasons"].length === 0)) &&
+      Array.isArray(source["removed"]) &&
+      source["removed"].length === 0 &&
+      typeof source["plan_hash"] === "string" &&
+      source["plan_hash"].length > 0 &&
+      typeof source["operations_count"] === "number" &&
+      source["operations_count"] > 0,
     planHash,
     fingerprint: shortFingerprint(planHash),
     approvalId: readString(source["approval_id"]),
