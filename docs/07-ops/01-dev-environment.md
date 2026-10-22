@@ -104,67 +104,54 @@ npm run format:check
 
 `docs/README.md` change management expects `format:check` to pass on every docs PR.
 
-## 4. Manifest generation workflow (proposed)
+## 4. Prepare the plugin contract
 
-Development manifests with a user-owned plugin id are the distribution mode for v0.1 per FR01 and
-`D11` (Community publication is deferred). The proposed command shape:
+The current source startup command generates the local manifest, builds the matching plugin,
+starts or reuses the daemon, and prints a pairing secret in the same terminal:
 
 ```sh
-figtether manifest generate --plugin-id "<your-plugin-id>" --port 38947
+figtether start --plugin-id YOUR_PLUGIN_ID
 ```
 
-Rules binding this workflow:
+For later starts use figtether start. Import plugins/figma/dist/manifest.json into Figma;
+manifest.local.json is only the build input. The manifest supplies both plugin identity and
+port to the build. A standalone executable does not include the plugin source or dependencies.
 
-1. The generated development manifest allows only loopback addresses and the needed port,
-   `documentAccess: dynamic-page`, and `editorType: ["figma"]` per PRD 8.6.1.
-2. Regenerate the manifest whenever the daemon port changes. PRD 5.1 step 3 makes this explicit:
-   a port collision must be resolved by choosing an explicit port **and** regenerating the manifest,
-   never by silently changing ports under the old manifest.
-3. The release bundle ships the prebuilt UI and adapter; contributors building from source use the
-   same manifest flow with their own plugin id.
-
-## 5. Running the stack locally
-
-Full local run, in order. All commands are the proposed surface:
+For explicit lower-level generation:
 
 ```sh
-figtether doctor
-figtether daemon
-figtether daemon --port 38948
-figtether mcp --stdio
+figtether manifest --plugin-id YOUR_PLUGIN_ID --port auto --out plugins/figma/manifest.local.json
+npm --prefix plugins/figma run build
+```
+
+Auto preserves a verified daemon agreement or a bindable existing manifest; it does not move an
+agreed port for convenience. An explicit port change needs a rebuild, reimport and plugin reload.
+See the [startup review](../bridge-startup-review.md) for discovery, locking and BOM safeguards.
+
+## 5. Run and diagnose locally
+
+Keep the startup terminal open. After importing/opening the plugin, paste its secret, share
+frames and enable editing if required. Configure the host with the [agent setup guide](../agent-setup.md).
+Run these diagnostics from another terminal as needed:
+
+```sh
 figtether status
+figtether doctor
+figtether setup --client codex --check --json
 ```
 
-Expected behavior:
+Select the setup profile for the host actually installed. The adapter is started by that host
+with mcp --stdio; stdout belongs to the MCP protocol. Use figtether stop for graceful shutdown.
 
-| Step                            | Expected local behavior                                                            | Checks performed                                                                                                                |
-| ------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `figtether doctor`              | Sanitized report, exit 0 when healthy                                              | Versions, runtime directory ACL, bound port, manifest presence and port match, pairing and session state, detected capabilities |
-| `figtether daemon`              | Binds `127.0.0.1:38947` (project default, loopback only), waits for plugin pairing | Nothing serves before authentication                                                                                            |
-| `figtether daemon --port 38948` | Override example; requires manifest regeneration afterwards                        | Fails loudly on collision with `--port` guidance; never silently falls back                                                     |
-| `figtether mcp --stdio`         | MCP lifecycle over stdio; stdout carries protocol only                             | Handshake against the pinned rmcp version per `D08`                                                                             |
-| `figtether status`              | Session, grant, queue state summary                                                | Matches plugin UI status                                                                                                        |
+## 6. Troubleshooting and remaining validation
 
-`doctor` output is sanitized per FR18: versions, resource counts, and state, but never design
-content, layer names, file ids, or credentials.
+Follow [Support](../../SUPPORT.md), the [quickstart](../quickstart.md) and the
+[feature/error matrix](../06-testing/end-user-feature-review.md). A manifest-named port failure
+requires an explicit contract change, not an independent daemon fallback. On Windows, doctor
+can distinguish a listening process from an excluded hypervisor port range.
 
-## 6. Troubleshooting
-
-| Symptom                                              | Likely cause                                                                              | Recovery                                                                                                                                                                                          |
-| ---------------------------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `BIND_FAILED` style report; daemon exits on startup  | Port `38947` taken by another process                                                     | Identify the owner only through what the OS reveals without privilege elevation; either stop it or run `figtether daemon --port <other>` and regenerate the manifest for the new port per PRD 8.7 |
-| Daemon fails with runtime directory permission error | ACL/POSIX permissions on the runtime directory are too permissive or unusable             | Fix ownership to the current user; doctor re-checks ACLs and must fail closed when the directory is inadequate per PRD 8.6.2                                                                      |
-| Plugin never connects                                | Manifest absent, stale port, plugin not running, or wrong build deployed to Figma Desktop | Rerun `figtether doctor`, regenerate the manifest on a port mismatch, redeploy the plugin build, and re-pair                                                                                      |
-| `UNSUPPORTED_SCHEMA` or `PROTOCOL_MISMATCH` in reads | Plugin, daemon, or MCP client on incompatible versions                                    | Rerun `figtether doctor`; it prints known-compatible versions. Align plugin bundle and daemon to the same release before continuing                                                               |
-
-If a local runtime violation involves authentication or scope, stop and read
-`docs/05-security/01-threat-model.md` before investigating further; scope bugs are release blockers
-per `R05`.
-
-## 7. Open questions
-
-1. Exact output format of `figtether doctor` (machine-readable section names) is to be fixed with
-   the `E01` CLI ADR.
-2. Whether plugin tooling is a workspace member of the root package or a nested package; affects
-   the TypeScript script names above.
-3. MSRV value and rmcp pin land only from `D08` and `ADR-003` at `G0`; this doc records them there.
+Run doctor for BOM, missing-bundle, id/port mismatch and stale Figma import diagnostics. Reimport
+the built file named manifest.json and reopen the plugin after a contract change. Reloads can
+clear pairing, sharing and Auto; only the user restores those controls. Windows runtime permission
+checking remains best-effort. Unit tests do not establish owner-only DACLs or cross-platform
+editor support. See [implementation status](../10-implementation/01-implementation-status.md).

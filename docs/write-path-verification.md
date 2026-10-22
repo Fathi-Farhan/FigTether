@@ -18,7 +18,9 @@ Rust MCP adapter and daemon; mutations execute in the Figma plugin sandbox.
 The supported plan operations are `create_node`, `insert_child`, `set_properties`,
 `set_text`, `set_fills`, `move_node`, and `delete_node`. Creation covers `FRAME`, `TEXT`,
 `RECTANGLE`, `COMPONENT`, `VECTOR`, `SECTION`, `LINE`, `ELLIPSE`, and `GROUP`, subject to
-available editor APIs. A group requires children; it is not an empty-frame substitute.
+available editor APIs. GROUP remains in the allowlist, but the current Rust MCP operation shape
+does not carry its required child IDs; use a FRAME container. Sandbox-only grouping tests are
+not evidence that agents can complete grouping through MCP.
 Vector node creation does not imply unrestricted access to every vector property.
 The property allowlist and editor capability checks constrain what a plan can do.
 
@@ -33,7 +35,8 @@ decisions and plan contents.
 1. The user selects and grants a root, then enables the separate write grant in the plugin.
 2. The agent sends a plan through `preview_write`.
 3. Rust validates the plan; the plugin resolves it against the document without applying it.
-4. The user reviews the exact preview and approves or rejects it in the plugin.
+4. The user reviews the exact preview, or explicitly user-enabled Auto approves an eligible
+   new warning-free plan. The agent never enables Auto or approves for the user.
 5. The agent calls `get_write_approval` to obtain the approved plan's authorization token.
 6. The agent calls `apply_write` with the same plan. Rust checks authorization before dispatch.
 7. The plugin applies native operations and returns created/changed node IDs and results.
@@ -67,8 +70,11 @@ retains command durations, 20 passing Rust write-path tests, 467 passing plugin 
 the initial stale-copy assertion failure, type checks, artifact hashes, native UI evidence,
 and unmeasured cost status. It is separate from the earlier desktop latency benchmark.
 
-The source build remains experimental. `get_selection` and `inspect_design` still failed in
-the final desktop controls. The historical **Proposed** label in `ADR-013` records the
+The [22 October feature review](06-testing/end-user-feature-review.md) records subsequent
+successful native selection/inspection, Auto-approved writes, gradients, a new editable
+Studio Notes design, structured oversize errors, and remaining FILL verification. The earlier
+failed calls remain in the dated desktop report. The source build remains experimental.
+The historical **Proposed** label in `ADR-013` records the
 original release decision; it does not mean the write code or observed design creation is
 absent. This verification does not change the ADR's formal release approval status.
 

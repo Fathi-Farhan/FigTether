@@ -347,6 +347,11 @@ async fn start(
     config: DaemonConfig,
 ) -> Result<(DaemonHandle, tokio::task::JoinHandle<()>), DaemonError> {
     let runtime_dir = RuntimeDir::resolve(config.runtime_dir()).map_err(DaemonError::Runtime)?;
+    let runtime_lock = runtime_dir.lock().map_err(DaemonError::Runtime)?;
+    // Bind before publishing credentials. A failed or competing startup must
+    // leave the existing descriptor intact; a probe alone cannot reserve a port.
+    let listener = server::bind_listener(config.port()).await?;
+    let addr: SocketAddr = listener.local_addr().map_err(DaemonError::Bind)?;
 
     let credential = Secret::generate();
     let installation_id = Uuid::new_v4();
@@ -389,9 +394,6 @@ async fn start(
         credential,
     ));
 
-    let listener = server::bind_listener(config.port()).await?;
-    let addr: SocketAddr = listener.local_addr().map_err(DaemonError::Bind)?;
-
     let handle = DaemonHandle {
         instance_id: config.instance_id(),
         installation_id,
@@ -431,6 +433,7 @@ async fn start(
         .with_graceful_shutdown(stop_signal)
         .await;
         graceful_shutdown(&server_state, &server_runtime);
+        drop(runtime_lock);
         server_state.stopped_tx.send_replace(true);
         if let Err(err) = result {
             tracing::error!(

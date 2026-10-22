@@ -42,11 +42,18 @@ export function readableActivity(line: string): string {
     pause: "Sharing paused",
     resume: "Sharing resumed",
   };
-  return `${match[1]}  ${labels[match[2] ?? ""] ?? "Activity"}${match[3] ? ` · ${match[3]} items` : ""}${match[4] ? ` · ${match[4]} ms` : ""}${match[5] ? ` · ${match[5]}` : ""}`;
+  const label =
+    match[2] === "pair" && match[5]
+      ? "Bridge connection failed"
+      : (labels[match[2] ?? ""] ?? "Activity");
+  return `${match[1]}  ${label}${match[3] ? ` · ${match[3]} items` : ""}${match[4] ? ` · ${match[4]} ms` : ""}${match[5] ? ` · ${match[5]}` : ""}`;
 }
 
 /** The elements the user interface renders into. */
 export interface UiElements {
+  readonly operationError: HTMLElement;
+  readonly externalPanelFeedback: HTMLElement;
+  readonly externalPanelLink: HTMLAnchorElement;
   readonly nextStep: HTMLElement;
   readonly pairDetails: HTMLDetailsElement;
   readonly selectionSummary: HTMLElement;
@@ -65,6 +72,11 @@ export interface UiElements {
   readonly secretInput: HTMLInputElement;
   readonly pairButton: HTMLButtonElement;
   readonly pairError: HTMLElement;
+  readonly connectionRecovery: HTMLElement;
+  readonly recoveryDetail: HTMLElement;
+  readonly recoveryManifest: HTMLInputElement;
+  readonly copyManifestPath: HTMLButtonElement;
+  readonly copyManifestFeedback: HTMLElement;
   readonly pairFeedback: HTMLElement;
   readonly grantEmpty: HTMLElement;
   readonly candidateList: HTMLElement;
@@ -146,6 +158,9 @@ function requireElement<T extends HTMLElement>(doc: Document, id: string): T {
 export function collectElements(doc: Document): UiElements {
   return {
     nextStep: requireElement(doc, "next-step"),
+    operationError: requireElement(doc, "operation-error"),
+    externalPanelFeedback: requireElement(doc, "external-panel-feedback"),
+    externalPanelLink: requireElement<HTMLAnchorElement>(doc, "external-panel-link"),
     pairDetails: requireElement<HTMLDetailsElement>(doc, "pair-details"),
     selectionSummary: requireElement(doc, "selection-summary"),
     sharedFrames: requireElement(doc, "shared-frames"),
@@ -163,6 +178,11 @@ export function collectElements(doc: Document): UiElements {
     secretInput: requireElement<HTMLInputElement>(doc, "pairing-secret"),
     pairButton: requireElement<HTMLButtonElement>(doc, "pair-button"),
     pairError: requireElement(doc, "pair-error"),
+    connectionRecovery: requireElement(doc, "connection-recovery"),
+    recoveryDetail: requireElement(doc, "recovery-detail"),
+    recoveryManifest: requireElement<HTMLInputElement>(doc, "recovery-manifest"),
+    copyManifestPath: requireElement<HTMLButtonElement>(doc, "copy-manifest-path"),
+    copyManifestFeedback: requireElement(doc, "copy-manifest-feedback"),
     pairFeedback: requireElement(doc, "pair-feedback"),
     grantEmpty: requireElement(doc, "grant-empty"),
     candidateList: requireElement(doc, "candidate-roots"),
@@ -273,6 +293,19 @@ export class DomUi implements UiPort {
 
   private wire(): void {
     const elements = this.elements;
+    elements.copyManifestPath.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(elements.recoveryManifest.value);
+        setText(elements.copyManifestFeedback, "Manifest path copied.");
+      } catch {
+        elements.recoveryManifest.focus();
+        elements.recoveryManifest.select();
+        setText(
+          elements.copyManifestFeedback,
+          "Path selected. Press Ctrl+C or Command+C to copy it.",
+        );
+      }
+    });
     elements.autoMode.addEventListener("change", () =>
       this.callbacks.onAutoMode?.(elements.autoMode.checked),
     );
@@ -315,6 +348,25 @@ export class DomUi implements UiPort {
 
   render(model: UiModel): void {
     const elements = this.elements;
+    elements.operationError.hidden = !model.operationError;
+    setText(elements.operationError, model.operationError ?? "");
+    elements.externalPanelFeedback.hidden = !model.externalPanelStatus;
+    setText(elements.externalPanelFeedback, model.externalPanelStatus ?? "");
+    const recovery = model.connectionRecovery;
+    elements.connectionRecovery.hidden = !recovery;
+    if (recovery) {
+      elements.recoveryManifest.value = recovery.manifestPath;
+      const oldPorts = recovery.allowedPorts.includes(recovery.expectedPort)
+        ? []
+        : recovery.allowedPorts;
+      setText(
+        elements.recoveryDetail,
+        `This plugin uses local port ${recovery.expectedPort}. ` +
+          (oldPorts.length
+            ? `Figma's loaded permission still lists ${oldPorts.join(", ")}.`
+            : "Figma has not allowed this connection."),
+      );
+    }
     setText(elements.nextStep, model.nextStepText ?? "Connect to get started.");
     setText(elements.sharedFrames, model.sharedFrameNames?.join(", ") || "Nothing yet");
     setText(
@@ -559,6 +611,11 @@ export class DomUi implements UiPort {
       this.elements.logList.removeChild(first);
     }
     this.updateLogCount();
+  }
+
+  setExternalPanel(url: string | null): void {
+    this.elements.externalPanelLink.href = url ?? "";
+    this.elements.externalPanelLink.hidden = url === null;
   }
 
   private updateLogCount(): void {

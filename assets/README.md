@@ -1,81 +1,80 @@
-# README visuals
+# FigTether visuals
 
-The current artwork follows the [Editorial design system](DESIGN.md), adapted from the
-[user-requested skill](https://github.com/bergside/awesome-design-skills/blob/main/skills/editorial/SKILL.md).
-Flat typography, technical drawings, and directly labeled measurements replace the earlier
-3D/mint direction. These are original project assets under the repository's MIT OR Apache-2.0
-license; third-party logos and artwork are not reused.
+The current [Canvas Playground visual system](DESIGN.md) follows the user's selected banner:
+large friendly sans-serif type, cream and forest green, a small lime accent, and a terminal
+connected to an editable frame. It replaces the earlier serif/editorial documentation style.
+These are original project assets under MIT OR Apache-2.0; third-party artwork is not reused.
 
-| Asset                                                        | Purpose                                             | Source                                                                   |
-| ------------------------------------------------------------ | --------------------------------------------------- | ------------------------------------------------------------------------ |
-| [`figtether-banner.png`](figtether-banner.png)               | Editorial project masthead, 2172 × 724              | Built-in image generation; exact prompt below                            |
-| [`figtether-icon.png`](figtether-icon.png)                   | Black frame-and-tether mark, 1254 × 1254 with alpha | Built-in image generation; exact prompt below                            |
-| [Plugin icon](../plugins/figma/ui/assets/figtether-icon.png) | 96 × 96 derivative, displayed at 36 CSS px          | Bicubic resize preserving alpha; embedded into built HTML                |
-| [`architecture.svg`](architecture.svg)                       | Local transports and native write protocol          | Deterministic renderer and reviewed Rust/plugin code                     |
-| [`benchmark-desktop.svg`](benchmark-desktop.svg)             | Real-editor request latency and measurement limits  | [Versioned JSON](../benchmarks/published/desktop-2026-10-20.json)        |
-| [`benchmark-stages.svg`](benchmark-stages.svg)               | Separate offline Rust diagnostic                    | [Offline JSON](../benchmarks/published/offline-stages.json)              |
-| [`bridge-setup.svg`](bridge-setup.svg)                       | Terminal-to-plugin pairing and grants               | Deterministic illustrated guide, not a screenshot                        |
-| [`bridge-ui-before.png`](bridge-ui-before.png)               | Actual previous Bridge UI                           | User-supplied screenshot, copied unchanged; no pairing secret is visible |
+| Asset                                                        | Purpose                                                      | Source                                                           |
+| ------------------------------------------------------------ | ------------------------------------------------------------ | ---------------------------------------------------------------- |
+| [Banner](figtether-banner.png)                               | Selected Canvas Playground masthead, 2172 × 724              | Built-in Image Gen; exact prompt below                           |
+| [Icon](figtether-icon.png)                                   | Existing black frame-and-tether mark, 1254 × 1254 with alpha | Built-in Image Gen, 21 October 2026                              |
+| [Plugin icon](../plugins/figma/ui/assets/figtether-icon.png) | 96 × 96 derivative on a cream tile                           | Mechanical resize preserving alpha                               |
+| [Architecture](architecture.svg)                             | Local transports and native write protocol                   | Deterministic renderer and source contract                       |
+| [Setup guide](bridge-setup.svg)                              | Start, import, pair and share                                | Current CLI and Bridge labels; illustrated, not a screenshot     |
+| [Desktop benchmark](benchmark-desktop.svg)                   | Release-build latency and measurement limits                 | [Recorded JSON](../benchmarks/published/desktop-2026-10-20.json) |
+| [Offline benchmark](benchmark-stages.svg)                    | Separate synthetic Rust diagnostic                           | [Recorded JSON](../benchmarks/published/offline-stages.json)     |
+| [Website diagnostic](benchmark-website-2026-10-21.svg)       | Debug-build native website diagnostic                        | [Recorded JSON](../benchmarks/published/website-2026-10-21.json) |
+| [Previous Bridge UI](bridge-ui-before.png)                   | Historical UI evidence                                       | Unchanged user-supplied screenshot                               |
+| [Browser sharing UI](bridge-ui-sharing.png)                  | Historical controlled-browser capture                        | Synthetic ports, not native execution evidence                   |
+| [Browser companion](bridge-ui-companion.png)                 | Historical companion capture                                 | Isolated daemon and synthetic plugin                             |
+| [Native Bridge UI](bridge-ui-desktop.png)                    | Historical native unpaired capture                           | Unchanged Figma Desktop screenshot                               |
 
-## Regeneration and scope
+## Regeneration and evidence
 
-`bridge-ui-sharing.png` shows the production Bridge UI and controller with synthetic test
-ports in Chrome. `bridge-ui-companion.png` shows the browser companion connected to an
-isolated native daemon and authenticated synthetic plugin. These are unchanged browser
-captures, not generated artwork or native Figma execution evidence. Their hashes, browser
-version, and checks are in the [Bridge UX record](../benchmarks/published/bridge-ux-2026-10-21.json).
+Run `node scripts/render-readme-assets.mjs` to rebuild all five SVGs; add `--check` to detect
+drift. The renderer reads reviewed benchmark JSON, validates workloads and percentile ordering,
+and writes self-contained figures with titles/descriptions, without remote fonts or scripts.
+PNG artwork is selected separately and does not regenerate with this script.
 
-[`bridge-ui-desktop.png`](bridge-ui-desktop.png) is an unchanged native application capture
-of the updated Bridge reopened in Figma Desktop. It shows the unpaired state, not a new
-read/write benchmark. The illustrated guide links to it alongside the historical screenshot.
+Each desktop workload has its own zero-based linear scale. The offline stages share a scale.
+Cached-root, fresh-read and PNG workloads perform different work; release and debug runs
+remain separate. Historical failures are retained, model billing is unmeasured, and PNG export
+metadata timing does not establish completed client downloads. See the [desktop report](../benchmarks/published/desktop-2026-10-20.md),
+[website report](../benchmarks/published/website-2026-10-21.md) and [offline notes](../benchmarks/published/README.md).
+This visual refresh changes presentation, never recorded measurement values.
 
-Run `node scripts/render-readme-assets.mjs` to rebuild all four SVGs; add `--check` to detect
-drift. They contain no external assets, remote fonts, or executable code. Their title,
-description, and surrounding Markdown explain the content without relying on color.
-The checked-in PNGs are the selected final generated images and do not regenerate with this script.
+The Bridge CSS shares this palette in light/dark themes. Existing screenshots remain dated
+records rather than being recolored to resemble a newly tested state. Browser fixture details
+are recorded in the [Bridge UX data](../benchmarks/published/bridge-ux-2026-10-21.json).
 
-The desktop renderer selects the last release build in the reviewed source JSON and checks
-required lanes, returned-node counts, successful samples, and ordered percentiles. It refuses
-missing or mismatched workloads. To publish a new version, preserve the prior report, select
-the new reviewed JSON, update the date and README values, regenerate, and visually inspect.
+## Banner generation record
 
-Each desktop row uses its own zero-based linear scale. Cached-root, fresh 72-node, and PNG
-rendering workloads perform different amounts of work. The cache lane includes 20,000
-confirmed hits plus 10 fresh fallbacks. Peak daemon memory covers samples across builds.
-PNG timing covers rendering/transport/export metadata, not completed client downloads.
-Model cost and tokens are unmeasured. Known failures remain visible. See the
-[full report](../benchmarks/published/desktop-2026-10-20.md) for hashes, prior builds,
-scope mistakes, and limits. Visual redesign does not alter any measurement.
+Generated on **22 October 2026**, using the built-in `image_gen` tool in edit/redesign mode.
+The user selected the first displayed independent result, named **Canvas Playground**. The
+actual prior banner was attached as a context reference; its serif style was explicitly replaced.
+The final opaque PNG is copied unchanged into this repository. SHA-256:
+`bbc1148d7055a907691b5dd9b97d8e5aadfd2d0d63218fdf5bf484a049658774`.
 
-## Originality references
+Three independent banner concepts were generated. Exact model revision, seed and billed cost
+were not exposed. Artwork is illustrative and is not benchmark evidence. The requested 2160 × 720
+slot was returned as 2172 × 724; both have the same 3:1 aspect ratio, with no stretching or cropping.
 
-Before logo generation, the [Figma brand page](https://www.figma.com/using-the-figma-brand/),
-[MCP's official site](https://modelcontextprotocol.io/), and
-[Tether's official assets](https://tether.to/en/media/) were reviewed as marks to avoid.
-Neither generation call used a reference image. The result is an original concept based on
-native design frames and a connector. This review is not a comprehensive trademark clearance.
-
-The README presentation also draws on [Harness²](https://github.com/google-research/harness2)
-and Kiln's illustrated masthead structure. Their artwork and benchmark data are not reused.
-
-## Generation record
-
-Both selected PNGs were generated on 21 October 2026 using the built-in `image_gen` tool,
-in generation mode. The banner has an opaque background; the icon preserves alpha.
-Exact model revision, seed, and billed cost were not exposed. Generated artwork is illustrative
-and is not benchmark evidence. The small plugin derivative is a mechanical resize only.
-
-### Banner prompt
+### Selected banner prompt
 
 ```text
 Use case: ads-marketing.
-Asset type: 3:1 horizontal editorial masthead banner for FigTether's GitHub README.
-Design system: Editorial from bergside/awesome-design-skills. White paper, black ink, sharply typeset serif display, rigorous asymmetric grid. Restrained, credible technical publication rather than a software advertisement.
-Primary request: a beautifully simple, completely FLAT graphic banner with a large black serif wordmark "FigTether" on the left. Under it, smaller precise black sans serif text "Read. Create. Edit." On the right, a single original black line drawing: three rectangular native design frames aligned on a document grid, joined by one fine horizontal connector with a small square at its center. One frame has a text line and a square, one has selection corner handles, one contains a tiny regular grid of rectangles. This represents editable design, not screenshots. Minimal black geometry, exact line weights, ample white space. Small muted orange square accents only at one connector point.
-Typography: literary editorial serif wordmark, highly legible, intentional kerning, no tech sci-fi font, no inflated sans serif. Text must be spelled exactly.
-Composition: 3:1 ultra-wide; everything on a white or very slightly warm white (#fafaf8) background; generous 6% margins, lots of empty space, one fine horizontal black rule near the bottom. No card styling. No rounded tiles. No extra copy. No badges. No logos from Figma, MCP, or Tether.
-Avoid: ANY 3D, shadows, gradients, glows, neon, forest green, mint, physical cable, glass, metallic objects, dramatic lighting, clutter, generic AI visual effects, watermarks. This should look like an art-directed print masthead composed from typography and a clean technical drawing.
+Asset type: a single finished FigTether GitHub README banner. Direction name: Canvas Playground.
+Target dimensions: 2160 x 720 pixels, exactly 3:1 wide landscape. Compose naturally for this slot; never stretch typography.
+Input image: the attached existing banner is the redesign target and brand/context reference only. Keep the exact FigTether spelling and the idea of connected editable frames; replace its severe serif/editorial style completely.
+Brief: a fun, welcoming, carefully art-directed open-source design tool identity, readable by developers and designers unfamiliar with the product. It connects local AI agents to native editable Figma designs. Readability is the first priority. This is a banner, not a web page: no navigation, buttons, testimonials, badges, or invented metrics.
+Visual system: warm ivory #F7F6EE background, near-black forest #153F2E typography/linework, restrained lime #D7F3AC in the illustration. Three flat colors only. Bold friendly geometric sans-serif with excellent letter shapes and intentional spacing; no serif, no novelty display font. Large, strong hierarchy and purposeful whitespace.
+Composition: left 58% is typography, right 36% is one original playful illustration. Left-align the very large wordmark at x about 110, with ample clear space. The wordmark should dominate and remain readable at 360px displayed width. Under it, two generous lines of plain supporting copy. On the right, show one oversized editable design frame with chunky square selection handles and a simple typographic composition inside, connected by a loose looping forest-green tether to a single small command-prompt symbol. Give the tether a little human irregularity and the frame a subtle cheerful tilt, while keeping text horizontal. Flat graphic shapes with confident outlines; playfulness comes from the relationship of the frame and tether, not decorative confetti. No labels inside the illustration.
+Text, verbatim, only these words:
+"FigTether"
+"Connect AI agents."
+"Create in Figma."
+The supporting copy must be no smaller than 64px at source size; wordmark about 185px. Dark text on ivory, strong contrast. All content within 90px margins; no fine print, no text along bottom edge.
+Presentation: polished original flat brand illustration, clear information hierarchy, generous spacing. No generic AI/SaaS aesthetic, glowing gradients, glass, 3D render, sparkles, stars, robot heads, purple/blue gradients, rainbow colors, floating UI card stacks, fake charts, blurred shadows, stock icons, or third-party logos. One coherent banner, no option label, no mockup frame, no watermark.
 ```
+
+## Icon generation record
+
+The existing icon was generated on **21 October 2026** using built-in Image Gen, without a
+reference image. The original alpha and the plugin derivative remain unchanged by this refresh.
+Before the original generation, the [Figma brand page](https://www.figma.com/using-the-figma-brand/),
+[MCP site](https://modelcontextprotocol.io/) and [Tether media page](https://tether.to/en/media/)
+were reviewed as marks to avoid. This was not a comprehensive trademark clearance.
 
 ### Icon prompt
 

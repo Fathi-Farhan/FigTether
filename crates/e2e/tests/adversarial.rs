@@ -1628,8 +1628,7 @@ async fn the_daemon_binds_loopback_only_and_writes_only_inside_its_runtime_direc
         }
     }
 
-    // The runtime directory holds the descriptor and the diagnostic log, and
-    // nothing else.
+    // The daemon holds its descriptor, empty OS-lock file and diagnostic log.
     let runtime_dir = daemon.runtime_dir();
     let mut entries: Vec<String> = std::fs::read_dir(runtime_dir)
         .expect("the runtime directory is readable")
@@ -1645,8 +1644,19 @@ async fn the_daemon_binds_loopback_only_and_writes_only_inside_its_runtime_direc
     entries.sort();
     assert_eq!(
         entries,
-        vec!["daemon.json".to_string(), "figtether.log".to_string()],
+        vec![
+            "daemon.json".to_string(),
+            "daemon.lock".to_string(),
+            "figtether.log".to_string()
+        ],
         "the runtime directory holds an unexpected file"
+    );
+    assert_eq!(
+        std::fs::metadata(runtime_dir.join("daemon.lock"))
+            .expect("lock metadata")
+            .len(),
+        0,
+        "the lock file must not contain credentials or design data"
     );
 
     // The daemon wrote nothing next to its runtime directory.

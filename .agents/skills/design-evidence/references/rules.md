@@ -81,8 +81,8 @@ A profile has `schema_version: 1` and a stable `id`. Omit a contract to leave it
 Optional `tokens` contains `font_sizes` and `radii`; optional `decoration` contains
 `max_gradients` and `max_shadows`. Optional `review` enables pattern review and may override
 `repeated_surface_min`, `repeated_surface_ratio`, `pill_min`, `pill_ratio`, and `generic_phrases`.
-The shipped Bridge profile records its compact existing UI, including derived code type
-sizes. It does not impose the README's editorial typography on the plugin or other products.
+The shipped Bridge profile records its compact UI, including derived code type sizes.
+It does not impose the README figure typography on the plugin or other products.
 
 ## Outcomes and determinism
 

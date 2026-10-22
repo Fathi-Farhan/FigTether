@@ -40,7 +40,7 @@ pub enum StopOutcome {
 /// Run the stop command.
 pub fn run(args: StopArgs) -> anyhow::Result<CommandOutcome> {
     block_on(async move {
-        let port = control::expected_port(args.port, args.runtime_dir.as_deref());
+        let port = control::expected_port(args.port, args.runtime_dir.as_deref()).await;
         let timeout = Duration::from_secs(args.timeout_seconds.unwrap_or(DEFAULT_TIMEOUT_SECONDS));
         let outcome = stop_daemon(port, timeout).await;
         let payload = serde_json::json!({

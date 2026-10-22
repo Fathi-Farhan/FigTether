@@ -11,6 +11,7 @@
 import "../styles.css";
 
 import { AppController } from "./controller.js";
+import { isBridgePolicyViolation } from "./bridge.js";
 import { DomUi } from "./dom.js";
 import { randomUuid } from "./random.js";
 import { createSandboxChannel } from "./sandbox.js";
@@ -19,6 +20,7 @@ import type { SandboxChannel, WindowLike } from "./sandbox.js";
 interface PolicyViolationEvent extends Event {
   readonly effectiveDirective?: string;
   readonly blockedURI?: string;
+  readonly originalPolicy?: string;
 }
 
 function bootstrap(): void {
@@ -65,8 +67,8 @@ function bootstrap(): void {
 
   document.addEventListener("securitypolicyviolation", (event: Event): void => {
     const violation = event as PolicyViolationEvent;
-    if (typeof violation.blockedURI === "string" && violation.blockedURI.includes("127.0.0.1")) {
-      controller?.reportPolicyViolation();
+    if (typeof violation.blockedURI === "string" && isBridgePolicyViolation(violation.blockedURI)) {
+      controller?.reportPolicyViolation(violation.originalPolicy);
     }
   });
 

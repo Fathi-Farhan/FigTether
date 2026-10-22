@@ -135,6 +135,7 @@ impl FigTetherService {
         let session_data = payload(&sessions);
         let mut choices = Vec::new();
         let mut discovery_warnings = Vec::new();
+        let mut discovery_error = None;
         for session in session_data["sessions"]
             .as_array()
             .into_iter()
@@ -161,7 +162,9 @@ impl FigTetherService {
             }
             let nodes = self.canvas_call("nodes",json!({"session_id":sid,"node_ids":roots,"fields":["id","name","type"],"depth":0}),READ_TIMEOUT,cancel).await;
             if nodes.is_error == Some(true) {
-                discovery_warnings.push(json!({"session_id":sid,"error":nodes.structured_content}));
+                discovery_warnings
+                    .push(json!({"session_id":sid,"error":nodes.structured_content.clone()}));
+                discovery_error.get_or_insert(nodes);
                 continue;
             }
             let node_data = payload(&nodes);
@@ -185,6 +188,13 @@ impl FigTetherService {
             }
         }
         if choices.len() != 1 {
+            if choices.is_empty() {
+                if let Some(error) = discovery_error {
+                    // A failed read does not establish missing access or a
+                    // missing frame. Preserve its actual cause and recovery.
+                    return error;
+                }
+            }
             return reply(
                 json!({"status":if choices.is_empty(){"needs_access_or_target"}else{"choose_frame"},"choices":choices,"warnings":discovery_warnings,"discovery_limit":"at most 4 sessions and 24 roots per session; use an explicit frame_id for other roots","next_action":if choices.is_empty(){"Check the named frame, pairing, and Currently shared in the Bridge. Share the intended frame; never expand access yourself."}else{"Ask which frame to use, then call open_design with its session_id and frame_id. Do not choose another agent's frame."}}),
             );
@@ -258,7 +268,7 @@ impl FigTetherService {
             );
         }
         let mut result = reply(
-            json!({"status":"ready","target":target,"editing_allowed":target["grant_mode"] == "write","tree":tree.structured_content,"render_available":image.as_ref().is_some_and(|i|i.is_error != Some(true)),"render_error":render_error,"warnings":discovery_warnings,"write_budgets":session_data["write_budgets"],"next_action":if target["grant_mode"] == "write" {"Inspect the image and the brief. Propose a coherent native edit with preview_write, check get_write_approval, then apply the exact approved plan. Read back and render again."}else{"Reading is available. Ask the user to Allow editing in the Bridge before proposing a change. Never grant or approve for the user."}}),
+            json!({"status":"ready","target":target,"editing_allowed":target["grant_mode"] == "write","tree":tree.structured_content,"render_available":image.as_ref().is_some_and(|i|i.is_error != Some(true)),"render_error":render_error,"warnings":discovery_warnings,"write_budgets":session_data["write_budgets"],"write_capabilities":session_data["write_capabilities"],"next_action":if target["grant_mode"] == "write" {"Inspect the image and the brief. Propose a coherent native edit with preview_write, check get_write_approval, then apply the exact approved plan. Read back and render again."}else{"Reading is available. Ask the user to Allow editing in the Bridge before proposing a change. Never grant or approve for the user."}}),
         );
         if let Some(image) = image {
             result.content.extend(

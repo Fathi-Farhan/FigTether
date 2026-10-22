@@ -807,6 +807,15 @@ async fn handle_incoming(
                         .with_session(session_id)
                         .with_connection_epoch(epoch);
                         let _ = state.hub.try_send(&session_id, reply);
+                    } else {
+                        let reply = BridgeFrame::new(
+                            MessageType::UiControl,
+                            "panel-open-failed",
+                            serde_json::json!({"action":"open_failed"}),
+                        )
+                        .with_session(session_id)
+                        .with_connection_epoch(epoch);
+                        let _ = state.hub.try_send(&session_id, reply);
                     }
                 }
                 Some("state") => state.panels.publish(session_id, epoch, &frame.payload),
@@ -1167,6 +1176,15 @@ pub fn daemon_capabilities() -> BTreeMap<String, CapabilityState> {
     ] {
         capabilities.insert(op.as_str().to_string(), CapabilityState::Available);
     }
+    for op in [
+        BridgeOp::CaptureSnapshot,
+        BridgeOp::WatchScope,
+        BridgeOp::GetChanges,
+    ] {
+        capabilities.insert(op.as_str().to_string(), CapabilityState::Unavailable {
+            reason: "This build has no snapshot store or change journal. Use fresh live reads and PNG/SVG export instead.".into(),
+        });
+    }
     capabilities
 }
 
@@ -1454,6 +1472,17 @@ mod tests {
         assert!(capabilities
             .get(BridgeOp::ApplyWrite.as_str())
             .is_some_and(CapabilityState::is_available));
+        for op in [
+            BridgeOp::CaptureSnapshot,
+            BridgeOp::WatchScope,
+            BridgeOp::GetChanges,
+        ] {
+            let state = capabilities.get(op.as_str()).unwrap();
+            assert!(!state.is_available());
+            assert!(state
+                .reason()
+                .is_some_and(|reason| reason.contains("live reads")));
+        }
     }
 
     #[test]

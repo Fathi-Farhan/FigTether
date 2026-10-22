@@ -72,10 +72,25 @@ try {
     "live daemon budgets are returned",
     opened.structuredContent.write_budgets.max_operations_per_plan === 50,
   );
+  const declared = await m.tool("list_sessions", {});
+  check(
+    "agents discover the actual write contract without guessing properties",
+    declared.structuredContent.data.write_capabilities.create_node_types.includes("COMPONENT") &&
+      declared.structuredContent.data.write_capabilities.properties.includes("layoutMode") &&
+      declared.structuredContent.data.write_capabilities.approval_required === true,
+  );
   let missing = await m.tool("open_design", { frame_name: "No matching frame" });
   check(
     "unknown target cannot choose another frame",
     missing.structuredContent.status === "needs_access_or_target",
+  );
+  f.failNextRead("TIMEOUT");
+  const failedDiscovery = await m.tool("open_design", { session_id: f.session, frame_id: "1:2" });
+  check(
+    "discovery timeout preserves the actual error instead of asking for a new grant",
+    failedDiscovery.isError === true &&
+      failedDiscovery.structuredContent.code === "TIMEOUT" &&
+      failedDiscovery.structuredContent.status !== "needs_access_or_target",
   );
   const sid = f.session;
   const plan = {

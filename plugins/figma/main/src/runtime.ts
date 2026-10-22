@@ -30,6 +30,7 @@ import {
   capabilityUnavailable,
   outOfScope,
   paused,
+  payloadTooLarge,
   toPluginError,
   writeNotGranted,
 } from "./errors.js";
@@ -41,6 +42,8 @@ import { TokenResolver } from "./tokens.js";
 import type { BridgeFrame, BridgeOp, ErrorPayload } from "./types.js";
 import { utf8Encode } from "./encoding.js";
 import { WRITE_OPS } from "./write/types.js";
+import { MAX_FRAME_BYTES } from "@figtether/shared";
+import { utf8ByteLength } from "./encoding.js";
 
 /** Transport between the sandbox and the UI iframe. */
 export interface SandboxTransport {
@@ -208,7 +211,16 @@ export class PluginRuntime {
         this.sendSelection();
         return;
       case "open_external":
-        this.api.openExternal?.(message.url);
+        try {
+          if (this.api.openExternal === undefined)
+            throw capabilityUnavailable(
+              "Figma cannot open a browser in this environment. Use the Open browser panel link.",
+            );
+          this.api.openExternal(message.url);
+          this.transport.post(buildEnvelope("result", { external_opened: true }, "ui_panel_open"));
+        } catch (error) {
+          this.sendError("ui_panel_open", toPluginError(error));
+        }
         return;
       case "status_request":
         this.sendStatus();
@@ -356,7 +368,13 @@ export class PluginRuntime {
       this.lastReadAt = Date.now();
       this.counters.resultsSent += 1;
       const result = { request_id: requestId, ok: true, data };
-      this.transport.post(buildEnvelope("result", result, requestId));
+      const envelope = buildEnvelope("result", result, requestId);
+      if (utf8ByteLength(JSON.stringify(envelope)) > MAX_FRAME_BYTES) {
+        throw payloadTooLarge(
+          "The result exceeds the bridge message limit. Request fewer nodes or export a smaller section.",
+        );
+      }
+      this.transport.post(envelope);
     } catch (error) {
       this.sendError(requestId, toPluginError(error));
     } finally {

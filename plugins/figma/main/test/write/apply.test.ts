@@ -5,6 +5,39 @@ import { parseWritePlan, planHash } from "../../src/write/plan.js";
 import { createWriteContext, planPayload, sampleDocument } from "./write-fixture.js";
 
 describe("apply_write", () => {
+  it("resizes once before restoring FILL sizing regardless of sorted property order", async () => {
+    const document = sampleDocument();
+    const node = document.nodes.get("1:8")!;
+    const events: string[] = [];
+    let sizing = "FIXED";
+    Object.defineProperty(node, "layoutSizingHorizontal", {
+      configurable: true,
+      get: () => sizing,
+      set: (value: string) => {
+        sizing = value;
+        events.push(value);
+      },
+    });
+    node.resize = (width, height) => {
+      events.push("resize");
+      node.width = width;
+      node.height = height;
+      sizing = "FIXED";
+    };
+    const result = await handleApplyWrite(
+      planPayload([
+        {
+          kind: "set_properties",
+          node_id: "1:8",
+          properties: { layoutSizingHorizontal: "FILL", width: 160, height: 64 },
+        },
+      ]),
+      createWriteContext(document, ["1:1"]),
+    );
+    expect(result.status).toBe("applied");
+    expect(events).toEqual(["resize", "FILL"]);
+    expect(sizing).toBe("FILL");
+  });
   it("creates styled text in one operation and previews without mutating", async () => {
     const document = sampleDocument();
     const context = createWriteContext(document, ["1:1"]);
@@ -36,7 +69,7 @@ describe("apply_write", () => {
     expect(node?.fills).toEqual([
       {
         type: "SOLID",
-        color: { r: 31 / 255, g: 78 / 255, b: 61 / 255, a: 1 },
+        color: { r: 31 / 255, g: 78 / 255, b: 61 / 255 },
         opacity: 1,
         visible: true,
       },
@@ -136,7 +169,7 @@ describe("apply_write", () => {
     expect(label?.name).toBe("Renamed");
     const dot = document.nodes.get("1:4");
     expect(dot?.fills).toEqual([
-      { type: "SOLID", color: { r: 1, g: 0, b: 0, a: 1 }, opacity: 1, visible: true },
+      { type: "SOLID", color: { r: 1, g: 0, b: 0 }, opacity: 1, visible: true },
     ]);
   });
 

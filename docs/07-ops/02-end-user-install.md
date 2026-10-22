@@ -1,202 +1,95 @@
 # End User Installation Guide
 
-> **Design reference.** Original requirements and approval labels below are historical design
-> records, not a feature-availability list. See [current documentation status](../documentation-status.md)
-> for implemented reads/writes, observed desktop evidence, and remaining gaps.
+Status: current experimental source installation, reviewed 22 October 2026.
 
-Status: `Proposed`
+Use the [README tutorial](../../README.md#build-and-connect) for prerequisites and the
+[quickstart](../quickstart.md) for executable paths and detailed recovery. Public binary
+archives and a Community plugin are not released distribution methods. The
+[release process](04-release-process.md) describes planned distribution gates.
 
-> **Planned distribution guide.** There are no public binaries or Community plugin releases yet.
-> For installation and first-use commands that work with the current source checkout, use the
-> [README tutorial](../../README.md#build-and-connect) or [quickstart](../quickstart.md).
-> Cargo can install a locally built `figtether.exe`; npm builds the Figma plugin. There is no
-> published FigTether CLI package for npm, npx, or pnpm.
-> Archive names and release instructions below describe a future distribution, not a download available today.
+## Install and connect
 
-This document is the end-user quickstart for FigTether v0.1, following PRD section 5.1 step by
-step, then the post-install controls, an error cheat sheet, upgrade and rollback pointers, and the
-privacy wording. The release sequence below remains a historical proposal. The CLI now exists
-and has limited desktop evidence, but public distribution remains planned for `G2` (FR01).
-This document is the proposed release quickstart deliverable of the v0.1 Definition of Done
-(PRD 8.10.2); it is not the current source-install tutorial.
-
-## 1. Quickstart (PRD 5.1, exactly eight steps)
-
-### Step 1: download binary, plugin bundle, and checksum
-
-Take the archive for your OS and architecture plus the plugin bundle and its checksum file from the
-release page. Planned targets per PRD 8.11: Windows x64, macOS arm64 and x64 where runner and editor
-testing exist; Linux receives core CLI and fixtures only until an editor environment is tested and
-supported (see `docs/07-ops/04-release-process.md`).
-
-### Step 2: verify the checksum
-
-```powershell
-certutil -hashfile .\figtether-v0.1.0-windows-x64.zip SHA256
-```
-
-Compare the output with the `.sha256.txt` published next to the archive. On macOS you can verify
-directly:
+1. Install the Rust CLI and plugin dependencies as described in the README. Keep the plugin
+   source folder in place. The executable alone does not embed or install the plugin.
+2. Create a development plugin in Figma Design and copy its Figma-generated id. Keep its
+   starter files separate from this checkout.
+3. From the source checkout, prepare the matching bundle and start the bridge:
 
 ```sh
-shasum -a 256 --check figtether-v0.1.0-macos.zip.sha256.txt
+figtether start --plugin-id YOUR_PLUGIN_ID
 ```
 
-Checksums are the floor of the supply chain story (PRD 8.11); signing is added per platform
-availability and does not replace the published checksum. Archive names are illustrative until the
-naming convention is fixed at `G2`.
+4. Import the printed **plugins/figma/dist/manifest.json** through Figma's development menu
+   and run the imported FigTether plugin. Figma requires the basename manifest.json.
+   manifest.local.json is generated build input, not the import target.
+5. Paste the one-use secret into the Bridge. It expires after five minutes. Keep it local;
+   it never belongs in prompts or MCP configuration. For a replacement, run figtether pair.
+6. Select the intended frame, choose **Update selection**, then **Share selected frames**.
+   Choose **Allow editing** for native design changes. Later selection changes do not expand access.
+7. Configure the chosen agent with the [agent setup tutorial](../agent-setup.md), refresh its
+   MCP entry and call open_design for the intended shared frame.
 
-### Step 3: run the doctor
+For later starts, run figtether start. It preserves the manifest id and port, reuses a compatible
+running daemon or starts one, and prints a fresh secret in that terminal. Bare figtether and
+figtether daemon start only the daemon; pairing separately is the manual alternative.
+
+## Port and manifest contract
+
+The imported manifest fixes Figma's permitted development endpoint, and the build injects
+that same port. Port 38947 is a fallback when no agreement exists. The daemon never silently
+moves a manifest-named port. On collision or a Windows reserved range, run doctor and follow
+its instructions. To explicitly choose another port during source startup:
 
 ```sh
-figtether doctor
+figtether start --port 39147
 ```
 
-Doctor checks versions, the runtime directory and its ACL, the expected port, the manifest, and
-pairing state. It does **not** request a Figma PAT (FR01/FR02 path needs no token, `AT02`; there is
-no REST client in the product). Output is sanitized.
+When the daemon is already active, finish its work and stop it before changing or rebuilding
+the contract. Reimport the rebuilt dist/manifest.json, reopen the plugin, pair and restore access.
+The lower-level figtether manifest --port auto preserves a verified running agreement or a
+bindable existing manifest. Generating a manifest alone does not rebuild its JavaScript bundle.
 
-### Step 4: start the daemon
+The CLI generates BOM-free JSON. Do not hand-edit manifest encodings. For parse errors, stale
+CSP, or a plugin stuck connecting, use the [startup review](../bridge-startup-review.md).
+
+## Editing and session controls
+
+Manual review is the default. An agent previews a plan, obtains its exact approval, applies it
+and verifies the changed nodes and PNG. The user may enable **Auto mode** for eligible new
+warning-free plans. Agents must not enable it or approve for the user. Warnings, partial writes
+and errors stop automation. Reloads, reconnects and access changes can turn Auto off.
+
+The [Bridge guide](../bridge-ui-guide.md) explains Pause, Resume, editing, approval, the browser
+companion and Stop sharing. Snapshot storage/capture and watch/change-journal workflows are
+unavailable in the shipped pipeline. See the [feature matrix](../06-testing/end-user-feature-review.md).
+
+To stop the daemon gracefully:
 
 ```sh
-figtether daemon
+figtether stop
 ```
 
-Default port `38947`, project-reserved, loopback only. If the port is taken, the daemon **fails
-with a hint to pass `--port` and to regenerate the manifest**; it never silently changes the port.
+It cancels queued work, revokes credentials, closes sockets, removes the runtime descriptor
+and clears retained design memory. A new session requires pairing and a user grant again.
+Revoke stops future delivery; it cannot recall content already received by an agent.
 
-```sh
-figtether daemon --port 38948
-```
+## Diagnose and upgrade
 
-After any port override, regenerate the manifest (Step 5) so the plugin targets the same port.
+Run figtether doctor and figtether status. For machine-readable failures, commands that
+support --json emit structured code/message/action/retryable diagnostics on stderr; successful
+results use stdout. Follow the recovery action and inspect the canvas before repeating a write.
+The [support guide](../../SUPPORT.md) covers common errors and safe bug reports.
 
-On Windows the port can also be unusable without any process on it: the operating system reserves
-port ranges for the hypervisor (Hyper-V, WSL, Docker Desktop) and re-reserves them at every boot.
-The daemon then reports error 10013. The doctor names the reserved range and the free port to use:
+Before upgrading, finish shared work. Update the CLI and matching plugin together, refresh the
+host's managed workflow with setup --client YOUR_HOST --apply, then reload and pair as needed.
+Keep a previous matching source/binary build for rollback. Version/contract checks do not prove
+all editor or host combinations work.
 
-```sh
-figtether doctor
-```
+## Privacy and support boundaries
 
-Let the CLI pick that port and write it into the manifest (Step 5):
-
-```sh
-figtether manifest generate --plugin-id "<your-plugin-id>" --port auto
-```
-
-The command prints the matching `figtether daemon --port <port>` command, because the plugin
-manifest and the daemon have to agree on the port. Do not delete Windows port reservations or
-disable a firewall to work around the error.
-
-### Step 5: generate or import the development manifest
-
-```sh
-figtether manifest generate --plugin-id "<your-plugin-id>"
-```
-
-Use your own plugin id. The release bundle already contains the prebuilt UI and adapter binary; you
-point a development manifest at them. On a port change, rerun this command with the new
-`--port`, or with `--port auto` to let the CLI pick a free port.
-
-### Step 6: open the plugin and pair
-
-Open the plugin in Figma Design on an eligible seat. Enter the temporary pairing secret displayed
-by the local CLI pairing action (proposed shape `figtether pair`); the secret is single use, 5
-minute TTL, 256 bits of randomness, never logged, never in a URL, never shown to the agent. The
-plugin confirms the session name and the fingerprint; check the fingerprint before continuing.
-
-### Step 7: share a root and allow the read session
-
-Select the root to share and press **Allow read session**. The grant binds root ids. Later
-selection changes never widen the grant; widening scope is always an explicit user action on a new
-grant version (PRD 5.3).
-
-### Step 8: connect your MCP client
-
-Print the generic client configuration and paste the executable plus `mcp --stdio` entry into your
-MCP client. The CLI never writes another application's configuration silently (PRD 5.1 step 7).
-
-```sh
-figtether config print --client generic
-```
-
-The agent side of the loop: it calls `list_sessions` first, then reads a summary before requesting
-detail (`get_selection`, then `inspect_design` or `get_nodes` with field projection). You keep the
-edge controls of the next section.
-
-## 2. Post-install controls
-
-| Control          | Where                                                                                         | Effect                                                                                                                                           |
-| ---------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Pause            | Plugin UI button (PRD 5.3)                                                                    | Gates new live and snapshot reads until Resume; in-flight results already produced are not retroactively deleted                                 |
-| Resume           | Plugin UI button                                                                              | Restores the session to READY only after the state machine revalidates pairing and grant                                                         |
-| Capture snapshot | Plugin UI button                                                                              | Immutable capture with a stable `snapshot_id` and content hash; labeled `snapshot`, never presented as live; readable until TTL or user deletion |
-| Revoke           | Plugin UI button, or CLI via proposed `figtether revoke` even when the plugin is unresponsive | Cancels queued jobs, drops unsent responses, invalidates cache, cursors, and asset URIs, and makes further reads return REVOKED                  |
-
-Revoke stops future sends but cannot recall data an agent already received; the UI says this
-plainly, per PRD 5.3. Snapshot and live data descriptions follow the three mode definitions of PRD
-5.2.
-
-## 3. Error cheat sheet
-
-Top ten error families from the PRD 8.7 table, mapped to user actions. Agent-facing code fields are
-specified in `docs/04-data-contracts/05-error-catalog.md`.
-
-| Code                                    | What it means                                        | User action                                                                                   |
-| --------------------------------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `AUTH_REQUIRED` / `AUTH_EXPIRED`        | Credential missing or expired                        | Re-pair from the local CLI; the agent must not search for secrets                             |
-| `PERMISSION_DENIED` / `OUT_OF_SCOPE`    | Platform permission or grant does not cover the node | Fix platform permission or make a wider grant yourself; the agent cannot widen scope          |
-| `PLUGIN_OFFLINE` / `SESSION_NOT_FOUND`  | Plugin closed or session stale                       | Reopen and pair the plugin; the agent re-runs `list_sessions`; no silent fallback             |
-| `PAUSED` / `REVOKED`                    | Your deliberate decision                             | Press Resume, or issue a new grant yourself                                                   |
-| `NODE_NOT_FOUND`                        | Node deleted or id wrong within the session          | Refresh the tree; batch requests report per-item status                                       |
-| `CAPABILITY_UNAVAILABLE`                | API, editor, or seat does not support it             | Read the reported reason and available alternatives; probe results are final for that session |
-| `PAYLOAD_TOO_LARGE` / `SCOPE_TOO_LARGE` | Resource limit exceeded                              | Narrow root, fields, or depth; paginate with a cursor                                         |
-| `BUSY`                                  | Queue full                                           | Retry after `retry_after_ms`; no tight loops                                                  |
-| `TIMEOUT` / `CANCELLED`                 | Slow or cancelled operation                          | Late results are discarded; issue a fresh request if still needed                             |
-| `DOCUMENT_CHANGED`                      | Design changed during the read                       | One retry maximum, or capture and read a snapshot instead                                     |
-
-Remaining codes (`CURSOR_EXPIRED`, `RESYNC_REQUIRED` which is G3, `UNSUPPORTED_SCHEMA`,
-`PROTOCOL_MISMATCH`, `EXPORT_FAILED`, `FONT_UNAVAILABLE`, `INTERNAL_ERROR`) resolve through doctor
-(version alignment) or are documented in `docs/04-data-contracts/05-error-catalog.md`. Every structured
-error carries `code`, `message`, `retryable`, `action`, `request_id`, and optional
-`retry_after_ms`.
-
-## 4. Upgrade and rollback
-
-- Plugin and daemon are checked for compatibility at startup; an incompatible major version fails
-  loudly, never half-works (PRD 8.7).
-- Keep the previous binary: the upgrade procedure does not migrate private data by default; there is
-  nothing durable to migrate by design (PRD 8.6.2 storage table).
-- Run `figtether doctor` after upgrading to surface version mismatches.
-- The detailed operator procedure lives in `docs/07-ops/03-runbook.md` (upgrade and rollback
-  section); the release-facing policy, including deprecation windows, lives in
-  `docs/07-ops/04-release-process.md`.
-
-## 5. Privacy wording
-
-> Local-only means FigTether processes do not send designs to any FigTether project cloud; the
-> Figma editor and the AI client or model each have their own network paths.
-
-Supporting facts for user-facing copy (PRD 8.6.2, FR18):
-
-1. No cloud telemetry by default; crash reports are strictly opt-in and reviewed and sanitized
-   before sending.
-2. Diagnostic logs stay on the device, contain no design content, layer names, file ids, or tokens,
-   and rotate locally at maximum 7 days or 10 MiB.
-3. Pairing secrets live in memory only, shown solely by an explicit local CLI action.
-4. The UI must also state that whatever the client reads can be forwarded to an AI model per the
-   client's own configuration, even though the bridge is local (PRD 5.3).
-5. Revoke cannot claw back data already delivered to an agent (PRD 5.3).
-
-Any README or website copy must pass `AT16`: no unlimited claims, measured limits included, and the
-core-path claim restricted to "does not consume official MCP/REST quota".
-
-## 6. Open questions
-
-1. Whether `figtether pair` becomes part of `figtether daemon` startup output or a separate
-   interactive subcommand; the proposed surface lists both `pair` and `daemon` (PRD 8.4).
-2. Exact checksum file naming and whether multiple checksum algorithms are published; floor is
-   SHA-256 per PRD 8.11.
-3. Availability of per-platform signing at v0.1; this affects whether Step 2 instructions also
-   explain verification of signatures where they exist.
+The bridge runs locally; Figma and the AI client/model have their own network paths. Content
+read by the agent may be forwarded to its model provider according to that client's settings.
+Do not publish pairing secrets, companion URLs, runtime descriptors, exported designs or raw
+logs. Use a public synthetic fixture for reports. Windows has limited native evidence; macOS,
+other seats, extended soak tests, manual undo restoration and version checkpoints remain
+unverified. This guide does not declare a stable release or a complete Figma API implementation.

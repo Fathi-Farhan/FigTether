@@ -10,19 +10,19 @@
 /* palette: light */
 :root {
   color-scheme: light;
-  --figtether-bg: #ffffff;
-  --figtether-bg-raised: #f2f4f7;
-  --figtether-fg: #16191d;
-  --figtether-fg-muted: #4a5058;
-  --figtether-border: #767f8a;
-  --figtether-accent: #0b5fd0;
-  --figtether-accent-fg: #ffffff;
+  --figtether-bg: #f7f6ee;
+  --figtether-bg-raised: #e9efdd;
+  --figtether-fg: #153f2e;
+  --figtether-fg-muted: #465c4c;
+  --figtether-border: #748375;
+  --figtether-accent: #153f2e;
+  --figtether-accent-fg: #f7f6ee;
   --figtether-danger: #a3160f;
   --figtether-danger-bg: #fdeceb;
-  --figtether-ok: #14622f;
-  --figtether-ok-bg: #e8f4ec;
-  --figtether-focus: #0b5fd0;
-  --figtether-radius: 6px;
+  --figtether-ok: #153f2e;
+  --figtether-ok-bg: #d7f3ac;
+  --figtether-focus: #153f2e;
+  --figtether-radius: 8px;
   --figtether-gap: 12px;
   --figtether-font:
     system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
@@ -34,18 +34,18 @@
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
-    --figtether-bg: #14171a;
-    --figtether-bg-raised: #1d2226;
-    --figtether-fg: #f2f4f7;
-    --figtether-fg-muted: #a8b0ba;
-    --figtether-border: #6b7787;
-    --figtether-accent: #7fb3ff;
-    --figtether-accent-fg: #0b1220;
+    --figtether-bg: #12251c;
+    --figtether-bg-raised: #1c3527;
+    --figtether-fg: #f7f6ee;
+    --figtether-fg-muted: #bacbb3;
+    --figtether-border: #7a9278;
+    --figtether-accent: #d7f3ac;
+    --figtether-accent-fg: #153f2e;
     --figtether-danger: #ff9a92;
     --figtether-danger-bg: #2b1a19;
-    --figtether-ok: #7ee2a8;
-    --figtether-ok-bg: #12241a;
-    --figtether-focus: #7fb3ff;
+    --figtether-ok: #d7f3ac;
+    --figtether-ok-bg: #1c3527;
+    --figtether-focus: #d7f3ac;
   }
 }
 
@@ -75,11 +75,13 @@ h3 {
 }
 
 h1 {
-  font-size: 18px;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
 }
 
 h2 {
-  font-size: 15px;
+  font-size: 16px;
 }
 
 h3 {
@@ -88,6 +90,12 @@ h3 {
 
 p {
   margin: 0 0 8px;
+}
+
+input,
+select,
+textarea {
+  font: inherit;
 }
 
 code {
@@ -117,9 +125,9 @@ code {
 }
 
 .app-header {
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--figtether-border);
-  background: var(--figtether-bg-raised);
+  padding: 16px;
+  border-bottom: 2px solid var(--figtether-border);
+  background: var(--figtether-bg);
 }
 
 .app-header__status {
@@ -140,8 +148,10 @@ code {
 .app-brand__icon {
   flex: 0 0 auto;
   object-fit: contain;
-  background: #ffffff;
-  padding: 2px;
+  background: #f7f6ee;
+  padding: 3px;
+  border: 1px solid var(--figtether-border);
+  border-radius: 4px;
 }
 
 .app-brand__caption {
@@ -288,6 +298,36 @@ input[type="text"]:disabled {
   padding: 6px 8px;
 }
 
+.connection-recovery {
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px solid var(--figtether-border);
+  border-radius: var(--figtether-radius);
+  background: var(--figtether-bg-raised);
+}
+.connection-recovery h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+.connection-recovery ol {
+  padding-left: 20px;
+}
+.connection-recovery li {
+  margin-bottom: 8px;
+}
+.connection-recovery input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 6px 0 8px;
+  padding: 8px;
+  font: inherit;
+  border: 1px solid var(--figtether-border);
+  border-radius: var(--figtether-radius);
+  background: var(--figtether-bg);
+  color: var(--figtether-fg);
+}
+
 .message[data-state="ok"] {
   color: var(--figtether-ok);
 }
@@ -298,6 +338,7 @@ input[type="text"]:disabled {
 
 .button {
   font: inherit;
+  font-weight: 600;
   padding: 6px 12px;
   border: 1px solid var(--figtether-border);
   border-radius: var(--figtether-radius);
@@ -481,7 +522,7 @@ input[type="password"] {
   margin: 0 auto;
 }
 .companion h1 {
-  font-size: 21px;
+  font-size: 24px;
 }
 .companion-actions {
   display: flex;

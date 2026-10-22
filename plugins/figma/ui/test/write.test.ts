@@ -843,6 +843,35 @@ function domHarness(): DomHarness {
   };
 }
 
+describe("connection recovery panel", () => {
+  it("shows the canonical path and mismatched ports and disables pairing", () => {
+    const parts = domHarness();
+    parts.bridge.handlers.onConnection("offline", "Figma blocked the bridge.", {
+      manifestPath: "C:/plugin with spaces/dist/manifest.json",
+      expectedPort: 39029,
+      allowedPorts: [38947],
+    });
+    expect(parts.element("connection-recovery")?.hidden).toBe(false);
+    expect(parts.element("recovery-manifest")?.value).toBe(
+      "C:/plugin with spaces/dist/manifest.json",
+    );
+    expect(parts.element("recovery-detail")?.textContent).toContain("38947");
+    expect(parts.element("recovery-detail")?.textContent).toContain("39029");
+    expect(parts.element("pair-button")?.disabled).toBe(true);
+  });
+
+  it("does not invent an old-port diagnosis when the actual policy is unavailable", () => {
+    const parts = domHarness();
+    parts.bridge.handlers.onConnection("offline", "Figma blocked the bridge.", {
+      manifestPath: "C:/plugin/dist/manifest.json",
+      expectedPort: 39029,
+      allowedPorts: [],
+    });
+    expect(parts.element("recovery-detail")?.textContent).toContain("has not allowed");
+    expect(parts.element("recovery-detail")?.textContent).not.toContain("38947");
+  });
+});
+
 /** Let the daemon ask for a preview and let the plugin answer it. */
 function previewThrough(parts: DomHarness, options: { readonly preview?: unknown } = {}): void {
   parts.bridge.handlers.onFrame(bridgeFrame("request", previewRequest("apr_01"), "req-write"));

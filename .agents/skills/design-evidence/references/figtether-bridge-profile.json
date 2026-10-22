@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "id": "figtether-bridge-2026-10-21",
+  "id": "figtether-bridge-2026-10-22",
   "tokens": {
-    "font_sizes": [12, 12.35, 13, 13.3, 14, 15, 18],
-    "radii": [0, 6]
+    "font_sizes": [12, 12.35, 13, 13.3, 14, 16, 22, 24],
+    "radii": [0, 4, 8]
   },
   "decoration": { "max_gradients": 0, "max_shadows": 0 },
   "review": {

@@ -6,7 +6,8 @@ not a public issue.
 
 ## Before opening an issue
 
-Run `figtether status` and `figtether doctor --manifest plugins/figma/manifest.local.json`.
+Run `figtether status` and `figtether doctor`. For a specific generated contract, use
+`figtether doctor --manifest plugins/figma/manifest.local.json` from the source checkout.
 The doctor can fail before the daemon is started or a session is paired; include which step you
 reached, not just its exit code.
 
@@ -24,14 +25,18 @@ cannot reproduce without private data, describe the structure rather than upload
 
 ## Common cases
 
-| Error                            | Recovery                                                                       |
-| -------------------------------- | ------------------------------------------------------------------------------ |
-| `PLUGIN_OFFLINE`                 | Open Figma and restart/pair the plugin. No snapshot fallback is implied.       |
-| `AUTH_REQUIRED` / `AUTH_EXPIRED` | Generate a new secret locally with `figtether pair`.                           |
-| `OUT_OF_SCOPE`                   | Traverse from a granted root, or change the grant in the plugin.               |
-| `BUSY`                           | Wait for the suggested retry delay and reduce concurrent requests.             |
-| `CAPABILITY_UNAVAILABLE`         | Check whether the workflow is implemented; some advertised tools are reserved. |
-| Port collision                   | Stop the conflicting local process. The UI currently uses port 38947.          |
+| Error                            | Recovery                                                                                                                             |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `PLUGIN_OFFLINE`                 | Open Figma and restart/pair the plugin. No snapshot fallback is implied.                                                             |
+| `AUTH_REQUIRED` / `AUTH_EXPIRED` | Generate a new secret locally with `figtether pair`.                                                                                 |
+| `OUT_OF_SCOPE`                   | Traverse from a granted root, or change the grant in the plugin.                                                                     |
+| `BUSY`                           | Wait for the suggested retry delay and reduce concurrent requests.                                                                   |
+| `CAPABILITY_UNAVAILABLE`         | Check whether the workflow is implemented; some advertised tools are reserved.                                                       |
+| Port collision                   | Run doctor. Keep the manifest port, or explicitly choose a new port with start, rebuild and reimport the printed dist/manifest.json. |
+| Figma blocks the WebSocket       | Reimport the matching dist/manifest.json, close and reopen the plugin. Check the CSP/port diagnostic.                                |
+| Manifest BOM or parse error      | Regenerate with figtether manifest. Import the built file named manifest.json; do not hand-edit its encoding.                        |
+| PAYLOAD_TOO_LARGE                | Request fewer nodes/fields, a smaller section or lower export scale.                                                                 |
+| Open outside Figma appears idle  | Read the launch feedback and use Open browser panel when provided. Keep the plugin running.                                          |
 
 ## Support status
 

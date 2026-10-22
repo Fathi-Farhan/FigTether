@@ -29,7 +29,8 @@ pub const DEFAULT_PORT: u16 = figtether_core::DEFAULT_BRIDGE_PORT;
                   Git and package registries. No Figma access token is requested.",
     propagate_version = true,
     disable_help_subcommand = true,
-    after_help = "Run figtether without a subcommand to start the foreground daemon.\n\
+    after_help = "Run figtether start to prepare the source plugin and show a pairing secret.\n\
+                  Run figtether without a subcommand to start only the foreground daemon.\n\
                   In another terminal, run figtether pair to generate a pairing secret."
 )]
 pub struct Cli {
@@ -72,6 +73,25 @@ pub enum Command {
     Update(UpdateArgs),
     /// Preview or install a project-local MCP connection and design skill.
     Setup(SetupArgs),
+    /// Prepare the source plugin, start the bridge, and show a pairing secret.
+    Start(StartArgs),
+}
+
+/// Guided startup. Figma still requires the user to import the manifest.
+#[derive(Debug, Args)]
+pub struct StartArgs {
+    /// Plugin source folder. Defaults to plugins/figma in the source checkout.
+    #[arg(long, value_name = "PATH")]
+    pub plugin_dir: Option<PathBuf>,
+    /// Your Figma development plugin id; kept on later starts.
+    #[arg(long, value_name = "ID")]
+    pub plugin_id: Option<String>,
+    /// Explicitly change the plugin and daemon port together.
+    #[arg(long, value_name = "PORT", value_parser = clap::value_parser!(u16).range(1..))]
+    pub port: Option<u16>,
+    /// Owner-only runtime directory for this bridge.
+    #[arg(long, value_name = "PATH")]
+    pub runtime_dir: Option<PathBuf>,
 }
 
 /// Project-local integration. No global settings or host approvals are changed.
@@ -129,7 +149,7 @@ pub struct DoctorArgs {
     /// Runtime directory to inspect. Defaults to the platform runtime directory.
     #[arg(long, value_name = "PATH")]
     pub runtime_dir: Option<PathBuf>,
-    /// Plugin manifest to inspect. Defaults to manifest.json in the current directory.
+    /// Plugin manifest to inspect. Searches the current folder, parents, then the saved path.
     #[arg(long, value_name = "PATH")]
     pub manifest: Option<PathBuf>,
 }
@@ -140,7 +160,7 @@ pub struct DaemonArgs {
     /// Loopback port to bind. Without it the port of the local plugin manifest
     /// is used, because the plugin reads its port from that manifest. The
     /// port is never changed silently.
-    #[arg(long, value_name = "PORT")]
+    #[arg(long, value_name = "PORT", value_parser = clap::value_parser!(u16).range(1..))]
     pub port: Option<u16>,
     /// Runtime directory that holds the owner only runtime files.
     #[arg(long, value_name = "PATH")]
@@ -391,6 +411,9 @@ fn parse_port_selection(raw: &str) -> Result<PortSelection, String> {
     let port: u16 = trimmed
         .parse()
         .map_err(|_| format!("{raw} is neither a port number nor auto"))?;
+    if port == 0 {
+        return Err("port must be between 1 and 65535".to_string());
+    }
     Ok(PortSelection::Fixed(port))
 }
 
@@ -408,6 +431,13 @@ mod tests {
     #[test]
     fn command_definition_is_valid() {
         Cli::command().debug_assert();
+    }
+
+    #[test]
+    fn zero_cannot_become_a_plugin_contract() {
+        for command in ["daemon", "manifest", "start"] {
+            assert!(Cli::try_parse_from(["figtether", command, "--port", "0"]).is_err());
+        }
     }
 
     #[test]
@@ -459,7 +489,7 @@ mod tests {
             names,
             vec![
                 "doctor", "daemon", "mcp", "status", "pair", "config", "manifest", "revoke",
-                "stop", "update", "setup",
+                "stop", "update", "setup", "start",
             ]
         );
     }

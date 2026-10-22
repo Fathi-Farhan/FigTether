@@ -107,12 +107,21 @@ pub async fn build_report(args: &DoctorArgs) -> anyhow::Result<DoctorReport> {
         ),
     });
 
-    let port = control::expected_port(args.port, args.runtime_dir.as_deref());
+    let port = control::expected_port_for(
+        args.port,
+        args.runtime_dir.as_deref(),
+        args.manifest.as_deref(),
+    )
+    .await;
     let probe = probe_daemon(port, args.runtime_dir.as_deref()).await;
     let PortCheck { entry, suggestion } = port_check(port, &probe);
 
     checks.push(entry);
     checks.push(manifest_check_for(args, port));
+    if let Some(path) = manifest_path(args) {
+        checks.push(bundle_check(&path, port));
+        checks.push(super::figma_import::check(&path, port));
+    }
     checks.push(daemon_check(&probe));
     checks.push(pairing_check(&probe));
     checks.push(capability_check(&probe));
@@ -352,6 +361,53 @@ fn manifest_check(path: &Path, port: u16) -> CheckEntry {
 /// The loopback address the plugin is allowed to reach.
 const LOOPBACK: &str = "127.0.0.1";
 
+/// Validate the artifact that Figma actually loads, when build metadata is present.
+pub(super) fn bundle_check(path: &Path, port: u16) -> CheckEntry {
+    let name = "plugin bundle".to_string();
+    let checked = (|| -> anyhow::Result<bool> {
+        let manifest = crate::commands::manifest::read_manifest(path)?;
+        let folder = path.parent().unwrap_or(Path::new("."));
+        for key in ["main", "ui"] {
+            let relative = manifest[key]
+                .as_str()
+                .ok_or_else(|| anyhow::anyhow!("manifest has no {key} entry"))?;
+            anyhow::ensure!(
+                folder.join(relative).is_file(),
+                "missing {relative}; run figtether start to build the plugin"
+            );
+        }
+        let main = folder.join(manifest["main"].as_str().unwrap_or_default());
+        let info = main.parent().unwrap_or(folder).join("build-info.json");
+        if !info.is_file() {
+            return Ok(false);
+        }
+        let built: Value = serde_json::from_slice(&std::fs::read(info)?)?;
+        anyhow::ensure!(
+            built["port"].as_u64() == Some(u64::from(port)) && built["plugin_id"] == manifest["id"],
+            "bundle port or plugin id differs from the manifest; rebuild with figtether start"
+        );
+        Ok(true)
+    })();
+    match checked {
+        Ok(true) => CheckEntry {
+            name,
+            status: OK.into(),
+            detail: "plugin files and build metadata agree with the manifest".into(),
+        },
+        Ok(false) => CheckEntry {
+            name,
+            status: WARN.into(),
+            detail: "bundle has no build metadata; rebuild with figtether start to verify its port"
+                .into(),
+        },
+        Err(error) => CheckEntry {
+            name,
+            status: FAIL.into(),
+            detail: error.to_string(),
+        },
+    }
+}
+
 /// Every host and port the manifest allows.
 fn network_entries(manifest: &Value) -> Vec<(String, Option<u16>)> {
     let network = &manifest["networkAccess"];
@@ -560,7 +616,10 @@ fn capability_summary(status: &Value) -> Option<CapabilitySummary> {
 /// current directory or of one of its parents is used, so the doctor works
 /// from any directory inside a checkout.
 fn manifest_path(args: &DoctorArgs) -> Option<PathBuf> {
-    crate::commands::manifest::discover_manifest(args.manifest.as_deref())
+    crate::commands::manifest::discover_manifest_in(
+        args.manifest.as_deref(),
+        args.runtime_dir.as_deref(),
+    )
 }
 
 /// The manifest check, with the search for the file included.
@@ -649,6 +708,28 @@ mod tests {
         let (_temp, path) = temp_manifest(&manifest.to_string());
         let check = manifest_check(&path, 38947);
         assert_eq!(check.status, OK, "{}", check.detail);
+    }
+
+    #[test]
+    fn a_known_bundle_mismatch_fails_and_missing_metadata_remains_unverified() {
+        let manifest = crate::commands::manifest::build_manifest(
+            "test-id",
+            39029,
+            crate::cli::EditorType::Figma,
+        );
+        let (temp, path) = temp_manifest(&manifest.to_string());
+        let dist = temp.path().join("dist");
+        std::fs::create_dir(&dist).expect("dist");
+        std::fs::write(dist.join("main.js"), "").expect("main");
+        std::fs::write(dist.join("ui.html"), "").expect("ui");
+        assert_eq!(bundle_check(&path, 39029).status, WARN);
+        let info = dist.join("build-info.json");
+        std::fs::write(&info, r#"{"port":38947,"plugin_id":"test-id"}"#).expect("old build");
+        assert_eq!(bundle_check(&path, 39029).status, FAIL);
+        std::fs::write(&info, r#"{"port":39029,"plugin_id":"wrong-id"}"#).expect("wrong id");
+        assert_eq!(bundle_check(&path, 39029).status, FAIL);
+        std::fs::write(&info, r#"{"port":39029,"plugin_id":"test-id"}"#).expect("matching build");
+        assert_eq!(bundle_check(&path, 39029).status, OK);
     }
 
     #[test]

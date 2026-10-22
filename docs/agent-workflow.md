@@ -26,6 +26,14 @@ The agent then follows this loop:
    or reject it yourself. The agent calls `apply_write` only with the unchanged approved plan.
 5. Read back the changes and inspect a new render. Check the result against the website brief.
 
+Discover capabilities and the write allowlist before planning an unfamiliar operation.
+Use `FIXED`, `HUG` and `FILL` for Auto Layout sizing and check resulting parent/child dimensions.
+The exposed creation allowlist includes GROUP, but the current MCP shape cannot supply its
+required child IDs; use FRAME containers. Vector node creation does not expose vector paths.
+Instances/variants, prototyping, image import and variable/style writes are not available.
+Snapshot storage, watch and change-journal tools return explicit unavailability. See the
+[feature and error review](06-testing/end-user-feature-review.md) for the evidence boundary.
+
 Your current selection never silently expands a grant. A read-only session cannot edit. Each
 plan still needs exact-plan approval, obtained manually or through your explicit Auto-mode
 choice. Agents must not enable Auto mode or drive companion controls to approve for you.
@@ -120,6 +128,11 @@ credentials. Restarting the daemon or closing the plugin loses its in-memory cre
 pair again. The UI uses bounded retries; check the daemon and use a new pairing secret if recovery
 fails. Credential-based recovery is covered by simulated-plugin socket tests; the updated build
 still needs a fresh Figma Desktop validation after reload.
+
+A plugin build can trigger a Figma hot reload. Finish active work before rebuilding/restarting;
+pairing, sharing, editing and Auto may need deliberate restoration by the user. Do not treat a
+timeout as proof of missing access. Follow its error/action and try one smaller read when
+appropriate. An uncertain or partial write requires inspection before another plan.
 
 For local setup automation, `figtether pair --json` prints only `secret` and
 `expires_in_seconds`. Keep this output local, enter the secret in the Bridge UI, and never put

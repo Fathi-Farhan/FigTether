@@ -1,4 +1,4 @@
-![FigTether - Read. Create. Edit. An editorial wordmark with connected native design frames.](assets/figtether-banner.png)
+![FigTether. Connect AI agents. Create in Figma. A terminal connects to an editable design frame in forest green and lime on cream.](assets/figtether-banner.png)
 
 # FigTether
 
@@ -55,8 +55,8 @@ MCP service; it does not remove Figma editor requirements or your AI provider's 
 
 [![System flow: coding agent → Rust MCP adapter → local daemon → Figma plugin. Scoped design context returns to the agent; experimental writes require preview and approval.](assets/architecture.svg)](assets/architecture.svg)
 
-1. Install the CLI and build the plugin, then import its local manifest into Figma Desktop.
-2. Start `figtether`. In another terminal, run `figtether pair` and paste its secret into the plugin.
+1. Install the CLI and plugin dependencies, then run `figtether start` to prepare the plugin and start the daemon.
+2. Import the printed manifest into Figma Desktop and paste the pairing secret from the same terminal.
 3. Select a frame and grant read access. Enable write access if the agent should design or edit.
 4. Connect your agent to `figtether mcp --stdio`. Review proposed changes in the Bridge; optionally enable Auto mode for new warning-free plans.
 
@@ -92,7 +92,6 @@ is located. Run:
 ```sh
 cargo install --locked --path crates/cli
 npm --prefix plugins/figma ci
-npm --prefix plugins/figma run build
 figtether --help
 ```
 
@@ -103,8 +102,8 @@ If `figtether` is not recognized, reopen the terminal or use
 Custom Cargo installation settings can change this location. See
 [Cargo's installation documentation](https://doc.rust-lang.org/cargo/commands/cargo-install.html).
 
-**Checkpoint:** `figtether --help` lists commands, and `plugins/figma/dist/` contains
-`main.js` and `ui.html`. Keep this plugin folder in place after importing it.
+**Checkpoint:** `figtether --help` lists commands. The next step generates the local manifest
+and builds its matching plugin bundle. Keep the plugin folder in place after importing it.
 
 ### 2. Import the plugin into Figma Desktop
 
@@ -119,44 +118,48 @@ The plugin runs inside Figma; installing the executable alone does not add it to
 4. In the terminal, from this repository's root, replace `YOUR_PLUGIN_ID` and run:
 
 ```sh
-figtether manifest --plugin-id YOUR_PLUGIN_ID --out plugins/figma/manifest.local.json
+figtether start --plugin-id YOUR_PLUGIN_ID
 ```
 
+This creates the manifest, builds the plugin for its port, starts the foreground daemon,
+and prints a one-use pairing secret. Leave that terminal open. On later starts, use
+`figtether start`; your plugin id and port are kept. An unavailable manifest port is reported;
+choose another explicitly with `figtether start --port PORT`, then reimport the manifest.
+
 5. In Figma, choose **Plugins → Development → Import plugin from manifest** and select
-   **this repository's `plugins/figma/manifest.local.json`**, not the starter manifest or
-   the example manifest in `dist/`.
+   **this repository's `plugins/figma/dist/manifest.json`**. Figma requires the filename
+   `manifest.json`; `manifest.local.json` is only the build input.
 6. Run the imported **FigTether** plugin from **Plugins → Development**. The UI identifies
    itself as FigTether Bridge. Keep it open while the agent works.
 
-### 3. Start the daemon and pair the Bridge
+### 3. Pair the Bridge
 
-In **Terminal A**, run:
+Copy the pairing secret printed by `figtether start` into the plugin's **Pairing secret** field,
+then click **Pair**. It works once and expires after five minutes. If it expires, run
+`figtether pair` in another terminal for a replacement. The agent and MCP configuration do not
+need this secret.
 
-```sh
-figtether
-```
-
-Running `figtether` with no arguments starts the foreground daemon. `figtether daemon`
-remains available with the same defaults and its existing flags. Pairing is a separate step.
-
-Leave Terminal A running. In **Terminal B**, run:
+For an existing installation, the shorter startup command is:
 
 ```sh
-figtether status
-figtether pair
+figtether start
 ```
 
-**The pairing secret comes from `figtether pair` in Terminal B.** Copy only the secret
-value into the plugin's **Pairing secret** field, then click **Pair**. It works once and
-expires after five minutes; generate another if it expires. Paste it only into the plugin.
-The agent and MCP configuration do not need this secret.
+If the daemon already runs, `start` reuses it and prints a new secret. It does not start a second
+daemon or rebuild files used by an active plugin. `figtether` and `figtether daemon` remain
+available for starting only the daemon, with a separate `figtether pair` command.
+
+`start` currently prepares a **source installation**, so Node.js and the plugin source remain
+required. A copied `.exe` alone does not install the plugin or register MCP in your agent.
 
 To stop a daemon later, use `figtether stop` (also spelled `figtether terminate`) instead of
 killing the process. It performs the graceful shutdown: queued work is cancelled, credentials
 are revoked, sockets are closed, the design memory is wiped, and the stale runtime file is
 removed.
 
-![Bridge setup: run the daemon in Terminal A, obtain the secret in Terminal B, paste it into the plugin, and share a frame.](assets/bridge-setup.svg)
+The guide below summarizes startup, pairing and sharing:
+
+![Bridge setup: run figtether start, import dist/manifest.json in Figma, pair with the terminal secret, share a frame and choose how editing works.](assets/bridge-setup.svg)
 
 **Checkpoint:** the plugin reports **Connected** and **Paired with the local daemon**.
 Pairing connects the bridge; you still need to choose what design to share.
@@ -313,8 +316,8 @@ figtether update --source "C:/projects/figtether-new" --local
 
 `--local` builds the source already on disk; it does not download a newer version. npm and
 Cargo may still download locked build dependencies. If you change source folders, preserve
-your local plugin ID, generate a local manifest in the new folder, and re-import it in Figma
-so the plugin uses the newly built files.
+your local plugin ID, generate the local build input in the new folder, rebuild, and import
+the new folder's `plugins/figma/dist/manifest.json` in Figma.
 
 After a successful update, wait until all agents have finished, then restart the daemon and
 your MCP server entry. Close and reopen the Figma plugin to load the new bundle. Pair and
@@ -348,8 +351,10 @@ and large chunked transfers remain unavailable. Host/model image support must be
 
 The write path is **implemented across Rust and the plugin**. It supports `create_node`,
 `insert_child`, `set_properties`, `set_text`, `set_fills`, `move_node`, and `delete_node`.
-The plugin can create frames, text, rectangles, components, vectors, sections, lines, ellipses,
-and groups, subject to editor capabilities and the plan's validation rules. This lets an agent
+The plugin can create frames, text, rectangles, components, vectors, sections, lines and ellipses,
+subject to editor capabilities and the plan's validation rules. GROUP remains in the allowlist,
+but its required child IDs are not carried by the current MCP schema; use a frame container.
+This lets an agent
 compose an editable design, rather than only retrieve a reference image.
 
 To create a design, grant an empty frame for reading, enable **Allow editing**, and ask
@@ -382,7 +387,9 @@ The default budget is one editor operation per session, 50 IDs per batch, depth 
 
 The desktop website test verified `list_nodes`, `get_nodes`, approved writes and PNG export
 metadata. It also found a `get_selection` timeout and an `inspect_design` protocol mismatch;
-those two tools still need integration fixes. The report retains their failed calls.
+the [end-user feature review](docs/06-testing/end-user-feature-review.md) records subsequent
+native results, fixes, regression coverage, and remaining feature gaps. FigTether does not
+currently expose every Figma Design feature. The original report retains its failed calls.
 
 ## Benchmarks
 

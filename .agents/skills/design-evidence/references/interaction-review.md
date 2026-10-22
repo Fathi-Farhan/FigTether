@@ -52,9 +52,14 @@ These are review specifications, not claims that the present browser harness imp
 | B04  | Write-enabled fixture; preview plan, reject it                             | No document mutation; user can revise or retry                                          | Plugin/protocol tests and native editor evidence are distinct                                     |
 | B05  | Explicitly approved plan in a disposable document; apply once              | Exact declared changes, bounded scope, recorded result                                  | Native Figma execution with the plan's approval; do not automate approval through a generic sweep |
 
-The existing eight browser captures cover visual states and a narrow help-opening action.
+The original eight browser captures cover visual states and a narrow help-opening action.
 They do not establish end-to-end pairing, grant enforcement, native write approval, undo,
 or user task success. Preserve that distinction when reporting existing results.
+
+For later FigTether runs, retain Auto eligibility checks, exact-plan approval and native readback
+separately from browser companion tests. A successful browser launch requires launch feedback
+and an actual browser window or usable fallback; a button click alone is not evidence. Recovery
+from an oversized result requires a structured failure and a successful subsequent request.
 
 ## Evidence and cost record
 

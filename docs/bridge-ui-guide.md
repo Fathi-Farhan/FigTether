@@ -44,7 +44,10 @@ Selecting another frame does not change sharing. Update and share again to chang
 This returns the session to reading only and turns Auto mode off; enable editing again if
 needed. If a frame name changes, update the selection to refresh it.
 
-![Named frame sharing, current scope, editing access, and browser companion entry point. Controlled browser preview of the production UI with synthetic session data.](../assets/bridge-ui-sharing.png)
+![Historical controlled-browser preview: named frame sharing, scope, editing access and browser companion entry point, with synthetic session data.](../assets/bridge-ui-sharing.png)
+
+This 21 October capture preserves the earlier palette. The current Bridge uses the
+[Canvas Playground visual system](../assets/DESIGN.md); the sharing workflow is unchanged.
 
 This is a controlled browser preview, not proof of a native Figma connection. The
 [verification record](../benchmarks/published/bridge-ux-2026-10-21.json) separates browser,
@@ -93,6 +96,11 @@ window, then move or resize it anywhere. The Figma plugin dialog itself remains 
 Figma's viewport, as documented by [showUI](https://developers.figma.com/docs/plugins/api/properties/figma-showui/).
 The plugin opens the local companion using [openExternal](https://developers.figma.com/docs/plugins/api/properties/figma-openexternal/).
 
+The header reports the launch result. If no browser window appears, use **Open browser panel**
+when the fallback link is shown. A missing response produces a five-second recovery message.
+If the daemon has reached its panel limit, close an older companion and try again. Keep the
+private fallback URL out of messages, screenshots and public reports.
+
 The companion shows selected/shared frames, editing access, Auto mode, proposals, activity,
 and Stop sharing. Its controls go through the same plugin controller. Keep the plugin
 running. Closing the browser window alone does not stop sharing or Auto mode; turn auto
@@ -102,6 +110,10 @@ The private launch capability lives in memory. It is different from the pairing 
 and MCP credential, expires after 30 minutes, and ends on reconnect or revoke. Reopening
 the companion replaces its previous link. A reloaded or expired tab may need to be reopened
 from Figma. Do not share private launch links. Disconnected/expired controls are disabled.
+
+The [22 October feature review](06-testing/end-user-feature-review.md) separately records a
+native browser launch in Edge, error feedback fixes and end-user failure coverage. The dated
+browser fixture screenshots below remain synthetic evidence.
 
 ![Local browser companion with shared frames and review controls](../assets/bridge-ui-companion.png)
 

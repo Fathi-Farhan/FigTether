@@ -44,6 +44,7 @@ export async function fixture({ binary, out, mode = "write", warnings = [], twoF
     seq = 10;
   const events = [],
     nodes = new Map();
+  let nextReadFailure = null;
   const add = (id, name, parent_id = null, node_type = "FRAME", properties = {}) =>
     nodes.set(id, { id, name, parent_id, node_type, children: [], properties });
   add("1:2", "Website Test");
@@ -123,6 +124,22 @@ export async function fixture({ binary, out, mode = "write", warnings = [], twoF
           events.push({ op, at: Date.now(), count: p.plan?.operations?.length ?? null });
           let result;
           if (op === "read_nodes" || op === "list_nodes") {
+            if (nextReadFailure) {
+              const code = nextReadFailure;
+              nextReadFailure = null;
+              send(
+                "error",
+                {
+                  code,
+                  message: "Synthetic read failure",
+                  retryable: true,
+                  action:
+                    "Retry a smaller read; do not change sharing to repair a transport error.",
+                },
+                f.request_id,
+              );
+              return;
+            }
             const ids =
               op === "read_nodes"
                 ? p.node_ids
@@ -262,6 +279,9 @@ export async function fixture({ binary, out, mode = "write", warnings = [], twoF
       port,
       events,
       nodes,
+      failNextRead(code) {
+        nextReadFailure = code;
+      },
       get session() {
         return auth.session_id;
       },

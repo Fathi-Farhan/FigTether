@@ -2,7 +2,8 @@
 //!
 //! The runtime directory is the only place where FigTether writes to disk.
 //! It holds the daemon descriptor (instance id, port, and the client
-//! credential) and the rotating diagnostic log.
+//! credential), an empty OS-lock file, and the rotating diagnostic log.
+//! The CLI may also retain a plugin manifest location in `plugin.json`.
 //!
 //! The directory is per user and must not be readable by other accounts:
 //!
@@ -58,6 +59,9 @@ pub enum RuntimeDirError {
     /// A runtime file is malformed.
     #[error("the runtime file is malformed: {0}")]
     Malformed(String),
+    /// Another daemon owns this directory, even if it uses another port.
+    #[error("another daemon owns this runtime directory; stop it first or use a separate --runtime-dir ({0})")]
+    Locked(#[source] io::Error),
 }
 
 /// The descriptor the daemon writes into the runtime directory.
@@ -128,6 +132,24 @@ impl RuntimeDir {
     /// The path of the rotating diagnostic log.
     pub fn log_file(&self) -> PathBuf {
         self.path.join(LOG_FILE_NAME)
+    }
+
+    /// Hold one OS lock for the daemon's entire lifetime. Keep the lock file:
+    /// removing it would let a second process lock a different inode.
+    /// The OS releases the lock when the process exits, including after a crash.
+    pub fn lock(&self) -> Result<File, RuntimeDirError> {
+        let mut options = OpenOptions::new();
+        options.read(true).write(true).create(true).truncate(false);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        let file = options
+            .open(self.path.join("daemon.lock"))
+            .map_err(RuntimeDirError::Write)?;
+        fs2::FileExt::try_lock_exclusive(&file).map_err(RuntimeDirError::Locked)?;
+        Ok(file)
     }
 
     /// Write the daemon descriptor with owner only permissions.

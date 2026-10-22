@@ -10,7 +10,7 @@ designer control loop) and PRD section 5.3 (UI minimum).
 
 ## What the UI owns
 
-- The WebSocket to `ws://localhost:38947/bridge`, the first frame handshake and the heartbeat.
+- The WebSocket to `ws://localhost:PORT/bridge`, with PORT injected from the selected manifest, plus the handshake and heartbeat.
 - The pairing secret and the session credential. Both live in closure variables, never in
   `localStorage`, `sessionStorage`, a cookie or a URL, and both are dropped as soon as they are
   used or the session ends.
@@ -38,7 +38,7 @@ designer control loop) and PRD section 5.3 (UI minimum).
 
 The bundle of `plugins/figma/build.mjs` picks `ui/src/ui.ts` as the entry of the user interface and
 writes `dist/ui.js`. The entry imports the stylesheet, so the bundler writes `dist/ui.css` next to
-the bundle and the markup links it with `./ui.css`. There is no external asset and no remote font.
+the bundle. The final dist/ui.html inlines the script, styles and small icon for Figma; it does not depend on sibling asset URLs or remote fonts.
 
 The wire types come from the shared package `@figtether/shared`, which mirrors `crates/protocol`.
 The compiler, the bundler and the tests all resolve that package through the same path mapping of
@@ -64,9 +64,9 @@ new secret, then pair again.`
 
 ### Grant
 
-1. The user presses **Refresh candidates** and the sandbox reports the candidate roots of the
+1. The user presses **Update selection** and the sandbox reports the candidate roots of the
    current selection.
-2. The user checks the roots and presses **Allow read session**.
+2. The user checks the roots and presses **Share selected frames**.
 3. The UI sends a `grant_update` to the sandbox with `{root_ids, grant_epoch}` so that the sandbox
    can enforce the membership, and a `grant_update` frame with the same roots to the daemon.
 4. The daemon registers the grant and assigns the epoch. The status strip shows the granted roots.
@@ -77,10 +77,9 @@ controller keeps the granted roots separate from the candidate list.
 ### Write grant
 
 The write grant is a second, separate action next to the read grant. The read grant never implies
-it: a read grant always sends the write mode `read`, and only the **Allow write session** button
+it: a read grant always sends the write mode `read`, and only the **Allow editing** button
 sends the write mode `write`. The button uses the roots of the read grant, raises the grant epoch
-and states that every plan still needs an approval. The button turns into **Restrict the session to
-reading**, so the user can take the write grant back.
+and states that every plan still needs an approval. The button turns into **Turn editing off**, so the user can take the write grant back.
 
 ### Write approval
 
@@ -248,9 +247,12 @@ loading still need end-to-end validation; see the
 - The heartbeat runs every 5 s. Three missed heartbeats mark the session offline.
 - `PLUGIN_OFFLINE` and `BUSY` are reported with their recovery action. `BUSY` shows the
   `retry_after_ms` of the daemon.
-- When the editor blocks the socket by its content security policy, the interface names the fix:
-  regenerate the manifest with `figtether manifest` so that `networkAccess` allows
-  `ws://localhost:38947`, then reopen the plugin.
+- Before pairing, a short socket check detects a blocked connection without sending a secret.
+  When Figma blocks the socket, the interface shows the expected and loaded ports when available,
+  a copyable path to the built `dist/manifest.json`, and import/reopen steps. Pairing is disabled
+  until the plugin is reopened with the updated policy. Figma cannot import `manifest.local.json`.
+- A silent socket dial times out after five seconds. Transient failures use bounded retries;
+  policy failures stop retries and show the import recovery instead.
 - A frame that exceeds the 1 MiB frame cap is refused with `PAYLOAD_TOO_LARGE` and never parsed.
 - A frame of an older connection epoch is discarded before its payload is read.
 

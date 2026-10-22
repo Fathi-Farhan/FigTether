@@ -310,6 +310,13 @@ declare const __FIGTETHER_PORT__: number;
 export const LOCAL_BRIDGE_PORT =
   typeof __FIGTETHER_PORT__ === "undefined" ? 38947 : __FIGTETHER_PORT__;
 
+/** Figma imports a file named exactly manifest.json, next to this build. */
+declare const __FIGTETHER_MANIFEST_PATH__: string;
+export const LOCAL_PLUGIN_MANIFEST_PATH =
+  typeof __FIGTETHER_MANIFEST_PATH__ === "undefined"
+    ? "plugins/figma/dist/manifest.json"
+    : __FIGTETHER_MANIFEST_PATH__;
+
 /** Only this build's private companion URL can be opened by the sandbox. */
 export function isCompanionUrl(url: string): boolean {
   return new RegExp(`^http://127\\.0\\.0\\.1:${LOCAL_BRIDGE_PORT}/panel#[A-Za-z0-9_-]{43}$`).test(

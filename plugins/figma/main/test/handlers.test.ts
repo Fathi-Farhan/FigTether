@@ -411,6 +411,36 @@ describe("capture_snapshot", () => {
 });
 
 describe("phase p1 operations", () => {
+  it("reports native translation and rotated scales in the Rust geometry contract", async () => {
+    const document = createFakeDocument([{ id: "1:1", x: 20, y: 30 }]);
+    const node = document.nodes.get("1:1")!;
+    node.relativeTransform = [
+      [0, -1, 20],
+      [1, 0, 30],
+    ];
+    node.absoluteTransform = [
+      [0, -1, 120],
+      [1, 0, 230],
+    ];
+    const { context } = createContext(document, ["1:1"]);
+    const result = await handleReadNodes({ node_ids: ["1:1"], fields: ["geometry"] }, context);
+    expect(result.nodes[0]?.geometry?.local_transform).toEqual([20, 30, 1, 1]);
+    expect(result.nodes[0]?.geometry?.absolute_transform).toEqual([120, 230, 1, 1]);
+  });
+  it("serializes native RGB solid paints without undefined alpha values", async () => {
+    const document = createFakeDocument([
+      {
+        id: "1:1",
+        type: "FRAME",
+        fills: [{ type: "SOLID", color: { r: 0.2, g: 0.4, b: 0.6 }, opacity: 0.5 }],
+      },
+    ]);
+    const { context } = createContext(document, ["1:1"]);
+    const result = await handleListNodes({ root_id: "1:1", depth: 1, fields: ["fills"] }, context);
+    expect(result.nodes[0]?.fills[0]?.color).toEqual([0.2, 0.4, 0.6, 1]);
+    expect(result.nodes[0]?.fills[0]?.opacity).toBe(0.5);
+    expect(JSON.parse(JSON.stringify(result)).nodes[0].fills[0].color).toEqual([0.2, 0.4, 0.6, 1]);
+  });
   it("answers watch_scope with the capability error", async () => {
     const document = sampleDocument();
     const { context } = createContext(document, ["1:1"]);

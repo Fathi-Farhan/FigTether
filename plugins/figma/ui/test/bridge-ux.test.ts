@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { acceptHandshake, bridgeFrame, harness, sandboxEnvelope } from "./fakes.js";
 import { readWritePreview } from "../src/write.js";
 import { readableActivity } from "../src/dom.js";
+afterEach(() => vi.useRealTimers());
 
 function ready() {
   const h = harness();
@@ -52,6 +53,97 @@ function preview(
   );
 }
 describe("user-facing Bridge flow", () => {
+  it("keeps a browser fallback capability out of the shared UI model and logs", () => {
+    const h = ready();
+    h.controller.onExternalPanelRequested();
+    const url = `http://127.0.0.1:38947/panel#${"x".repeat(43)}`;
+    h.bridge.handlers.onFrame(bridgeFrame("ui_control", { action: "opened", url }));
+    expect(h.sandbox.lastOf("open_external")?.requestId).toBe("ui_panel_open");
+    h.controller.onSandboxEnvelope(
+      sandboxEnvelope("result", { external_opened: true }, "ui_panel_open"),
+    );
+    expect(h.ui.model?.externalPanelStatus).toContain("Browser launch requested");
+    expect(JSON.stringify(h.ui.model)).not.toContain("x".repeat(43));
+    h.controller.dispose();
+  });
+  it("explains a browser-panel timeout instead of ignoring the click", () => {
+    vi.useFakeTimers();
+    const h = ready();
+    h.controller.onExternalPanelRequested();
+    vi.advanceTimersByTime(5000);
+    expect(h.ui.model?.externalPanelStatus).toContain("five seconds");
+    expect(h.ui.model?.externalPanelStatus).toContain("figtether doctor");
+    h.controller.dispose();
+  });
+  it("releases a cancelled read and removes cancelled queued requests", () => {
+    const h = ready();
+    h.bridge.handlers.onFrame(
+      bridgeFrame("request", { op: "export_assets", params: {} }, "large-export"),
+    );
+    h.bridge.handlers.onFrame(
+      bridgeFrame("request", { op: "list_nodes", params: {} }, "queued-cancelled"),
+    );
+    h.bridge.handlers.onFrame(
+      bridgeFrame("request", { op: "get_selection", params: {} }, "next-read"),
+    );
+    h.bridge.handlers.onFrame(bridgeFrame("cancel", {}, "queued-cancelled"));
+    h.bridge.handlers.onFrame(bridgeFrame("cancel", {}, "large-export"));
+    expect(h.sandbox.lastOf("frame")?.requestId).toBe("next-read");
+  });
+  it("waits for a cancelled write outcome before starting another operation", () => {
+    const h = ready();
+    h.bridge.handlers.onFrame(bridgeFrame("request", { op: "apply_write", params: {} }, "write"));
+    h.bridge.handlers.onFrame(
+      bridgeFrame("request", { op: "get_selection", params: {} }, "after-write"),
+    );
+    h.bridge.handlers.onFrame(bridgeFrame("cancel", {}, "write"));
+    expect(h.sandbox.lastOf("frame")?.requestId).toBe("write");
+    h.controller.onSandboxEnvelope(
+      sandboxEnvelope(
+        "error",
+        { code: "CANCELLED", message: "Cancelled", retryable: false, action: "refresh_tree" },
+        "write",
+      ),
+    );
+    expect(h.sandbox.lastOf("frame")?.requestId).toBe("after-write");
+  });
+  it("reports a failed result delivery and completes the pending daemon request with an error", () => {
+    const h = ready();
+    const send = h.bridge.sendFrame.bind(h.bridge);
+    h.bridge.sendFrame = (type, payload, id) =>
+      type === "result" ? false : send(type, payload, id);
+    h.bridge.handlers.onFrame(
+      bridgeFrame("request", { op: "list_nodes", params: {} }, "broken-result"),
+    );
+    h.controller.onSandboxEnvelope(
+      sandboxEnvelope("result", { data: { nodes: [] } }, "broken-result"),
+    );
+    expect(h.bridge.frames.some((f) => f.type === "error" && f.requestId === "broken-result")).toBe(
+      true,
+    );
+    expect(h.ui.model?.operationError).toContain("Check the canvas before repeating a write");
+    h.bridge.handlers.onFrame(
+      bridgeFrame("request", { op: "get_selection", params: {} }, "next-read"),
+    );
+    expect(h.sandbox.lastOf("frame")?.requestId).toBe("next-read");
+  });
+  it("shows recovery for native command errors without relabeling the connection as failed", () => {
+    const h = ready();
+    h.controller.onSandboxEnvelope(
+      sandboxEnvelope(
+        "error",
+        {
+          code: "FONT_UNAVAILABLE",
+          message: "Font could not be loaded",
+          retryable: false,
+          action: "use_available_font",
+        },
+        "write-error",
+      ),
+    );
+    expect(h.ui.model?.operationError).toContain("fresh preview");
+    expect(h.ui.model?.connection).toBe("connected");
+  });
   it("keeps new controls disabled when the daemon has not advertised support", () => {
     const h = ready();
     h.bridge.handlers.onAuthAccepted({
@@ -181,6 +273,9 @@ describe("user-facing Bridge flow", () => {
     expect(readWritePreview({ ...clean, reasons: ["Needs review"] })?.autoApprovalSafe).toBe(false);
   });
   it("formats activity without numbered technical rows or untrusted free text", () => {
+    expect(readableActivity("12:30:00 op=pair error=PLUGIN_OFFLINE")).toBe(
+      "12:30:00  Bridge connection failed · PLUGIN_OFFLINE",
+    );
     expect(readableActivity("12:30:00 op=list_nodes count=50 duration=62ms")).toBe(
       "12:30:00  Layers read · 50 items · 62 ms",
     );

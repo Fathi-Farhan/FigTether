@@ -1,76 +1,62 @@
-# FigTether README visual system
+# FigTether visual system: Canvas Playground
 
-## Context and goals
+## Purpose
 
-Present a local design tool as a readable technical publication. Readers should understand
-native design creation, authorization, and the scope of recorded measurements before they
-inspect implementation details. The redesign follows the
-[Editorial skill](https://github.com/bergside/awesome-design-skills/blob/main/skills/editorial/SKILL.md)
-and its [design reference](https://github.com/bergside/awesome-design-skills/blob/main/skills/editorial/DESIGN.md),
-selected from the user-requested collection. Guidance is applied; third-party artwork is not reused.
+Help developers and designers understand the bridge before reading implementation details.
+The user selected the Canvas Playground banner on 22 October 2026: bold, friendly sans-serif
+type, a terminal tethered to an editable frame, and a restrained cream, forest and lime palette.
+This replaces the earlier editorial serif direction. Playfulness comes from the connection
+and native selection handles; data figures prioritize labels, alignment and accurate scales.
 
-## Design tokens and foundations
+## Tokens
 
-| Token         | Value                            | Use                                                                  |
-| ------------- | -------------------------------- | -------------------------------------------------------------------- |
-| Paper         | `#ffffff`                        | Opaque figure background; works in light and dark README themes      |
-| Ink           | `#111111`                        | Titles, outlines, primary measurements                               |
-| Secondary ink | `#525252`                        | Supporting copy                                                      |
-| Rule          | `#d4d4d4`                        | Separators and axes, never the only carrier of meaning               |
-| Light fill    | `#f1f1f1`                        | Small illustrated controls                                           |
-| Warning       | `#9a4b00`                        | Unmeasured cost and known failures; always paired with explicit text |
-| Display type  | Gelasio, Georgia, serif          | Editorial headings, 24/36 px                                         |
-| Body type     | Arial, Helvetica, sans-serif     | Labels and explanatory text, 14/16/18 px                             |
-| Code type     | Ubuntu Mono, Consolas, monospace | Commands, values, hashes, 13/16/19 px                                |
-| Baseline      | 8 px                             | Primary margins and content rhythm                                   |
+| Token        | Value                                     | Use                                                   |
+| ------------ | ----------------------------------------- | ----------------------------------------------------- |
+| Canvas       | `#f7f6ee`                                 | Opaque banner/figure background and light UI          |
+| Forest       | `#153f2e`                                 | Text, primary actions, outlines and p95 bars          |
+| Lime         | `#d7f3ac`                                 | Selection handles, step markers and outlined p50 bars |
+| Rule         | `#748375`                                 | Axes, separators and light UI control boundaries      |
+| Display      | Arial, Helvetica, sans-serif; 40 px / 800 | Figure headings                                       |
+| Label        | Same sans-serif; 28 px / 700              | Workload and diagram labels                           |
+| Body         | Same sans-serif; 22–24 px                 | Descriptions                                          |
+| Value        | Same sans-serif; 32 px / 700              | Directly labeled benchmark measurements               |
+| Code         | Consolas, monospace; 26 px / 700          | Actual commands                                       |
+| Figure width | 800 px                                    | Natural README content width                          |
+| Inset        | 40 px                                     | Figure margins                                        |
 
-The SVGs use installed fonts with fallbacks; no external font fetch is needed. The skill's
-Gelasio and Ubuntu Mono families are declared, with local substitutes for portable rendering.
-The 36 px figure heading is an adaptation for the 1100 px export width.
+The image-generated banner approximates these tokens; its pixels are illustrative artwork,
+not a mechanically exact token export. SVGs and CSS use explicit color values. Fonts are local
+system stacks, with no network font dependency. Bridge uses compact 12–24 px system type,
+8 px control corners, visible focus, and the same palette. The dark theme uses forest surfaces,
+cream text and lime actions. Red is reserved for error/destructive states and accompanied by text.
+The existing black frame-and-tether plugin icon remains on a cream tile.
 
-## Component rules
+## Layout and data
 
-- Figures must have a 40 px inset, numbered caption, title, and scope sentence.
-- Systems must use square outlined nodes, labeled transports, and arrows with an explicit direction.
-- Benchmark results must use labeled axes, sample counts, scope, units, and source hashes.
-- Independent latency scales must be stated next to the plot; every row starts at zero.
-- Percentiles must use distinct bar treatments and adjacent numeric values.
-- Missing measurements must say **not measured**. A failed tool must retain its failure label.
-- The banner may use its original editorial masthead illustration; it must not contain performance claims.
-- The logo must remain readable on a white field in both plugin themes, with adjacent visible product text.
+- Give each figure one clear question and a large, short title.
+- Use a vertical flow for architecture and setup so labels have room at README width.
+- Show the current `figtether start` path and manifest-owned port agreement.
+- Keep benchmark p50/p95/p99 labels and values beside the bars. p50 has a lime fill and dark
+  outline; p95 is forest; p99 is dashed. Meaning must survive monochrome viewing.
+- Start every axis at zero. Desktop workload scales are independent and explicitly labeled;
+  offline stages share one scale. Never imply a comparison between different workloads/builds.
+- Keep measured JSON, sample counts, failures, units and scope unchanged. Link source data,
+  build hashes and reproduction notes in surrounding selectable Markdown.
+- Keep actual editor/browser screenshots and dated reports unchanged as historical evidence.
+- Do not add generated performance claims, synthetic ratings, decorative dashboards or gradients.
 
-## Accessibility requirements and acceptance criteria
+## Readability and verification
 
-Text must stay legible at a typical README width of 800–1100 px. Supporting text is at least
-13 px in the 1100 px source, and the surrounding Markdown repeats substantive benchmark
-values and workflow instructions as selectable text. Body and warning text must meet 4.5:1
-contrast against paper. Color cannot be the only way to distinguish a measurement or status.
-SVGs must provide a title and description; Markdown images must provide meaningful alt text.
+Inspect rendered assets at 800 px and 360 px widths. Primary content must fit without clipping;
+small figure details may require opening the image at full size on a phone. Repeat substantive
+numbers and setup instructions in selectable Markdown so the image is never the only source.
+All SVGs have a title and description. Verify actual rendered text/control color pairs separately,
+including both Bridge themes. Contrast checks are partial measurements, not a full accessibility
+or usability certification.
 
-The plugin keeps native controls, associated labels, keyboard focus styles, and live status
-regions. The setup disclosure must open with the keyboard. Its icon is decorative because the
-adjacent text already names the product. The original plugin's compact button sizes are retained;
-this documentation redesign does not claim full 44 px touch-target compliance.
+Run `node scripts/render-readme-assets.mjs --check` after regeneration. Render all five SVGs,
+check text bounds and bar values, and inspect the banner in the README layout. After CSS
+changes, build the plugin and check the controlled UI fixture at narrow/wide widths and in
+light/dark themes. Never describe browser fixture checks as native Figma testing.
 
-## Content and tone
-
-Use precise verbs: **read**, **create**, **edit**, **approve**. Say where an input comes from.
-For example: “Run `figtether pair` in a second terminal,” rather than “Enter your secret.”
-Explain the required grant separately from the connection and session name.
-
-## Anti-patterns and migration
-
-Replace the previous 3D cable scene, gradients, glowing connectors, mint cards, and faux
-terminal scenery. Use flat typography, technical drawing, and directly labeled data instead.
-Keep the user's real Bridge screenshot unchanged and identify it as the previous UI.
-Historical benchmark data and failure records must not be changed during visual migration.
-
-## QA checklist
-
-- Regenerate all SVGs and pass `node scripts/render-readme-assets.mjs --check`.
-- Render and inspect the banner, icon, architecture, desktop chart, offline chart, and guide.
-- Confirm units, axes, sample counts, and percentiles agree with the reviewed JSON.
-- Confirm text does not overflow at the source dimensions.
-- Verify Markdown rendering with HTML disabled and all local links resolved.
-- Build the plugin with its icon embedded locally; preserve alpha in the small PNG derivative.
-- Run plugin tests and type checks after onboarding/status changes.
+See [visual provenance](README.md) for the selected artwork and exact generation prompt.

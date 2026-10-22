@@ -8,7 +8,12 @@
  * credential in a persistent store.
  */
 
-import { isCapabilityState, parseFrame, LOCAL_BRIDGE_PORT } from "@figtether/shared";
+import {
+  isCapabilityState,
+  parseFrame,
+  LOCAL_BRIDGE_PORT,
+  LOCAL_PLUGIN_MANIFEST_PATH,
+} from "@figtether/shared";
 import type { BridgeFrame, CapabilityMap, JsonValue } from "@figtether/shared";
 
 import { DEFAULT_BACKOFF } from "./backoff.js";
@@ -41,6 +46,9 @@ import type { ApprovalDecision } from "./write.js";
 /** Request id that the daemon uses for the handshake frames. */
 export const AUTH_REQUEST_ID = "auth";
 
+/** A silent WebSocket constructor must not leave the UI connecting forever. */
+export const CONNECT_TIMEOUT_MS = 5000;
+
 /** Minimal socket surface used by the bridge, so tests can supply a fake. */
 export interface SocketLike {
   send(data: string): void;
@@ -65,12 +73,33 @@ export interface TimerApi {
 
 /** Callbacks the owner of the bridge uses to drive the UI. */
 export interface BridgeHandlers {
-  onConnection(state: ConnectionState, detail: string | null): void;
+  onConnection(state: ConnectionState, detail: string | null, recovery?: ConnectionRecovery): void;
   onAuthAccepted(payload: AuthAcceptedPayload): void;
   onAuthRejected(code: string, message: string): void;
   onFrame(frame: BridgeFrame): void;
   onError(error: UiError): void;
   onLog(entry: LogEntry): void;
+}
+
+/** Actionable policy diagnostics without credentials or document content. */
+export interface ConnectionRecovery {
+  readonly manifestPath: string;
+  readonly expectedPort: number;
+  readonly allowedPorts: readonly number[];
+}
+
+export function loadedLoopbackPorts(policy: string): number[] {
+  const sources =
+    /(?:^|;)\s*connect-src\s+([^;]+)/i.exec(policy)?.[1] ??
+    /(?:^|;)\s*default-src\s+([^;]+)/i.exec(policy)?.[1] ??
+    "";
+  return [
+    ...new Set(
+      [...sources.matchAll(/\b(?:https?|wss?):\/\/(?:localhost|127\.0\.0\.1):(\d+)\b/g)]
+        .map((match) => Number(match[1]))
+        .filter((port) => port > 0 && port <= 65535),
+    ),
+  ].sort((a, b) => a - b);
 }
 
 /** Construction options of the bridge client. */
@@ -88,13 +117,27 @@ export interface BridgeOptions {
 
 /** Message that tells the user the editor policy blocked the socket. */
 export const POLICY_BLOCKED_MESSAGE =
-  "The editor blocked the connection to the local daemon. Regenerate the plugin manifest with " +
-  `'figtether manifest' so that networkAccess allows ${BRIDGE_URL}, then rebuild and reopen the plugin.`;
+  "Figma has not allowed this local connection. Follow the import steps below before pairing again.";
 
 /** Message that tells the user the daemon is not reachable. */
 export const DAEMON_UNREACHABLE_MESSAGE =
   `The local daemon did not accept a connection on ${BRIDGE_URL}. Start it with ` +
-  `'${LOCAL_BRIDGE_PORT === 38947 ? "figtether" : `figtether daemon --port ${LOCAL_BRIDGE_PORT}`}' and pair again.`;
+  `'${LOCAL_BRIDGE_PORT === 38947 ? "figtether" : `figtether daemon --port ${LOCAL_BRIDGE_PORT}`}' and pair again. ` +
+  `If the daemon is already running, import ${LOCAL_PLUGIN_MANIFEST_PATH} in Figma.`;
+
+/** Only a policy failure for this bridge's loopback socket is relevant. */
+export function isBridgePolicyViolation(blockedURI: string): boolean {
+  try {
+    const endpoint = new URL(blockedURI);
+    return (
+      (endpoint.protocol === "ws:" || endpoint.protocol === "wss:") &&
+      (endpoint.hostname === "localhost" || endpoint.hostname === "127.0.0.1") &&
+      endpoint.port === String(LOCAL_BRIDGE_PORT)
+    );
+  } catch {
+    return false;
+  }
+}
 
 const AUTH_ERROR_CODES = ["AUTH_REQUIRED", "AUTH_EXPIRED", "PROTOCOL_MISMATCH"];
 
@@ -234,12 +277,15 @@ export class BridgeClient {
   private socket: SocketLike | null = null;
   private state: ConnectionState = "unpaired";
   private authTimer: number | null = null;
+  private connectTimer: number | null = null;
   private heartbeatTimer: number | null = null;
   private reconnectTimer: number | null = null;
   private lastInboundAt = 0;
   private attempt = 0;
   private opened = false;
   private policyBlocked = false;
+  private policyRecovery: ConnectionRecovery | undefined;
+  private checking = false;
   private heartbeatSequence = 0;
   private sessionIdValue: string | null = null;
   private connectionEpochValue = 0;
@@ -296,6 +342,7 @@ export class BridgeClient {
     // still uses that credential, but it must not override a new pair secret.
     this.clearTimers();
     this.closeSocket();
+    this.checking = false;
     this.credential.clear();
     this.sessionIdValue = null;
     this.connectionEpochValue = 0;
@@ -305,8 +352,20 @@ export class BridgeClient {
     this.transition({ type: "reset" });
     this.stopped = false;
     this.policyBlocked = false;
+    this.policyRecovery = undefined;
     this.attempt = 0;
     this.pairingSecret.write(secret);
+    this.transition({ type: "dial_started" });
+    this.dial();
+  }
+
+  /** Check reachability before asking the user to paste a one-use secret. */
+  checkConnection(): void {
+    if (this.state === "connected" || this.state === "connecting" || this.policyBlocked) return;
+    this.clearTimers();
+    this.closeSocket();
+    this.stopped = false;
+    this.checking = true;
     this.transition({ type: "dial_started" });
     this.dial();
   }
@@ -338,9 +397,14 @@ export class BridgeClient {
    * Called by the UI layer when the editor reported a content security policy
    * violation while the socket was dialing.
    */
-  reportPolicyViolation(): void {
+  reportPolicyViolation(originalPolicy = ""): void {
     this.policyBlocked = true;
-    this.handlers.onConnection(this.state, POLICY_BLOCKED_MESSAGE);
+    this.policyRecovery = {
+      manifestPath: LOCAL_PLUGIN_MANIFEST_PATH,
+      expectedPort: LOCAL_BRIDGE_PORT,
+      allowedPorts: loadedLoopbackPorts(originalPolicy),
+    };
+    this.failConnection(POLICY_BLOCKED_MESSAGE);
   }
 
   /**
@@ -453,22 +517,31 @@ export class BridgeClient {
     let socket: SocketLike;
     try {
       socket = this.socketFactory(this.url);
-    } catch {
-      this.handlers.onConnection(this.state, DAEMON_UNREACHABLE_MESSAGE);
-      this.scheduleReconnect();
+    } catch (error) {
+      if (error instanceof Error && error.name === "SecurityError") {
+        this.reportPolicyViolation();
+      } else {
+        this.failConnection(DAEMON_UNREACHABLE_MESSAGE);
+      }
       return;
     }
     this.socket = socket;
 
     socket.onopen = (): void => {
       if (this.socket !== socket) return;
+      this.clearConnectTimer();
       this.opened = true;
-      this.attempt = 0;
+      if (this.checking) {
+        this.checking = false;
+        this.closeSocket();
+        this.transition({ type: "reset" });
+        return;
+      }
       this.lastInboundAt = this.timers.now();
       this.sendAuthentication();
+      if (this.socket !== socket) return;
       this.startAuthTimer();
       this.startHeartbeat();
-      this.handlers.onLog({ operation: "pair", count: 1 });
     };
 
     socket.onmessage = (event: { data: unknown }): void => {
@@ -479,6 +552,7 @@ export class BridgeClient {
     socket.onerror = (): void => {
       if (this.socket !== socket) return;
       this.handlers.onLog({ operation: "pair", errorCode: "PLUGIN_OFFLINE" });
+      this.failConnection(this.policyBlocked ? POLICY_BLOCKED_MESSAGE : DAEMON_UNREACHABLE_MESSAGE);
     };
 
     socket.onclose = (): void => {
@@ -497,6 +571,26 @@ export class BridgeClient {
       this.handlers.onConnection(this.state, DAEMON_UNREACHABLE_MESSAGE);
       this.scheduleReconnect();
     };
+    this.connectTimer = this.timers.setTimeout(() => {
+      this.connectTimer = null;
+      if (this.socket === socket) this.failConnection(DAEMON_UNREACHABLE_MESSAGE);
+    }, CONNECT_TIMEOUT_MS);
+  }
+
+  private failConnection(detail: string): void {
+    this.checking = false;
+    this.clearTimers();
+    this.closeSocket();
+    this.transition({ type: "socket_closed" });
+    this.handlers.onConnection(this.state, detail, this.policyRecovery);
+    this.scheduleReconnect();
+  }
+
+  private clearConnectTimer(): void {
+    if (this.connectTimer !== null) {
+      this.timers.clearTimeout(this.connectTimer);
+      this.connectTimer = null;
+    }
   }
 
   private sendAuthentication(): void {
@@ -532,11 +626,15 @@ export class BridgeClient {
     this.clearAuthTimer();
     this.authTimer = this.timers.setTimeout(() => {
       this.authTimer = null;
+      this.clearTimers();
+      this.closeSocket();
+      this.pairingSecret.clear();
+      this.credential.clear();
+      this.transition({ type: "auth_rejected" });
       this.handlers.onAuthRejected(
         "AUTH_REQUIRED",
         "The daemon closed the connection before the handshake completed. Pair again.",
       );
-      this.closeSocket();
     }, AUTH_WINDOW_MS);
   }
 
@@ -571,6 +669,7 @@ export class BridgeClient {
   }
 
   private clearTimers(): void {
+    this.clearConnectTimer();
     this.clearAuthTimer();
     this.clearHeartbeatTimer();
     if (this.reconnectTimer !== null) {
@@ -717,6 +816,7 @@ export class BridgeClient {
         return;
       }
       case "capabilities":
+      case "ui_control":
       case "request":
       case "progress":
       case "chunk":
@@ -734,13 +834,14 @@ export class BridgeClient {
     this.clearAuthTimer();
     const accepted = parseAuthAccepted(payload);
     if (accepted === null) {
-      this.handlers.onAuthRejected(
-        "INTERNAL_ERROR",
-        "The daemon sent an incomplete handshake answer. Pair again.",
-      );
+      this.handleAuthRejected({
+        code: "INTERNAL_ERROR",
+        message: "The daemon sent an incomplete handshake answer. Pair again.",
+      });
       return;
     }
     this.credential.write(accepted.session_credential);
+    this.attempt = 0;
     this.sessionIdValue = accepted.session_id;
     this.connectionEpochValue = accepted.connection_epoch;
     if (accepted.grant_epoch !== null) {
@@ -759,7 +860,8 @@ export class BridgeClient {
   }
 
   private handleAuthRejected(payload: unknown): void {
-    this.clearAuthTimer();
+    this.clearTimers();
+    this.closeSocket();
     this.pairingSecret.clear();
     this.credential.clear();
     this.transition({ type: "auth_rejected" });

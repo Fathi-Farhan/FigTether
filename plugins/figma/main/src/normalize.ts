@@ -205,8 +205,8 @@ export function buildGeometry(
   node: FigmaNode,
   unavailableFields: string[],
 ): PluginGeometry | undefined {
-  const local = linearPart(node.relativeTransform);
-  const absolute = linearPart(node.absoluteTransform);
+  const local = transformParts(node.relativeTransform);
+  const absolute = transformParts(node.absoluteTransform);
   if (local === undefined && absolute === undefined) {
     unavailableFields.push(
       unavailable("geometry.local_transform", UNAVAILABLE_REASON.CAPABILITY_UNAVAILABLE),
@@ -234,8 +234,8 @@ export function buildGeometry(
   }
 
   return {
-    local_transform: local ?? [1, 0, 0, 1],
-    absolute_transform: absolute ?? local ?? [1, 0, 0, 1],
+    local_transform: local ?? [node.x ?? 0, node.y ?? 0, 1, 1],
+    absolute_transform: absolute ?? local ?? [node.x ?? 0, node.y ?? 0, 1, 1],
     bounding_box: boundingBox,
     rotation: node.rotation ?? 0,
     constraints_horizontal: horizontal,
@@ -244,7 +244,9 @@ export function buildGeometry(
   };
 }
 
-function linearPart(
+// Wire geometry is [translation x, translation y, scale x, scale y],
+// not the four coefficients of Figma's 2x3 matrix.
+function transformParts(
   transform: number[][] | undefined,
 ): [number, number, number, number] | undefined {
   if (transform === undefined || transform.length < 2) {
@@ -262,7 +264,10 @@ function linearPart(
   if (a === undefined || b === undefined || c === undefined || d === undefined) {
     return undefined;
   }
-  return [a, b, c, d];
+  const x = asNumber(first[2]);
+  const y = asNumber(second[2]);
+  if (x === undefined || y === undefined) return undefined;
+  return [x, y, Math.hypot(a, b), Math.hypot(c, d)];
 }
 
 /** Build the auto layout block of a node. */
@@ -505,7 +510,7 @@ function buildPaint(paint: FigmaPaint): PluginPaint {
   const kind =
     type === "SOLID"
       ? "SOLID"
-      : type === "GRADIENT"
+      : type === "GRADIENT" || type.startsWith("GRADIENT_")
         ? "GRADIENT"
         : type === "IMAGE"
           ? "IMAGE"
@@ -517,7 +522,7 @@ function buildPaint(paint: FigmaPaint): PluginPaint {
     visible: paint.visible ?? true,
   };
   if (kind === "SOLID" && paint.color !== undefined) {
-    result.color = [paint.color.r, paint.color.g, paint.color.b, paint.color.a];
+    result.color = [paint.color.r, paint.color.g, paint.color.b, paint.color.a ?? 1];
   }
   if (kind === "GRADIENT" && paint.gradientStops !== undefined) {
     result.gradient_stops = paint.gradientStops.map((stop) => ({

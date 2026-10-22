@@ -16,8 +16,8 @@
 //! command then prints the daemon command that uses the same port, because
 //! the plugin and the daemon have to agree on it.
 
+use anyhow::Context;
 use std::path::{Path, PathBuf};
-use std::time::Duration;
 
 use serde_json::{json, Value};
 
@@ -34,8 +34,17 @@ pub const DEFAULT_FILE_NAME: &str = "manifest.json";
 /// The plugin folder inside the repository.
 pub const PLUGIN_FOLDER: &str = "plugins/figma";
 
-/// The machine local manifest, the one the user imports into Figma.
+/// Machine-local build input. Figma imports the generated dist/manifest.json.
 pub const LOCAL_FILE_NAME: &str = "manifest.local.json";
+
+/// The generated build artifact accepted by Figma's import dialog.
+pub fn import_path(source: &Path) -> PathBuf {
+    source
+        .parent()
+        .unwrap_or(Path::new("."))
+        .join("dist")
+        .join(DEFAULT_FILE_NAME)
+}
 
 /// The plugin id used when the user names none.
 pub const DEFAULT_PLUGIN_ID: &str = "figtether-local";
@@ -51,6 +60,7 @@ pub fn run(args: ManifestArgs) -> anyhow::Result<CommandOutcome> {
     let start = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
     let generated = generate(&args, &start)?;
     write_manifest(&generated.path, &generated.manifest)?;
+    remember_manifest(&generated.path, args.runtime_dir.as_deref())?;
     print_summary(
         &generated.path,
         &generated.manifest,
@@ -84,12 +94,52 @@ fn generate(args: &ManifestArgs, start: &Path) -> anyhow::Result<Generated> {
             args.action
         );
     }
-    let plugin_id = resolve_plugin_id(args.plugin_id.as_deref(), start)?;
-    let path = args
-        .out
-        .clone()
-        .unwrap_or_else(|| default_output_path(start));
-    let (port, automatic) = resolve_port(args.port, start, args.runtime_dir.as_deref());
+    let path = args.out.clone().unwrap_or_else(|| {
+        if plugin_folder(start).is_none()
+            && !start.join(DEFAULT_FILE_NAME).is_file()
+            && !start.join(LOCAL_FILE_NAME).is_file()
+        {
+            if let Some(saved) = remembered_manifest(args.runtime_dir.as_deref()) {
+                return saved;
+            }
+        }
+        default_output_path(start)
+    });
+    let path = if path.is_relative() {
+        start.join(path)
+    } else {
+        path
+    };
+    // An explicit output is an existing contract too, even outside this checkout.
+    let base = path.parent().unwrap_or(start);
+    let existing: Option<Value> = if path.is_file() {
+        let text = std::fs::read_to_string(&path)?;
+        Some(serde_json::from_str(text.trim_start_matches('\u{feff}')).with_context(|| format!("invalid JSON in {}; the existing manifest was left unchanged. Restore valid JSON, then regenerate it with figtether manifest", path.display()))?)
+    } else {
+        None
+    };
+    let plugin_id = resolve_plugin_id(
+        args.plugin_id
+            .as_deref()
+            .or_else(|| existing.as_ref()?.get("id")?.as_str()),
+        base,
+    )?;
+    let (port, automatic) = match args.port {
+        PortSelection::Auto => resolve_port_from(args.port, base, || {
+            running_daemon_port(args.runtime_dir.as_deref()).or_else(|| {
+                let port = manifest_port(existing.as_ref()?)?;
+                figtether_daemon::port::diagnose(port)
+                    .is_none()
+                    .then_some(port)
+            })
+        }),
+        _ => resolve_port(args.port, base, args.runtime_dir.as_deref()),
+    };
+    anyhow::ensure!(port != 0, "the bridge port must be between 1 and 65535");
+    anyhow::ensure!(
+        !automatic || figtether_daemon::port::diagnose(port).is_none(),
+        "no usable port was found; choose an available port with --port <port>"
+    );
     let manifest = build_manifest(&plugin_id, port, args.editor_type);
     Ok(Generated {
         path,
@@ -135,6 +185,9 @@ fn resolve_plugin_id(requested: Option<&str>, start: &Path) -> anyhow::Result<St
 /// file the user imports into Figma. Everywhere else the manifest is written
 /// next to the current directory.
 fn default_output_path(start: &Path) -> PathBuf {
+    if start.join(LOCAL_FILE_NAME).is_file() {
+        return start.join(LOCAL_FILE_NAME);
+    }
     match plugin_folder(start) {
         Some(folder) => folder.join(LOCAL_FILE_NAME),
         None => PathBuf::from(DEFAULT_FILE_NAME),
@@ -151,6 +204,7 @@ pub fn manifest_candidates(start: &Path) -> Vec<PathBuf> {
     while let Some(dir) = directory {
         candidates.push(dir.join(PLUGIN_FOLDER).join(LOCAL_FILE_NAME));
         candidates.push(dir.join(PLUGIN_FOLDER).join(DEFAULT_FILE_NAME));
+        candidates.push(dir.join(LOCAL_FILE_NAME));
         candidates.push(dir.join(DEFAULT_FILE_NAME));
         directory = dir.parent();
     }
@@ -161,7 +215,11 @@ pub fn manifest_candidates(start: &Path) -> Vec<PathBuf> {
 ///
 /// The path that the user names wins. Otherwise the nearest manifest of the
 /// current directory or of one of its parents is used.
-pub fn discover_manifest(explicit: Option<&Path>) -> Option<PathBuf> {
+/// Search locally first, then use the path registered for this runtime.
+pub fn discover_manifest_in(
+    explicit: Option<&Path>,
+    runtime_dir: Option<&Path>,
+) -> Option<PathBuf> {
     match explicit {
         Some(path) => Some(path.to_path_buf()),
         None => {
@@ -169,6 +227,7 @@ pub fn discover_manifest(explicit: Option<&Path>) -> Option<PathBuf> {
             manifest_candidates(&start)
                 .into_iter()
                 .find(|path| path.is_file())
+                .or_else(|| remembered_manifest(runtime_dir))
         }
     }
 }
@@ -178,7 +237,7 @@ pub fn plugin_folder(start: &Path) -> Option<PathBuf> {
     let mut directory = Some(start);
     while let Some(dir) = directory {
         let folder = dir.join(PLUGIN_FOLDER);
-        if folder.is_dir() {
+        if folder.join("build.mjs").is_file() {
             return Some(folder);
         }
         directory = dir.parent();
@@ -208,14 +267,47 @@ pub fn has_byte_order_mark(bytes: &[u8]) -> bool {
 /// The port that a manifest grants to the plugin.
 pub fn manifest_port(manifest: &Value) -> Option<u16> {
     let domains = manifest["networkAccess"]["devAllowedDomains"].as_array()?;
-    domains
+    let mut selected = None;
+    for digits in domains
         .iter()
         .filter_map(|domain| domain.as_str())
-        .find_map(|text| {
-            let (_, after) = text.rsplit_once(':')?;
-            let digits = after.split('/').next()?.trim();
-            digits.parse::<u16>().ok()
-        })
+        .filter_map(|text| text.strip_prefix("ws://localhost:"))
+        .filter(|digits| !digits.is_empty() && digits.bytes().all(|ch| ch.is_ascii_digit()))
+    {
+        let port = digits.parse::<u16>().ok()?;
+        if port == 0 || selected.is_some_and(|previous| previous != port) {
+            return None;
+        }
+        selected = Some(port);
+    }
+    selected
+}
+
+/// Parse the actual contract strictly; invalid manifests are never a reason
+/// to silently fall back to another port.
+pub fn read_manifest(path: &Path) -> anyhow::Result<Value> {
+    use anyhow::Context;
+    let bytes = std::fs::read(path).with_context(|| format!("cannot read {}", path.display()))?;
+    anyhow::ensure!(!has_byte_order_mark(&bytes), "the manifest {} starts with a byte order mark; Figma cannot parse it. Regenerate it with figtether manifest", path.display());
+    serde_json::from_slice(&bytes).with_context(|| format!("invalid JSON in {}", path.display()))
+}
+
+/// Save the manifest location rather than another copy of its port. This
+/// survives daemon shutdown and lets a command run from an unrelated folder.
+pub fn remember_manifest(path: &Path, runtime_dir: Option<&Path>) -> anyhow::Result<()> {
+    let dir = crate::runtime::resolve(runtime_dir)?;
+    write_manifest(
+        &dir.path().join("plugin.json"),
+        &json!({"manifest": std::fs::canonicalize(path)?}),
+    )
+}
+
+pub fn remembered_manifest(runtime_dir: Option<&Path>) -> Option<PathBuf> {
+    let dir = crate::runtime::resolve(runtime_dir).ok()?;
+    let settings: Value =
+        serde_json::from_slice(&std::fs::read(dir.path().join("plugin.json")).ok()?).ok()?;
+    let path = PathBuf::from(settings["manifest"].as_str()?);
+    path.is_file().then_some(path)
 }
 
 /// The port of the local plugin manifest.
@@ -223,11 +315,6 @@ pub fn manifest_port(manifest: &Value) -> Option<u16> {
 /// The manifest is the memory of the port: the plugin reads its port from
 /// that file, so the daemon has to use the same one. The runtime file only
 /// exists while a daemon runs, and it is removed when the daemon stops.
-pub fn local_manifest_port() -> Option<u16> {
-    let start = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-    local_manifest_port_from(&start)
-}
-
 /// The port of the local plugin manifest, relative to a directory.
 pub fn local_manifest_port_from(start: &Path) -> Option<u16> {
     manifest_candidates(start)
@@ -262,21 +349,9 @@ pub fn agreed_port_from(start: &Path, running: impl FnOnce() -> Option<u16>) -> 
 /// stops. A daemon that was killed with a signal leaves the file behind, so
 /// the port is only used when something actually answers on it.
 fn running_daemon_port(runtime_dir: Option<&Path>) -> Option<u16> {
-    let port = crate::runtime::resolve(runtime_dir)
+    crate::commands::block_on(async { Ok(crate::control::running_daemon_port(runtime_dir).await) })
         .ok()
-        .and_then(|dir| crate::runtime::daemon_file(&dir))
-        .map(|file| file.port)?;
-    if daemon_answers(port) {
-        Some(port)
-    } else {
-        None
-    }
-}
-
-/// Whether a daemon answers on the loopback port.
-fn daemon_answers(port: u16) -> bool {
-    let address = std::net::SocketAddr::from((std::net::Ipv4Addr::LOCALHOST, port));
-    std::net::TcpStream::connect_timeout(&address, Duration::from_millis(250)).is_ok()
+        .flatten()
 }
 
 /// Resolve the port of the manifest.
@@ -333,6 +408,7 @@ pub fn build_manifest(plugin_id: &str, port: u16, editor_type: EditorType) -> Va
 
 /// Write the manifest to disk.
 fn write_manifest(path: &Path, manifest: &Value) -> anyhow::Result<()> {
+    use std::io::Write;
     if let Some(parent) = path.parent() {
         if !parent.as_os_str().is_empty() {
             std::fs::create_dir_all(parent).map_err(|err| {
@@ -345,7 +421,13 @@ fn write_manifest(path: &Path, manifest: &Value) -> anyhow::Result<()> {
     }
     let mut text = serde_json::to_string_pretty(manifest)?;
     text.push('\n');
-    std::fs::write(path, text).map_err(|err| {
+    let parent = path
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    let mut stage = tempfile::NamedTempFile::new_in(parent)?;
+    stage.write_all(text.as_bytes())?;
+    stage.persist(path).map_err(|err| {
         anyhow::anyhow!(
             "the manifest {} could not be written: {err}",
             path.display()
@@ -372,6 +454,23 @@ fn print_summary(
 ) {
     output::blank();
     output::line(&format!("Manifest written to {}", absolute(path).display()));
+    if path
+        .file_name()
+        .is_some_and(|name| name != DEFAULT_FILE_NAME)
+    {
+        output::line("This file is build input. Figma only imports a file named manifest.json.");
+        if path
+            .parent()
+            .is_some_and(|parent| parent.join("build.mjs").is_file())
+        {
+            output::field(
+                "Figma import after build",
+                &import_path(&absolute(path)).display().to_string(),
+            );
+        } else {
+            output::line("Import the build's dist/manifest.json after building from this input.");
+        }
+    }
     output::blank();
     output::field("plugin id", manifest["id"].as_str().unwrap_or_default());
     output::field("editor type", editor_type.as_str());
@@ -382,7 +481,7 @@ fn print_summary(
     output::line("No wildcard domain and no remote service is referenced.");
     if automatic {
         output::blank();
-        output::line("The port was picked automatically, so it is free on this machine.");
+        output::line("The selected port was available when checked; startup will bind it again.");
         output::line("The plugin manifest and the daemon have to agree on the port.");
         output::line("Start the daemon with:");
         output::blank();
@@ -391,8 +490,12 @@ fn print_summary(
         output::line("Rebuild the plugin for that port before you reopen it in Figma.");
     }
     output::blank();
+    output::line(
+        "Build the plugin after generating a manifest: npm --prefix plugins/figma run build.",
+    );
+    output::line("Or use figtether start to prepare the source plugin and pair in one terminal.");
     output::line("If the daemon port changes, regenerate this manifest with the same port");
-    output::line("and reload the plugin in Figma. The port is never changed silently,");
+    output::line("then rebuild and reimport dist/manifest.json in Figma. The port is never changed silently,");
     output::line("because the plugin reads it from the manifest:");
     output::blank();
     output::line(&format!(
@@ -416,11 +519,87 @@ fn absolute(path: &Path) -> PathBuf {
 mod tests {
     use super::*;
 
+    #[test]
+    fn the_local_manifest_wins_from_the_plugin_folder_itself() {
+        let (_temp, folder) = checkout();
+        write_manifest(
+            &folder.join(LOCAL_FILE_NAME),
+            &build_manifest("local", 39029, EditorType::Figma),
+        )
+        .expect("local manifest");
+        assert_eq!(local_manifest_port_from(&folder), Some(39029));
+    }
+
+    #[test]
+    fn only_an_unambiguous_nonzero_local_websocket_selects_the_port() {
+        for endpoints in [
+            json!(["https://remote.example:1234"]),
+            json!(["ws://localhost:0"]),
+            json!(["ws://localhost:39029", "ws://localhost:0"]),
+            json!(["ws://localhost:39029", "ws://localhost:65536"]),
+            json!(["ws://localhost:1234", "ws://localhost:1235"]),
+        ] {
+            assert_eq!(
+                manifest_port(&json!({"networkAccess":{"devAllowedDomains": endpoints}})),
+                None
+            );
+        }
+        assert_eq!(
+            manifest_port(
+                &json!({"networkAccess":{"devAllowedDomains":["http://localhost:1234", "ws://localhost:39029"]}})
+            ),
+            Some(39029)
+        );
+    }
+
+    #[test]
+    fn regeneration_keeps_the_identity_and_port_of_a_custom_output() {
+        let temp = tempfile::tempdir().expect("temp");
+        let runtime = tempfile::tempdir().expect("runtime");
+        let socket = std::net::TcpListener::bind("127.0.0.1:0").expect("free port");
+        let port = socket.local_addr().expect("address").port();
+        drop(socket);
+        let path = temp.path().join("custom.json");
+        write_manifest(&path, &build_manifest("custom-id", port, EditorType::Figma))
+            .expect("manifest");
+        let args = ManifestArgs {
+            action: "generate".into(),
+            out: Some(path),
+            plugin_id: None,
+            port: PortSelection::Auto,
+            editor_type: EditorType::Figma,
+            runtime_dir: Some(runtime.path().to_owned()),
+        };
+        let generated = generate(&args, temp.path()).expect("generate");
+        assert_eq!(generated.port, port);
+        assert_eq!(generated.manifest["id"], "custom-id");
+    }
+
+    #[test]
+    fn a_generated_manifest_is_bom_free_and_its_location_survives_daemon_cleanup() {
+        let temp = tempfile::tempdir().expect("temp");
+        let runtime = tempfile::tempdir().expect("runtime");
+        let path = temp.path().join(DEFAULT_FILE_NAME);
+        std::fs::write(&path, [0xef, 0xbb, 0xbf, b'{', b'}']).expect("old BOM");
+        write_manifest(&path, &build_manifest("id", 39029, EditorType::Figma)).expect("replace");
+        assert!(!has_byte_order_mark(&std::fs::read(&path).expect("bytes")));
+        remember_manifest(&path, Some(runtime.path())).expect("remember");
+        crate::runtime::resolve(Some(runtime.path()))
+            .expect("runtime")
+            .remove_runtime_files()
+            .expect("cleanup");
+        assert_eq!(
+            remembered_manifest(Some(runtime.path())),
+            Some(path.canonicalize().expect("path"))
+        );
+    }
+
     /// A checkout with a plugin folder and an example manifest.
     fn checkout() -> (tempfile::TempDir, PathBuf) {
         let temp = tempfile::tempdir().expect("temp dir");
         let folder = temp.path().join(PLUGIN_FOLDER);
         std::fs::create_dir_all(&folder).expect("the plugin folder");
+        std::fs::write(folder.join("build.mjs"), "// source fixture").expect("source marker");
         let manifest = build_manifest("figtether-dev", 38947, EditorType::Figma);
         std::fs::write(
             folder.join(DEFAULT_FILE_NAME),
@@ -493,6 +672,13 @@ mod tests {
         let temp = tempfile::tempdir().expect("temp dir");
         let path = default_output_path(temp.path());
         assert_eq!(path, PathBuf::from(DEFAULT_FILE_NAME));
+    }
+
+    #[test]
+    fn an_unrelated_plugin_folder_without_source_is_not_a_checkout() {
+        let temp = tempfile::tempdir().expect("temp");
+        std::fs::create_dir_all(temp.path().join(PLUGIN_FOLDER)).expect("empty folder");
+        assert_eq!(plugin_folder(temp.path()), None);
     }
 
     #[test]

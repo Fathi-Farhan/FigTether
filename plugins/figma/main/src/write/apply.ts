@@ -291,19 +291,28 @@ class PlanApplier {
     operation: number,
   ): Promise<void> {
     for (const change of changes) {
-      if (change.requiresFont) {
-        await this.loadFont(change.font, operation);
-      }
-      if (change.path === "width" || change.path === "height") {
-        this.resize(node, change, operation);
-        continue;
-      }
+      if (change.requiresFont) await this.loadFont(change.font, operation);
+    }
+    // Figma resize switches the affected axis back to FIXED. Dimensions
+    // therefore precede layout sizing, independent of canonical key order.
+    const width = changes.find((change) => change.path === "width");
+    const height = changes.find((change) => change.path === "height");
+    if (width !== undefined || height !== undefined) {
+      this.resize(
+        node,
+        width === undefined ? (node.width ?? 0) : numberOf(width.value),
+        height === undefined ? (node.height ?? 0) : numberOf(height.value),
+        operation,
+      );
+    }
+    for (const change of changes) {
+      if (change.path === "width" || change.path === "height") continue;
       assignProperty(node, change.path, change.value);
     }
   }
 
   /** Resize a node, keeping the dimension the change does not name. */
-  private resize(node: FigmaNode, change: PropertyChange, operation: number): void {
+  private resize(node: FigmaNode, width: number, height: number, operation: number): void {
     if (node.resize === undefined) {
       throw refusal(
         WRITE_ERROR_REASONS.CAPABILITY_UNAVAILABLE,
@@ -311,8 +320,6 @@ class PlanApplier {
         operation,
       );
     }
-    const width = change.path === "width" ? numberOf(change.value) : (node.width ?? 0);
-    const height = change.path === "height" ? numberOf(change.value) : (node.height ?? 0);
     node.resize(width, height);
   }
 

@@ -50,7 +50,9 @@ use figtether_model::tools::{
     GetNodesParams, GetSelectionParams, InspectDesignParams, ListNodesParams, WatchScopeParams,
 };
 use figtether_protocol::client::{ClientAuth, ClientRequest, ClientResponse};
-use figtether_protocol::plugin::{PluginDocument, PluginExport, PluginNode};
+#[cfg(test)]
+use figtether_protocol::plugin::PluginNode;
+use figtether_protocol::plugin::{PluginDocument, PluginExport};
 use figtether_protocol::{BridgeFrame, BridgeOp, MessageType, AUTH_WINDOW};
 use futures_util::{SinkExt, StreamExt};
 
@@ -430,7 +432,14 @@ pub async fn dispatch(
             let envelope = envelope_from_value(
                 &request_id,
                 None,
-                serde_json::json!({ "sessions": sessions, "write_budgets": {
+                serde_json::json!({ "sessions": sessions,
+                    "write_capabilities": {
+                        "create_node_types": figtether_model::write::ALLOWED_NODE_TYPES,
+                        "properties": figtether_model::write::ALLOWED_WRITE_PROPERTIES,
+                        "operations": ["create_node", "insert_child", "set_properties", "set_text", "set_fills", "delete_node", "move_node"],
+                        "approval_required": true,
+                        "note": "Native Figma parent/type constraints still apply. Unsupported properties are refused before mutation. Auto only approves eligible warning-free plans."
+                    }, "write_budgets": {
                     "max_operations_per_plan":state.limits.max_operations_per_plan,
                     "max_created_nodes_per_plan":state.limits.max_created_nodes_per_plan,
                     "max_property_changes_per_plan":state.limits.max_property_changes_per_plan,
@@ -1673,13 +1682,24 @@ fn normalize_answer(
     context: &NormalizeContext<'_>,
 ) -> Result<Normalized, FigError> {
     match plan.op {
-        BridgeOp::ListNodes | BridgeOp::ReadNodes => {
-            let document: PluginDocument = serde_json::from_value(data.clone()).map_err(|err| {
-                FigError::new(
-                    ErrorCode::ProtocolMismatch,
-                    format!("the plugin answer is malformed: {err}"),
-                )
-            })?;
+        BridgeOp::ListNodes | BridgeOp::ReadNodes | BridgeOp::InspectDesign => {
+            // The shipped editor returns a bounded subtree as `nodes`. Older
+            // editors returned just `node` for inspection.
+            let document_data = if plan.op == BridgeOp::InspectDesign && data.get("nodes").is_none()
+            {
+                serde_json::json!({ "nodes": [data.get("node").ok_or_else(||
+                    FigError::new(ErrorCode::ProtocolMismatch, "the plugin answered without inspection nodes")
+                )?] })
+            } else {
+                data.clone()
+            };
+            let document: PluginDocument =
+                serde_json::from_value(document_data).map_err(|err| {
+                    FigError::new(
+                        ErrorCode::ProtocolMismatch,
+                        format!("the plugin answer is malformed: {err}"),
+                    )
+                })?;
             let (nodes, unavailable) = normalize_document(&document);
             // The plugin reports that the traversal is not finished.
             let truncated = data
@@ -1690,18 +1710,31 @@ fn normalize_answer(
                     .get("remaining")
                     .and_then(serde_json::Value::as_bool)
                     .unwrap_or(false);
-            let (nodes, trimmed) = fit_to_budget(nodes, context.limits.max_json_response_bytes);
+            let inspect = plan.op == BridgeOp::InspectDesign;
+            let budget = context.limits.max_json_response_bytes / if inspect { 2 } else { 1 };
+            let (nodes, trimmed) = fit_to_budget(nodes, budget);
             // Preserve the plugin's opaque traversal stack. A node id is not its cursor.
             let native_cursor = data.get("next_cursor").and_then(serde_json::Value::as_str);
-            if trimmed && data.get("next_cursor").is_some() {
+            if !inspect && trimmed && data.get("next_cursor").is_some() {
                 return Err(FigError::new(ErrorCode::PayloadTooLarge,"the requested page exceeds the byte budget; retry with a smaller limit or fewer fields"));
             }
-            let position = native_cursor
-                .map(|c| format!("plugin:{c}"))
-                .or_else(|| nodes.last().map(|node| node.summary.id.clone()));
-            let payload = serde_json::json!({
+            let position = (!inspect)
+                .then(|| {
+                    native_cursor
+                        .map(|c| format!("plugin:{c}"))
+                        .or_else(|| nodes.last().map(|node| node.summary.id.clone()))
+                })
+                .flatten();
+            let mut payload = serde_json::json!({
                 "nodes": nodes.iter().map(flatten_node).collect::<Vec<_>>(),
             });
+            if inspect {
+                payload["node"] = nodes
+                    .first()
+                    .map(flatten_node)
+                    .unwrap_or(serde_json::Value::Null);
+                payload["root_id"] = serde_json::json!(plan.context.root_id);
+            }
             let coverage = Coverage {
                 root_ids: context.root_ids.clone(),
                 returned_nodes: nodes.len() as u32,
@@ -1713,43 +1746,6 @@ fn normalize_answer(
                 payload,
                 coverage,
                 position,
-            })
-        }
-        BridgeOp::InspectDesign => {
-            let node: PluginNode =
-                serde_json::from_value(data.get("node").cloned().ok_or_else(|| {
-                    FigError::new(
-                        ErrorCode::ProtocolMismatch,
-                        "the plugin answered without a node",
-                    )
-                })?)
-                .map_err(|err| {
-                    FigError::new(
-                        ErrorCode::ProtocolMismatch,
-                        format!("the plugin answer is malformed: {err}"),
-                    )
-                })?;
-            let document = PluginDocument {
-                document_label: String::new(),
-                page_name: String::new(),
-                nodes: vec![node],
-                capabilities: Default::default(),
-            };
-            let (nodes, unavailable) = normalize_document(&document);
-            let payload = serde_json::json!({
-                "node": nodes.first().map(flatten_node).unwrap_or(serde_json::Value::Null),
-            });
-            let coverage = Coverage {
-                root_ids: context.root_ids.clone(),
-                returned_nodes: nodes.len() as u32,
-                truncated: false,
-                next_cursor: None,
-                unavailable_fields: unavailable,
-            };
-            Ok(Normalized {
-                payload,
-                coverage,
-                position: None,
             })
         }
         BridgeOp::ExportAssets => {
@@ -2110,6 +2106,37 @@ async fn execute_job(state: &Arc<DaemonState>, job: Job) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn inspection_accepts_the_shipped_subtree_and_preserves_truncation() {
+        let state = state();
+        let request = ClientRequest::InspectDesign {
+            request_id: "inspect".into(),
+            params: serde_json::json!({"session_id": SessionId::new(), "root_id": "1:2"}),
+        };
+        let plan = plan_of(&state, &request).expect("planned");
+        let context = NormalizeContext {
+            grant_id: None,
+            root_ids: vec!["1:2".into()],
+            limits: &state.limits,
+            assets: &state.assets,
+        };
+        let node = serde_json::json!({"id":"1:2", "node_type":"FRAME", "name":"Root"});
+        let child =
+            serde_json::json!({"id":"1:3", "parent_id":"1:2", "node_type":"TEXT", "name":"Label"});
+        let normalized = normalize_answer(&plan, &serde_json::json!({"root_id":"1:2", "nodes":[node.clone(),child], "truncated":true, "next_cursor":"opaque"}), &context).expect("native subtree");
+        assert_eq!(normalized.payload["node"]["id"], "1:2");
+        assert_eq!(normalized.payload["nodes"].as_array().unwrap().len(), 2);
+        assert_eq!(normalized.coverage.returned_nodes, 2);
+        assert!(normalized.coverage.truncated);
+        assert!(
+            normalized.position.is_none(),
+            "inspection does not accept a continuation cursor; use list_nodes"
+        );
+        let legacy = normalize_answer(&plan, &serde_json::json!({"node":node}), &context)
+            .expect("legacy editor");
+        assert_eq!(legacy.payload["node"]["id"], "1:2");
+    }
 
     #[test]
     fn editor_export_batches_reach_the_asset_normalizer() {

@@ -32,6 +32,12 @@ npm --prefix plugins/figma run build
 minimum, but that minimum is not independently verified. Use the pinned toolchain for PRs.
 Keep `Cargo.lock` and the npm lockfiles committed; do not regenerate them just to fix formatting.
 
+Agent guidance comes from `integrations/figtether/workflow.json`. After changing it, run
+`npm run agents:generate`; commit the generated MCP instructions and both SKILL.md copies.
+`npm run agents:check` catches drift. Rebuild the CLI to embed updated guidance, then refresh
+managed host skills with `figtether setup --client YOUR_HOST --apply` in their workspaces.
+Do not rewrite dated test results to describe a new build; record new evidence separately.
+
 To run the desktop integration, follow the [quickstart](docs/quickstart.md). Keep a local
 manifest in `plugins/figma/manifest.local.json` so your plugin ID does not modify the shared example.
 

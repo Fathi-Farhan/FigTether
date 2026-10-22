@@ -8,11 +8,13 @@ mod agent_check;
 pub mod config;
 pub mod daemon;
 pub mod doctor;
+mod figma_import;
 pub mod manifest;
 pub mod mcp;
 pub mod pair;
 pub mod revoke;
 pub mod setup;
+pub mod start;
 pub mod status;
 pub mod stop;
 pub mod update;
@@ -62,6 +64,7 @@ pub fn dispatch(command: Command) -> anyhow::Result<CommandOutcome> {
         Command::Stop(args) => stop::run(args),
         Command::Update(args) => update::run(args),
         Command::Setup(args) => setup::run(args),
+        Command::Start(args) => start::run(args),
     }
 }
 

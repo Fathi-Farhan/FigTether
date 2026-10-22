@@ -12,7 +12,7 @@ import { base64Decode, base64Encode, createFrame, isCompanionUrl } from "@figtet
 import type { BridgeFrame, JsonValue } from "@figtether/shared";
 
 import { BridgeClient } from "./bridge.js";
-import type { BridgeHandlers } from "./bridge.js";
+import type { BridgeHandlers, ConnectionRecovery } from "./bridge.js";
 import { formatLogLine } from "./log.js";
 import type { LogEntry } from "./log.js";
 import type {
@@ -85,6 +85,9 @@ export interface CapabilityView {
 
 /** The model the interface renders. */
 export interface UiModel {
+  readonly operationError?: string | null;
+  readonly externalPanelStatus?: string | null;
+  readonly connectionRecovery?: ConnectionRecovery | null;
   readonly automaticReviewAvailable?: boolean;
   readonly autoModeReason?: string | null;
   readonly writeApprovedAutomatically?: boolean;
@@ -135,6 +138,7 @@ export interface UiModel {
 
 /** The interface the controller renders into. */
 export interface UiPort {
+  setExternalPanel?(url: string | null): void;
   render(model: UiModel): void;
   appendLog(line: string): void;
   setPairError(message: string | null): void;
@@ -145,6 +149,7 @@ export interface UiPort {
 
 /** The socket surface the controller uses. */
 export interface BridgePort {
+  stop?(): void;
   pair(secret: string): void;
   sendGrantUpdate(
     rootIds: readonly string[],
@@ -155,7 +160,8 @@ export interface BridgePort {
   revoke(): boolean;
   sendFrame(messageType: UiMessageType, payload: JsonValue, requestId?: string): boolean;
   sendApproval(decision: ApprovalDecision): boolean;
-  reportPolicyViolation?(): void;
+  reportPolicyViolation?(originalPolicy?: string): void;
+  checkConnection?(): void;
   readonly sessionId: string | null;
   readonly connectionEpoch: number;
   readonly grantEpoch: number;
@@ -190,6 +196,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 /** Controller of the plugin UI. */
 export class AppController {
+  private operationError: string | null = null;
+  private externalPanelStatus: string | null = null;
+  private externalPanelTimer: number | null = null;
   private readonly sandbox: SandboxChannel;
   private readonly ui: UiPort;
   private readonly bridge: BridgePort;
@@ -197,6 +206,7 @@ export class AppController {
   private readonly now: () => number;
 
   private connection: ConnectionState = "unpaired";
+  private connectionRecovery: ConnectionRecovery | null = null;
   private paused = false;
   private sessionName: string | null = null;
   private sessionFingerprint: string | null = null;
@@ -254,7 +264,8 @@ export class AppController {
     this.now = options.now ?? ((): number => Date.now());
 
     const handlers: BridgeHandlers = {
-      onConnection: (state, detail): void => this.handleConnection(state, detail),
+      onConnection: (state, detail, recovery): void =>
+        this.handleConnection(state, detail, recovery),
       onAuthAccepted: (payload): void => this.handleAuthAccepted(payload),
       onAuthRejected: (code, message): void => this.handleAuthRejected(code, message),
       onFrame: (frame): void => this.handleBridgeFrame(frame),
@@ -277,10 +288,15 @@ export class AppController {
     this.sandbox.post("capabilities", {});
     this.requestSelection();
     this.render();
+    this.bridge.checkConnection?.();
   }
 
   /** The user pasted a pairing secret and pressed Pair. */
   onPairRequested(secret: string): void {
+    if (this.connectionRecovery !== null) {
+      this.ui.setPairError("Reimport the manifest below and reopen the plugin before pairing.");
+      return;
+    }
     const trimmed = secret.trim();
     if (trimmed.length === 0) {
       this.ui.setPairError("Paste the pairing secret shown by the CLI, then press Pair.");
@@ -288,13 +304,14 @@ export class AppController {
       return;
     }
     this.clearLocalState();
+    this.connectionRecovery = null;
     this.sandbox.post("revoke", { reason: "pairing_replaced_session" });
     this.connection = "connecting";
     this.ui.setPairError(null);
     this.secret.write(trimmed);
+    this.ui.setActionResult("pair", true, "Connecting to the local daemon.");
     this.bridge.pair(trimmed);
     this.secret.clear();
-    this.ui.setActionResult("pair", true, "Connecting to the local daemon.");
     this.render();
   }
 
@@ -674,6 +691,15 @@ export class AppController {
   /** A message arrived from the main sandbox. */
   onSandboxEnvelope(envelope: UiEnvelope): void {
     const requestId = envelope.request_id ?? null;
+    if (requestId === "ui_panel_open") {
+      this.clearExternalPanelTimer();
+      this.externalPanelStatus =
+        envelope.type === "error"
+          ? this.describeError(this.readError(envelope.payload))
+          : "Browser launch requested. If no window appears, use Open browser panel.";
+      this.render();
+      return;
+    }
     switch (envelope.type) {
       case "selection":
         this.handleSelection(envelope.payload);
@@ -706,6 +732,8 @@ export class AppController {
 
   /** Release every local resource. */
   dispose(): void {
+    this.clearExternalPanelTimer();
+    this.bridge.stop?.();
     this.secret.clear();
     this.assembler.reset();
     this.sandbox.dispose();
@@ -715,8 +743,8 @@ export class AppController {
    * The editor reported that it blocked the socket by its content security
    * policy. The bridge turns this into an actionable message.
    */
-  reportPolicyViolation(): void {
-    this.bridge.reportPolicyViolation?.();
+  reportPolicyViolation(originalPolicy?: string): void {
+    this.bridge.reportPolicyViolation?.(originalPolicy);
   }
 
   private requestSelection(): void {
@@ -775,7 +803,13 @@ export class AppController {
     this.sandbox.post("frame", frame, next);
   }
 
-  private handleConnection(state: ConnectionState, detail: string | null): void {
+  private handleConnection(
+    state: ConnectionState,
+    detail: string | null,
+    recovery?: ConnectionRecovery,
+  ): void {
+    if (recovery) this.connectionRecovery = recovery;
+    if (state === "connected") this.connectionRecovery = null;
     if (state !== "connected") this.autoMode = false;
     const previous = this.connection;
     if (previous === "revoked" && state !== "connected" && state !== "connecting") {
@@ -785,11 +819,16 @@ export class AppController {
       return;
     }
     this.connection = state;
-    if (state === "offline" && previous === "connected") {
+    if (
+      state === "offline" &&
+      (detail !== null || previous === "connected" || previous === "connecting")
+    ) {
       this.ui.setActionResult(
         "pair",
         false,
-        detail ?? "The connection to the local daemon was lost. Reconnecting with a bounded retry.",
+        recovery
+          ? "Reimport the plugin before generating another pairing secret."
+          : (detail ?? "Could not connect to the local bridge."),
       );
     }
     if (state === "revoked") {
@@ -852,6 +891,7 @@ export class AppController {
   }
 
   private handleAuthRejected(code: string, message: string): void {
+    if (this.connection === "connecting") this.connection = "unpaired";
     this.secret.clear();
     this.ui.setPairError(
       `${code}. ${message} Run 'figtether pair' for a new secret, then pair again.`,
@@ -868,7 +908,17 @@ export class AppController {
         if (!isRecord(p)) break;
         if (p["action"] === "opened" && typeof p["url"] === "string" && isCompanionUrl(p["url"])) {
           this.panelOpen = true;
-          this.sandbox.post("open_external", { url: p["url"] });
+          this.ui.setExternalPanel?.(p["url"]);
+          this.externalPanelStatus = "Opening the browser panel...";
+          this.sandbox.post("open_external", { url: p["url"] }, "ui_panel_open");
+        } else if (p["action"] === "open_failed") {
+          this.clearExternalPanelTimer();
+          this.externalPanelStatus =
+            "The local bridge could not open another panel. Close an older panel and try again.";
+        } else if (p["action"] === "opened") {
+          this.clearExternalPanelTimer();
+          this.externalPanelStatus =
+            "The bridge returned an unsupported panel address. Run figtether doctor and update the plugin.";
         } else if (p["action"] === "approval_refused") {
           this.autoMode = false;
           this.writeDecision = "none";
@@ -923,6 +973,7 @@ export class AppController {
         break;
       }
       case "request": {
+        this.operationError = null;
         // The daemon asked the editor for something. The request travels to
         // the sandbox and the answer travels back on the same request id.
         this.daemonFrames.set(frame.request_id, frame);
@@ -931,9 +982,22 @@ export class AppController {
         break;
       }
       case "cancel": {
-        // The daemon gave up on a request. The sandbox stops the work and
-        // answers with a cancellation error.
         this.sandbox.post("cancel", { request_id: frame.request_id }, frame.request_id);
+        const request = this.daemonFrames.get(frame.request_id);
+        const op = isRecord(request?.payload) ? request.payload["op"] : undefined;
+        const queued = this.waiting.indexOf(frame.request_id);
+        if (queued >= 0) {
+          this.waiting.splice(queued, 1);
+          this.daemonFrames.delete(frame.request_id);
+        } else if (
+          this.inFlight === frame.request_id &&
+          op !== "apply_write" &&
+          op !== "preview_write"
+        ) {
+          // Read cancellation must release the queue even if the editor never
+          // answers. A write stays serialized until its actual outcome is known.
+          this.completeRequest(frame.request_id);
+        }
         break;
       }
       default:
@@ -943,6 +1007,7 @@ export class AppController {
   }
 
   private handleBridgeError(error: UiError): void {
+    this.operationError = this.describeError(error);
     if (this.autoMode) {
       this.autoMode = false;
       this.autoModeReason =
@@ -1004,11 +1069,7 @@ export class AppController {
       }
       return;
     }
-    if (data === undefined) {
-      this.bridge.sendFrame("result", { data: null }, answerId);
-    } else {
-      this.bridge.sendFrame("result", { data: data as JsonValue }, answerId);
-    }
+    if (!this.forwardToDaemon(data ?? null, answerId)) return;
     if (preview !== null) {
       this.showPreview(preview, context);
       return;
@@ -1033,7 +1094,8 @@ export class AppController {
     const context = this.readPlanContext(requestId ?? this.inFlight);
     const preview = readWritePreview(payload, context);
     const answerId = this.completeRequest(requestId);
-    this.forwardToDaemon(this.previewAnswer(payload), answerId);
+    const delivered = this.forwardToDaemon(this.previewAnswer(payload), answerId);
+    if (answerId !== null && !delivered) return;
     if (preview === null) {
       this.ui.setActionResult(
         "preview",
@@ -1150,8 +1212,28 @@ export class AppController {
   }
 
   onExternalPanelRequested(): void {
-    if (this.connection === "connected" && this.companionSupported)
-      this.bridge.sendFrame("ui_control", { action: "open" });
+    this.clearExternalPanelTimer();
+    if (this.connection !== "connected" || !this.companionSupported) {
+      this.externalPanelStatus =
+        "Connect the Bridge first. If this button remains unavailable, update FigTether and reopen the plugin.";
+    } else if (!this.bridge.sendFrame("ui_control", { action: "open" })) {
+      this.externalPanelStatus =
+        "The bridge connection was lost. Reconnect the plugin and try again.";
+    } else {
+      this.externalPanelStatus = "Opening the browser panel...";
+      this.externalPanelTimer = globalThis.setTimeout(() => {
+        this.externalPanelTimer = null;
+        this.externalPanelStatus =
+          "The browser panel did not open within five seconds. Run figtether doctor, then try again. Use Open browser panel if a link is shown.";
+        this.render();
+      }, 5000) as unknown as number;
+    }
+    this.render();
+  }
+
+  private clearExternalPanelTimer(): void {
+    if (this.externalPanelTimer !== null) globalThis.clearTimeout(this.externalPanelTimer);
+    this.externalPanelTimer = null;
   }
 
   onClearActivity(): void {
@@ -1229,11 +1311,32 @@ export class AppController {
    * The answer keeps its shape, so the daemon reads the preview and the
    * result exactly as the plugin produced them.
    */
-  private forwardToDaemon(payload: unknown, answerId: string | null): void {
+  private forwardToDaemon(payload: unknown, answerId: string | null): boolean {
     if (answerId === null) {
-      return;
+      return false;
     }
-    this.bridge.sendFrame("result", { data: payload as JsonValue }, answerId);
+    if (!this.bridge.sendFrame("result", { data: payload as JsonValue }, answerId)) {
+      this.autoMode = false;
+      this.autoModeReason =
+        "Paused: a command result could not be delivered. Review the result before retrying.";
+      this.operationError =
+        "The command result could not be delivered. Check the bridge connection; request a smaller read if needed. Check the canvas before repeating a write.";
+      this.bridge.sendFrame(
+        "error",
+        {
+          code: "INTERNAL_ERROR",
+          message: "The plugin could not serialize or deliver the command result.",
+          retryable: false,
+          action: this.operationError,
+          request_id: answerId,
+        },
+        answerId,
+      );
+      this.log({ operation: "other", errorCode: "INTERNAL_ERROR" });
+      this.render();
+      return false;
+    }
+    return true;
   }
 
   /**
@@ -1310,6 +1413,7 @@ export class AppController {
     }
     const answerId = this.completeRequest(requestId);
     const error = this.readError(payload);
+    this.operationError = this.describeError(error);
     if (answerId !== null) {
       this.bridge.sendFrame(
         "error",
@@ -1324,6 +1428,8 @@ export class AppController {
       );
     }
     this.ui.setActionResult("capture", false, this.describeError(error));
+    this.log({ operation: "other", errorCode: error.code });
+    this.render();
   }
 
   /**
@@ -1473,7 +1579,20 @@ export class AppController {
     if (error.code === "PAUSED") {
       return "PAUSED. The session is paused. Resume it to allow reads again.";
     }
-    return `${error.code}. ${error.message}`;
+    const actions: Record<string, string> = {
+      TIMEOUT: "Try a smaller read once. Check the canvas before repeating a write.",
+      CANCELLED: "The request was cancelled. Start a fresh request if still needed.",
+      OUT_OF_SCOPE:
+        "Choose a frame already shared in the Bridge. Share additional frames explicitly if needed.",
+      FONT_UNAVAILABLE: "Choose an available font, then request a fresh preview.",
+      PAYLOAD_TOO_LARGE: "Request fewer layers or export at a smaller scale.",
+      CAPABILITY_UNAVAILABLE: "Use a supported alternative or update FigTether.",
+      UNSUPPORTED_SCHEMA: "Update the CLI and plugin together, then reopen Bridge.",
+      APPROVAL_REQUIRED: "Review the new preview in the Bridge before applying changes.",
+      PLAN_HASH_MISMATCH: "Request a fresh preview of the exact plan before applying it.",
+      INTERNAL_ERROR: "Run figtether doctor. Check the canvas before retrying a write.",
+    };
+    return `${error.code}. ${error.message} ${actions[error.code] ?? (error.action.includes(" ") ? error.action : "Review the activity and request a fresh operation.")}`;
   }
 
   private readRoots(payload: unknown): CandidateRoot[] {
@@ -1551,6 +1670,9 @@ export class AppController {
   }
 
   private clearLocalState(): void {
+    this.clearExternalPanelTimer();
+    this.externalPanelStatus = null;
+    this.ui.setExternalPanel?.(null);
     this.panelOpen = false;
     this.autoModeReason = null;
     this.autoMode = false;
@@ -1606,6 +1728,9 @@ export class AppController {
     const preview = this.writePreview;
     const canDecide = preview !== null && this.writeDecision === "none";
     const model: UiModel = {
+      operationError: this.operationError,
+      externalPanelStatus: this.externalPanelStatus,
+      connectionRecovery: this.connectionRecovery,
       automaticReviewAvailable: this.autoSupported,
       autoModeReason: this.autoModeReason,
       writeApprovedAutomatically: this.automaticDecision,
@@ -1618,19 +1743,23 @@ export class AppController {
       autoMode: this.autoMode,
       canUseAutoMode:
         connected && hasGrant && this.writeGrantEnabled && !this.paused && this.autoSupported,
-      nextStepText: !connected
-        ? "Connect to your local bridge to get started."
-        : !hasGrant
-          ? "Select a frame in Figma, then share it below."
-          : !this.writeGrantEnabled
-            ? "Your frames are shared for reading. Allow editing to start designing."
-            : preview !== null && this.writeDecision === "none"
-              ? "A proposed change needs your attention. Review it below."
-              : this.autoMode
-                ? "Auto mode is on. New warning-free plans can be approved automatically."
-                : "Ready to design. Ask your agent for a change, then review its proposal here.",
+      nextStepText: this.connectionRecovery
+        ? "Update the Figma plugin import using the steps below."
+        : !connected
+          ? "Connect to your local bridge to get started."
+          : !hasGrant
+            ? "Select a frame in Figma, then share it below."
+            : !this.writeGrantEnabled
+              ? "Your frames are shared for reading. Allow editing to start designing."
+              : preview !== null && this.writeDecision === "none"
+                ? "A proposed change needs your attention. Review it below."
+                : this.autoMode
+                  ? "Auto mode is on. New warning-free plans can be approved automatically."
+                  : "Ready to design. Ask your agent for a change, then review its proposal here.",
       connection: this.connection,
-      connectionText: connectionLabel(this.connection),
+      connectionText: this.connectionRecovery
+        ? "Plugin import needs updating"
+        : connectionLabel(this.connection),
       connectionMarker: connectionMarker(this.connection),
       phase,
       phaseText: phaseLabel(phase),
@@ -1644,7 +1773,10 @@ export class AppController {
       capabilities: this.capabilities,
       candidates: this.candidates,
       selectedRootIds: this.selectedRootIds,
-      canPair: this.connection !== "connected" && this.connection !== "connecting",
+      canPair:
+        this.connectionRecovery === null &&
+        this.connection !== "connected" &&
+        this.connection !== "connecting",
       canGrant: connected && !this.paused && this.selectedRootIds.length > 0 && !this.grantPending,
       canPause: connected && hasGrant && !this.paused,
       canResume: connected && hasGrant && this.paused,

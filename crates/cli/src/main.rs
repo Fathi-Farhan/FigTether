@@ -10,6 +10,7 @@
 mod cli;
 mod commands;
 mod control;
+mod diagnostics;
 mod output;
 mod runtime;
 
@@ -22,16 +23,18 @@ use clap::Parser;
 
 fn main() -> ExitCode {
     let cli = cli::Cli::parse();
-    match commands::dispatch(cli.into_command()) {
+    let command = cli.into_command();
+    let context = diagnostics::Context::from(&command);
+    match commands::dispatch(command) {
         Ok(outcome) if outcome.success => ExitCode::SUCCESS,
         Ok(outcome) => {
             if let Some(message) = outcome.message {
-                output::error(&output::redact(&message));
+                diagnostics::report(&anyhow::anyhow!(message), &context);
             }
             ExitCode::FAILURE
         }
         Err(error) => {
-            output::error(&output::redact(&error.to_string()));
+            diagnostics::report(&error, &context);
             ExitCode::FAILURE
         }
     }

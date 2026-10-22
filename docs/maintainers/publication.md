@@ -40,6 +40,16 @@ git diff --check
 placeholder public links, executable SVG content, and broken relative Markdown links. It is a
 publication guard, **not a complete secret scanner or an application security audit**.
 
+It also rejects UTF-8 byte order marks in proposed published text files. Generated local
+manifests, plugin bundles, raw native designs and validation screenshots stay ignored. Keep
+tracked example manifests BOM-free and use the CLI/build to generate machine-specific files.
+
+Before publishing documentation changes, run `npm run agents:check` to confirm that the
+shared workflow source, MCP instructions and both FigTether Design skills agree. Public
+examples must import `plugins/figma/dist/manifest.json` and distinguish shipped capabilities
+from proposed contracts and expected unavailable responses. The
+[22 October documentation review](documentation-review-2026-10-22.md) records the current pass.
+
 Run a dedicated scanner on all reachable history and on a temporary copy of the proposed file set:
 
 ```sh

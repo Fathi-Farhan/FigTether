@@ -54,6 +54,10 @@ For a browser capture, evaluate the exported function in
 from the browser accessibility tree when available; otherwise naming checks remain uncertain.
 Do not read password/input values, local credentials, or hidden application state into a snapshot.
 For Figma, adapt observed node data to the same schema and leave unavailable DOM/AX facts unknown.
+For FigTether, use the returned typography and geometry, inspect the actual PNG, and distinguish
+an apply receipt from the requested result. Check consequential layout dimensions after writes.
+A blank or tiny export from a clipped/hidden ancestor does not verify the intended design.
+Retain that attempt and obtain a visible scoped render within the existing grant.
 For interaction, route, or resource review, read
 [interaction contracts](references/interaction-review.md). Use requirement-specific expected
 outcomes and resettable fixtures; a click followed by any DOM mutation does not prove success.

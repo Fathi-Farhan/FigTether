@@ -35,10 +35,15 @@
       <button id="external-panel-button" type="button" class="button" disabled>
         Open outside Figma
       </button>
+      <p id="external-panel-feedback" class="message" role="status" aria-live="polite" hidden></p>
+      <a id="external-panel-link" target="_blank" rel="noopener noreferrer" hidden
+        >Open browser panel</a
+      >
     </header>
 
     <main id="main-content">
       <p id="next-step" class="next-step" role="status">Connect to get started.</p>
+      <p id="operation-error" class="error" role="alert" hidden></p>
       <details id="pair-details" class="panel" open>
         <summary id="pair-heading">1. Connect your bridge</summary>
         <details class="setup-help">
@@ -55,6 +60,29 @@
             secret comes from your local CLI, not Figma or your AI provider.
           </p>
         </details>
+        <section
+          id="connection-recovery"
+          class="connection-recovery"
+          aria-labelledby="recovery-heading"
+          hidden
+        >
+          <h3 id="recovery-heading">Update the Figma plugin import</h3>
+          <p id="recovery-detail"></p>
+          <ol>
+            <li>Close FigTether Bridge.</li>
+            <li>Choose <strong>Plugins → Development → Import plugin from manifest…</strong>.</li>
+            <li>Select the file below. Its name must be exactly <strong>manifest.json</strong>.</li>
+            <li>Open Bridge again, run <code>figtether pair</code>, and paste the new secret.</li>
+          </ol>
+          <label for="recovery-manifest">Manifest to import</label>
+          <input id="recovery-manifest" type="text" readonly spellcheck="false" />
+          <button id="copy-manifest-path" class="button" type="button">Copy manifest path</button>
+          <p id="copy-manifest-feedback" class="help" role="status" aria-live="polite"></p>
+          <p class="help">
+            If Figma still opens the old import, remove that entry from Development → Manage
+            plugins, then import this file again. Keep your source files.
+          </p>
+        </section>
         <form id="pair-form" novalidate>
           <div class="field">
             <label for="pairing-secret">Pairing secret</label>

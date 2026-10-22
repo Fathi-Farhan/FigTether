@@ -5,6 +5,7 @@ import { PluginRuntime, type SandboxTransport } from "../src/runtime.js";
 import { createFakeDocument } from "./fake-figma.js";
 
 interface Harness {
+  document: ReturnType<typeof createFakeDocument>;
   runtime: PluginRuntime;
   sent: RelayEnvelope[];
   deliver: (raw: unknown) => Promise<void>;
@@ -32,6 +33,7 @@ async function createHarness(): Promise<Harness> {
   const runtime = new PluginRuntime({ api: document.api, transport });
   await runtime.start();
   return {
+    document,
     runtime,
     sent,
     deliver: async (raw) => {
@@ -65,6 +67,41 @@ function grant(rootIds: string[]): Record<string, unknown> {
 }
 
 describe("runtime dispatch", () => {
+  it("returns a bounded error for an oversized export and can answer the next read", async () => {
+    const h = await createHarness();
+    const root = h.document.nodes.get("1:1")!;
+    root.exportAsync = async () => new Uint8Array(800_000);
+    await h.deliver({ channel: BRIDGE_CHANNEL, kind: "frame", payload: grant(["1:1"]) });
+    await h.deliver({
+      channel: BRIDGE_CHANNEL,
+      kind: "frame",
+      payload: request("export_assets", { node_ids: ["1:1"], format: "svg" }),
+    });
+    expect(h.sent.at(-1)).toMatchObject({
+      kind: "error",
+      request_id: "req_1",
+      payload: { code: "PAYLOAD_TOO_LARGE" },
+    });
+    expect(h.sent.every((e) => JSON.stringify(e).length < 1_048_576)).toBe(true);
+    await h.deliver({
+      channel: BRIDGE_CHANNEL,
+      kind: "frame",
+      payload: { ...request("list_nodes", { root_id: "1:1", depth: 0 }), request_id: "next-read" },
+    });
+    expect(h.sent.at(-1)).toMatchObject({ kind: "result", request_id: "next-read" });
+  });
+  it("reports an unavailable external-browser API to the UI", async () => {
+    const h = await createHarness();
+    await h.deliver({
+      channel: BRIDGE_CHANNEL,
+      kind: "open_external",
+      request_id: "ui_panel_open",
+      payload: { url: `http://127.0.0.1:38947/panel#${"x".repeat(43)}` },
+    });
+    expect(h.sent.at(-1)?.request_id).toBe("ui_panel_open");
+    expect(h.sent.at(-1)?.kind).toBe("error");
+    expect(h.sent.at(-1)?.payload).toMatchObject({ code: "CAPABILITY_UNAVAILABLE" });
+  });
   it("answers a request of the daemon with a result", async () => {
     const harness = await createHarness();
     await harness.deliver({

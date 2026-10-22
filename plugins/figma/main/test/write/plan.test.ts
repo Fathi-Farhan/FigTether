@@ -1,7 +1,12 @@
 import { ALLOWED_WRITE_PROPERTIES, canonicalPlanJson, sha256HexOfText } from "@figtether/shared";
 import { describe, expect, it } from "vitest";
 
-import { findProperty, normalizeFills, WRITABLE_PROPERTIES } from "../../src/write/allowlist.js";
+import {
+  checkPropertyValue,
+  findProperty,
+  normalizeFills,
+  WRITABLE_PROPERTIES,
+} from "../../src/write/allowlist.js";
 import { handlePreviewWrite } from "../../src/write/handlers.js";
 import { parseWritePlan, planHash } from "../../src/write/plan.js";
 import { createWriteContext, planPayload, sampleDocument } from "./write-fixture.js";
@@ -131,10 +136,60 @@ describe("the plan of the write path", () => {
       { type: "SOLID", color: { r: 1, g: 0.5, b: 0 } },
     ]);
     expect(paints).toEqual([
-      { type: "SOLID", color: { r: 0.2, g: 0.4, b: 1, a: 1 }, opacity: 1, visible: true },
-      { type: "SOLID", color: { r: 1, g: 0.5, b: 0, a: 1 }, opacity: 1, visible: true },
+      { type: "SOLID", color: { r: 0.2, g: 0.4, b: 1 }, opacity: 1, visible: true },
+      { type: "SOLID", color: { r: 1, g: 0.5, b: 0 }, opacity: 1, visible: true },
     ]);
   });
+
+  it("maps solid alpha to native paint opacity instead of an unsupported RGB alpha", () => {
+    const paint = normalizeFills([
+      { type: "SOLID", color: { r: 1, g: 0, b: 0, a: 0.5 }, opacity: 0.6 },
+    ])[0];
+    expect(paint?.color).toEqual({ r: 1, g: 0, b: 0 });
+    expect(paint?.opacity).toBeCloseTo(0.3);
+  });
+
+  it.each(["GRADIENT_LINEAR", "GRADIENT_RADIAL", "GRADIENT_ANGULAR", "GRADIENT_DIAMOND"])(
+    "supplies a native transform for %s",
+    (type) => {
+      const paint = normalizeFills([
+        {
+          type,
+          stops: [
+            { position: 0, color: "#000000" },
+            { position: 1, color: "#ffffff" },
+          ],
+        },
+      ])[0];
+      expect(paint?.type).toBe(type);
+      expect(paint?.gradientTransform).toEqual([
+        [1, 0, 0],
+        [0, 1, 0],
+      ]);
+    },
+  );
+
+  it("refuses malformed gradient transforms before touching Figma", () => {
+    expect(() =>
+      normalizeFills([
+        {
+          type: "GRADIENT_LINEAR",
+          stops: [{ position: 0, color: "#000000" }],
+          gradientTransform: [[1, 0]],
+        },
+      ]),
+    ).toThrow();
+  });
+
+  it.each(["layoutSizingHorizontal", "layoutSizingVertical"])(
+    "uses Figma's FIXED/HUG/FILL values for %s",
+    (property) => {
+      const spec = findProperty(property)!;
+      for (const value of ["FIXED", "HUG", "FILL"])
+        expect(() => checkPropertyValue(spec, value)).not.toThrow();
+      expect(() => checkPropertyValue(spec, "AUTO")).toThrow();
+    },
+  );
 
   it("normalizes the stops of a gradient", () => {
     const paints = normalizeFills([

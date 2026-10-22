@@ -1,57 +1,33 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="850" viewBox="0 0 1100 850" role="img" aria-labelledby="title desc">
-<title id="title">FigTether desktop request latency</title><desc id="desc">Real Figma Desktop measurements on one Windows machine. The cached-root lane includes 20,000 confirmed hits and 10 fresh fallbacks. Fresh reads return 72 nodes. PNG render/export metadata uses a 1440 by 1640 fixture; client download delivery was not validated. Independent linear axes start at zero. Model cost and tokens were not measured. Known get_selection timeout and inspect_design protocol mismatch remain.</desc>
-<style>text{fill:#111111;font-family:Arial,Helvetica,sans-serif;font-size:16px}.heading{font-family:Gelasio,Georgia,serif;font-size:36px;font-weight:400;letter-spacing:-.6px}.subhead{font-family:Gelasio,Georgia,serif;font-size:24px}.label{font-size:18px;font-weight:600}.body{font-size:16px}.small{font-size:14px;fill:#525252}.meta{font-family:"Ubuntu Mono",Consolas,monospace;font-size:13px;letter-spacing:.5px}.code{font-family:"Ubuntu Mono",Consolas,monospace;font-size:19px}.value{font-family:Consolas,monospace;font-size:16px}.warn{fill:#9a4b00;font-size:14px}</style>
-<rect width="1100" height="850" fill="#ffffff"/>
-<defs><marker id="arrow" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M 0 0 L 7 3.5 L 0 7" fill="#111111"/></marker></defs>
-
-<text x="40" y="40" class="meta" >02 / FIGTETHER - MEASUREMENTS</text><path d="M 40 58 L 1060 58" stroke="#d4d4d4" /><text x="40" y="106" class="heading" >Latency, with the workload attached.</text><text x="40" y="138" class="small" >Figma 126.10.10 / Windows x64 / Ryzen 5 4500 / 20–21 Oct 2026 / one machine</text>
-<text x="40" y="174" class="meta" >WORKLOAD / SCOPE</text>
-<rect x="366" y="161" width="20" height="10" fill="#8a8a8a"/><text x="394" y="171" class="small" >p50</text>
-<rect x="454" y="161" width="20" height="10" fill="#111111"/><text x="482" y="171" class="small" >p95</text>
-<path d="M 542 166 H 562" stroke="#111111" stroke-width="2" stroke-dasharray="4 3"/><text x="570" y="171" class="small" >p99</text>
-<text x="870" y="174" class="meta" text-anchor="end">p50 ms</text><text x="960" y="174" class="meta" text-anchor="end">p95 ms</text><text x="1050" y="174" class="meta" text-anchor="end">p99 ms</text>
-
-<text x="40" y="215" class="subhead" >Cached-root request</text>
-<text x="40" y="245" class="small" >20,010 requests</text>
-<text x="40" y="271" class="small" >1 node / response</text>
-<rect x="366" y="195" width="226.37999999999465" height="12" fill="#8a8a8a"/>
-<rect x="366" y="217" width="315.14000000015585" height="12" fill="#111111"/>
-<path d="M 366 245 H 743.7199999997265" stroke="#111111" stroke-width="2" stroke-dasharray="4 3"/>
-<path d="M 366 267 L 786 267" stroke="#d4d4d4" />
-<text x="366" y="291" class="meta" text-anchor="middle">0</text><text x="576" y="291" class="meta" text-anchor="middle">0.6</text><text x="786" y="291" class="meta" text-anchor="middle">1.2</text>
-<text x="870" y="237" class="value" text-anchor="end">0.65</text><text x="960" y="237" class="value" text-anchor="end">0.90</text><text x="1050" y="237" class="value" text-anchor="end">1.08</text>
-<path d="M 40 311 L 1060 311" stroke="#d4d4d4" />
-
-<text x="40" y="352" class="subhead" >Fresh design read</text>
-<text x="40" y="382" class="small" >1,000 requests</text>
-<text x="40" y="408" class="small" >72 nodes / response</text>
-<rect x="366" y="332" width="238.4222400000086" height="12" fill="#8a8a8a"/>
-<rect x="366" y="354" width="268.2785700000015" height="12" fill="#111111"/>
-<path d="M 366 382 H 722.5644600000014" stroke="#111111" stroke-width="2" stroke-dasharray="4 3"/>
-<path d="M 366 404 L 786 404" stroke="#d4d4d4" />
-<text x="366" y="428" class="meta" text-anchor="middle">0</text><text x="576" y="428" class="meta" text-anchor="middle">100</text><text x="786" y="428" class="meta" text-anchor="middle">200</text>
-<text x="870" y="374" class="value" text-anchor="end">113.53</text><text x="960" y="374" class="value" text-anchor="end">127.75</text><text x="1050" y="374" class="value" text-anchor="end">169.79</text>
-<path d="M 40 448 L 1060 448" stroke="#d4d4d4" />
-
-<text x="40" y="489" class="subhead" >Website PNG export</text>
-<text x="40" y="519" class="small" >100 requests</text>
-<text x="40" y="545" class="small" >1440 × 1640 px</text>
-<rect x="366" y="469" width="297.58128749999526" height="12" fill="#8a8a8a"/>
-<rect x="366" y="491" width="322.2217425000046" height="12" fill="#111111"/>
-<path d="M 366 519 H 702.4537050000057" stroke="#111111" stroke-width="2" stroke-dasharray="4 3"/>
-<path d="M 366 541 L 786 541" stroke="#d4d4d4" />
-<text x="366" y="565" class="meta" text-anchor="middle">0</text><text x="576" y="565" class="meta" text-anchor="middle">400</text><text x="786" y="565" class="meta" text-anchor="middle">800</text>
-<text x="870" y="511" class="value" text-anchor="end">566.82</text><text x="960" y="511" class="value" text-anchor="end">613.76</text><text x="1050" y="511" class="value" text-anchor="end">640.86</text>
-<path d="M 40 585 L 1060 585" stroke="#d4d4d4" />
-<text x="366" y="620" class="small" >Milliseconds · each row has its own zero-based linear scale</text>
-<text x="40" y="657" class="small" >Cache: 20,000 confirmed hits + 10 fresh fallbacks. All plotted requests succeeded.</text>
-<text x="40" y="684" class="small" >PNG: render / transport / metadata; completed client download was not validated.</text>
-<path d="M 40 707 L 1060 707" stroke="#d4d4d4" />
-<text x="40" y="739" class="body" >Daemon peak working set: 42.16 MiB (570 samples across builds).</text>
-<text x="40" y="767" class="warn" >Model cost + tokens: not measured.</text>
-<text x="600" y="739" class="warn" >Known failures: get_selection timeout;</text>
-<text x="600" y="767" class="warn" >inspect_design protocol mismatch.</text>
-<text x="40" y="806" class="meta" >v0.1.0 / dirty source build / binary 3d61c8ad85de / plugin ff3200feba1c</text>
-<text x="40" y="832" class="small" >Source: desktop-2026-10-20.json. Nearest-rank percentiles. Limited compatibility evidence; no release certification.</text>
-
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="1356" viewBox="0 0 800 1356" role="img" aria-labelledby="title desc">
+<title id="title">Real Figma. Measured latency.</title><desc id="desc">Historical Figma Desktop 126.10.10 measurements. Independent zero-based millisecond axes. Cached-root p50/p95/p99: 0.65/0.90/1.08 ms, 20,010 requests including 20,000 confirmed cache hits and 10 fresh fallbacks. Fresh 72-node read: 113.53/127.75/169.79 ms, 1,000 requests. PNG render/export metadata: 566.82/613.76/640.86 ms, 100 requests. Client download not validated. Model cost unmeasured. This historical run also recorded get_selection timeout and inspect_design protocol mismatch.</desc>
+<style>text{fill:#153f2e;font-family:Arial,Helvetica,sans-serif;font-size:24px}.heading{font-size:40px;font-weight:800;letter-spacing:-1px}.label{font-size:28px;font-weight:700}.body{font-size:24px}.small{font-size:22px}.meta{font-size:20px;font-weight:700;letter-spacing:1px}.code{font-family:Consolas,monospace;font-size:26px;font-weight:700}.value{font-size:32px;font-weight:700;font-variant-numeric:tabular-nums}.tick{font-size:20px}.step{font-size:26px;font-weight:800}</style>
+<rect width="800" height="1356" fill="#f7f6ee"/>
+<defs><marker id="arrow" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M 0 0 L 7 3.5 L 0 7" fill="#153f2e"/></marker></defs>
+<text x="40" y="48" class="meta" >FIGTETHER / DESKTOP / 20–21 OCT 2026</text><text x="40" y="104" class="heading" >Real Figma. Measured latency.</text><text x="40" y="144" class="body" >Release build · Windows · One machine · Lower is faster</text><text x="40" y="194" class="label" >Cached root</text><text x="40" y="230" class="small" >1 node · 20,010 requests</text>
+<text x="40" y="276" class="small" >p50</text><rect x="112" y="258" width="237.1599999999944" height="20" fill="#d7f3ac" stroke="#153f2e" stroke-width="1.5"/><text x="760" y="276" class="value" text-anchor="end">0.65 ms</text>
+<text x="40" y="320" class="small" >p95</text><rect x="112" y="302" width="330.14666666682996" height="20" fill="#153f2e" stroke="#153f2e" stroke-width="1.5"/><text x="760" y="320" class="value" text-anchor="end">0.90 ms</text>
+<text x="40" y="364" class="small" >p99</text><path d="M 112 356 H 507.70666666638016" stroke="#153f2e" stroke-width="4" stroke-dasharray="8 4"/><text x="760" y="364" class="value" text-anchor="end">1.08 ms</text>
+<path d="M 112 386 L 552 386" fill="none" stroke="#748375" />
+<path d="M 112 386 L 112 392" fill="none" stroke="#748375" /><text x="112" y="416" class="tick" text-anchor="middle">0</text><path d="M 332 386 L 332 392" fill="none" stroke="#748375" /><text x="332" y="416" class="tick" text-anchor="middle">0.6</text><path d="M 552 386 L 552 392" fill="none" stroke="#748375" /><text x="552" y="416" class="tick" text-anchor="middle">1.2</text>
+<path d="M 40 444 L 760 444" fill="none" stroke="#748375" />
+<text x="40" y="482" class="label" >Fresh design read</text><text x="40" y="518" class="small" >72 nodes · 1,000 requests</text>
+<text x="40" y="564" class="small" >p50</text><rect x="112" y="546" width="249.775680000009" height="20" fill="#d7f3ac" stroke="#153f2e" stroke-width="1.5"/><text x="760" y="564" class="value" text-anchor="end">113.53 ms</text>
+<text x="40" y="608" class="small" >p95</text><rect x="112" y="590" width="281.05374000000154" height="20" fill="#153f2e" stroke="#153f2e" stroke-width="1.5"/><text x="760" y="608" class="value" text-anchor="end">127.75 ms</text>
+<text x="40" y="652" class="small" >p99</text><path d="M 112 644 H 485.5437200000015" stroke="#153f2e" stroke-width="4" stroke-dasharray="8 4"/><text x="760" y="652" class="value" text-anchor="end">169.79 ms</text>
+<path d="M 112 674 L 552 674" fill="none" stroke="#748375" />
+<path d="M 112 674 L 112 680" fill="none" stroke="#748375" /><text x="112" y="704" class="tick" text-anchor="middle">0</text><path d="M 332 674 L 332 680" fill="none" stroke="#748375" /><text x="332" y="704" class="tick" text-anchor="middle">100</text><path d="M 552 674 L 552 680" fill="none" stroke="#748375" /><text x="552" y="704" class="tick" text-anchor="middle">200</text>
+<path d="M 40 732 L 760 732" fill="none" stroke="#748375" />
+<text x="40" y="770" class="label" >Website PNG metadata</text><text x="40" y="806" class="small" >1440 × 1640 px · 100 requests</text>
+<text x="40" y="852" class="small" >p50</text><rect x="112" y="834" width="311.751824999995" height="20" fill="#d7f3ac" stroke="#153f2e" stroke-width="1.5"/><text x="760" y="852" class="value" text-anchor="end">566.82 ms</text>
+<text x="40" y="896" class="small" >p95</text><rect x="112" y="878" width="337.5656350000048" height="20" fill="#153f2e" stroke="#153f2e" stroke-width="1.5"/><text x="760" y="896" class="value" text-anchor="end">613.76 ms</text>
+<text x="40" y="940" class="small" >p99</text><path d="M 112 932 H 464.475310000006" stroke="#153f2e" stroke-width="4" stroke-dasharray="8 4"/><text x="760" y="940" class="value" text-anchor="end">640.86 ms</text>
+<path d="M 112 962 L 552 962" fill="none" stroke="#748375" />
+<path d="M 112 962 L 112 968" fill="none" stroke="#748375" /><text x="112" y="992" class="tick" text-anchor="middle">0</text><path d="M 332 962 L 332 968" fill="none" stroke="#748375" /><text x="332" y="992" class="tick" text-anchor="middle">400</text><path d="M 552 962 L 552 968" fill="none" stroke="#748375" /><text x="552" y="992" class="tick" text-anchor="middle">800</text>
+<path d="M 40 1052 L 760 1052" fill="none" stroke="#748375" /><text x="40" y="1098" class="small" >Each workload has its own zero-based scale (ms).</text>
+<text x="40" y="1130" class="small" >Cache: 20,000 hits + 10 fresh fallbacks.</text>
+<text x="40" y="1162" class="small" >PNG: metadata timing; client download not validated.</text>
+<text x="40" y="1194" class="small" >Daemon peak: 42.16 MiB across 570 samples.</text>
+<text x="40" y="1226" class="small" >Historical: get_selection timed out;</text>
+<text x="40" y="1258" class="small" >inspect_design had a protocol mismatch.</text>
+<text x="40" y="1290" class="small" >Model cost / tokens: not measured. Full report linked below.</text>
 </svg>

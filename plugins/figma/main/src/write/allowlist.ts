@@ -174,7 +174,7 @@ export const WRITABLE_PROPERTIES: readonly PropertySpec[] = [
     path: "layoutSizingHorizontal",
     kind: "string",
     nodeTypes: FRAME_LIKE,
-    values: ["FIXED", "AUTO"],
+    values: ["FIXED", "HUG", "FILL"],
     requiresFont: false,
   },
   {
@@ -182,7 +182,7 @@ export const WRITABLE_PROPERTIES: readonly PropertySpec[] = [
     path: "layoutSizingVertical",
     kind: "string",
     nodeTypes: FRAME_LIKE,
-    values: ["FIXED", "AUTO"],
+    values: ["FIXED", "HUG", "FILL"],
     requiresFont: false,
   },
   {
@@ -408,15 +408,37 @@ export function normalizeFills(value: unknown): FigmaPaint[] {
       const alpha = color.a;
       paints.push({
         type: "SOLID",
-        color: { r: color.r, g: color.g, b: color.b, a: alpha },
-        opacity: typeof opacity === "number" ? Math.min(1, Math.max(0, opacity)) : 1,
+        color: { r: color.r, g: color.g, b: color.b },
+        opacity: alpha * (typeof opacity === "number" ? Math.min(1, Math.max(0, opacity)) : 1),
         visible: true,
       });
       continue;
     }
-    if (type === "GRADIENT_LINEAR") {
-      const stops = normalizeStops(record["stops"]);
-      paints.push({ type: "GRADIENT_LINEAR", gradientStops: stops, visible: true });
+    if (
+      ["GRADIENT_LINEAR", "GRADIENT_RADIAL", "GRADIENT_ANGULAR", "GRADIENT_DIAMOND"].includes(type)
+    ) {
+      const stops = normalizeStops(record["stops"] ?? record["gradientStops"]);
+      const transform = record["gradientTransform"] ?? [
+        [1, 0, 0],
+        [0, 1, 0],
+      ];
+      if (
+        !Array.isArray(transform) ||
+        transform.length !== 2 ||
+        !transform.every(
+          (row) =>
+            Array.isArray(row) &&
+            row.length === 3 &&
+            row.every((channel) => typeof channel === "number" && Number.isFinite(channel)),
+        )
+      )
+        invalidPaint("Gradient transform must contain two rows of three finite numbers");
+      paints.push({
+        type,
+        gradientStops: stops,
+        gradientTransform: transform as number[][],
+        visible: true,
+      });
       continue;
     }
     invalidPaint("The plan uses a paint type the plugin does not support");

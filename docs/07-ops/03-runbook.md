@@ -71,61 +71,45 @@ procedures below are written to be repeatable.
 
 ### 3.1 Graceful shutdown
 
-Proposed CLI shape and ordered steps (PRD 8.7 shutdown row):
+Finish active shared work before running the current stop command:
 
 ```sh
-figtether daemon --shutdown-graceful
+figtether stop
 ```
 
-1. Stop accepting new requests and MCP sessions; reply Busy to any late MCP client connect.
-2. Cancel queued work in priority order: first `revoke` and `cancel` intents, then heartbeat, then
-   small reads, then exports; wait bounded for in-flight plugin operations to report or expire via
-   their deadlines.
-3. Revoke session credentials; close socket handles; terminate pairing state.
-4. Clear the runtime directory of session-scoped files. Stale runtime files from a previous run
-   must be detected as untrusted on the next start, not blindly accepted (PRD 8.7).
-5. Release design-derived memory caches; confirm RSS drop in a quick `figtether status`.
+It cancels queued work, revokes credentials, closes sockets, clears retained design memory,
+and removes the runtime descriptor. The command waits a bounded time for shutdown and reports
+stopped, not_running or still_running. Pairing and sharing must be restored for a new session.
 
 ### 3.2 Daemon crash recovery
 
-1. Start a new daemon instance. It generates a new `daemon_instance_id` and fresh credentials; old
-   plugin and client credentials are rejected, and clients must re-pair (fail-closed).
-2. On boot the new instance detects stale runtime files from the crashed predecessor and does not
-   trust them; it deletes or quarantines them instead (PRD 8.7 crash row).
-3. Plugin auto-reconnects only after successful re-authentication; connection epoch increments and
-   no queued result is blindly replayed (FR16); unresolved reads return `PLUGIN_OFFLINE` or
-   `SESSION_NOT_FOUND` until re-paired.
-4. Inspect crash artifacts locally; report templates in section 5.2.
+Start a new daemon with figtether start for the source workflow. It authenticates any existing
+runtime descriptor before reuse; stale state is not evidence of a live FigTether endpoint.
+A runtime-directory lock prevents two instances from publishing competing credentials.
+The new instance has fresh credentials; pair the plugin and restore the intended user grant.
+Never replay an uncertain write automatically. Inspect the canvas and issue a new exact plan
+if needed. Review crash artifacts locally before sharing a synthetic reproduction.
 
-### 3.3 Port conflict resolution
+### 3.3 Port conflict and stale import recovery
 
-1. Diagnose what occupies the default `38947` loopback port using OS tooling that requires no
-   privilege; the daemon's own error message may report what it safely observed (PRD 8.7: show
-   owner process/port only where knowable without privilege). `figtether doctor` runs that check
-   and names the reason: another process holds the port, or the operating system reserved the
-   range for the hypervisor and the port is unusable even when nothing listens on it.
-2. Choose a different port explicitly; never silently fall back. The doctor reports a free port
-   in its `port_suggestion` field, and `figtether manifest --port auto` writes such a port into
-   the plugin manifest and prints the matching daemon command.
-3. Regenerate the manifest for the new port; the plugin bundle needs a matching manifest (PRD 5.1
-   step 3). Proposed shape:
+1. Run figtether doctor to inspect the resolved manifest, bundle and local endpoint. Windows
+   may exclude a range even when no process listens. The manifest fixes the plugin's allowed
+   endpoint; a named port is never silently moved by the daemon.
+2. Finish active work before changing the contract or rebuilding. Stop the daemon with
+   figtether stop, choose an explicit port and rebuild the source installation:
 
 ```sh
-figtether daemon --port 38948
-figtether manifest generate --plugin-id "<your-plugin-id>" --port 38948
+figtether start --port 39147
 ```
 
-The automatic variant of the same procedure:
-
-```sh
-figtether manifest generate --plugin-id "<your-plugin-id>" --port auto
-figtether daemon --port <the-port-that-was-printed>
-```
-
-4. Re-run `figtether doctor`; then re-pair. Note IPv6 loopback binding behavior is decided by
-   `ADR-002` at `G0`; this runbook assumes the IPv4 loopback baseline until that lands.
-5. Never delete a Windows port reservation and never disable a firewall to free a port. The
-   reservation belongs to the hypervisor, and the port is moved by an explicit choice instead.
+3. Import the printed plugins/figma/dist/manifest.json, reopen the plugin, pair and restore
+   the intended sharing/editing. Auto must be deliberately re-enabled by the user if desired.
+4. For lower-level generation, use figtether manifest --port auto --out
+   plugins/figma/manifest.local.json and rebuild the plugin. Auto preserves an existing
+   verified agreement; it does not silently choose another port when a manifest is occupied.
+5. A BOM or stale CSP error needs the matching generated manifest and correct import. Do not
+   delete Windows port reservations or disable a firewall. See the
+   [startup diagnosis](../bridge-startup-review.md) and [quickstart](../quickstart.md).
 
 ### 3.4 Upgrade and rollback
 

@@ -15,22 +15,23 @@ import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { selectManifestPort } from "./manifest-config.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const distDir = path.join(here, "dist");
-const manifestSource = path.join(here, "manifest.json");
 const watch = process.argv.includes("--watch");
 const localManifestPath = path.join(here, "manifest.local.json");
-const localManifest = existsSync(localManifestPath)
-  ? JSON.parse(await readFile(localManifestPath, "utf8"))
-  : null;
-const localPort = localManifest?.networkAccess?.devAllowedDomains
-  ?.map((domain) => /^ws:\/\/localhost:(\d+)$/.exec(domain)?.[1])
-  .find(Boolean);
-const selectedPort = process.env.FIGTETHER_PORT ?? localPort ?? "38947";
-if (!/^\d{1,5}$/.test(selectedPort) || Number(selectedPort) < 1 || Number(selectedPort) > 65535)
-  throw Error("FIGTETHER_PORT must be an integer from 1 to 65535");
-const bridgePort = Number(selectedPort);
+const manifestFlag = process.argv.indexOf("--manifest");
+if (manifestFlag !== -1 && !process.argv[manifestFlag + 1])
+  throw Error("--manifest requires a path");
+const manifestSource =
+  manifestFlag !== -1
+    ? path.resolve(process.argv[manifestFlag + 1])
+    : existsSync(localManifestPath)
+      ? localManifestPath
+      : path.join(here, "manifest.json");
+const sourceManifest = JSON.parse(await readFile(manifestSource, "utf8"));
+const bridgePort = selectManifestPort(sourceManifest, process.env.FIGTETHER_PORT);
 
 /**
  * Entry points of the plugin.
@@ -115,7 +116,10 @@ function buildOptions(entry) {
     target: "es2020",
     sourcemap: true,
     logLevel: "warning",
-    define: { __FIGTETHER_PORT__: String(bridgePort) },
+    define: {
+      __FIGTETHER_PORT__: String(bridgePort),
+      __FIGTETHER_MANIFEST_PATH__: JSON.stringify(path.join(distDir, "manifest.json")),
+    },
     alias: {
       "@figtether/shared": path.join(here, "shared", "src", "index.ts"),
     },
@@ -173,7 +177,7 @@ async function writeManifest() {
   if (!existsSync(manifestSource)) {
     throw new Error(`build failed: missing source entry ${relative(manifestSource)}`);
   }
-  const manifest = JSON.parse(await readFile(manifestSource, "utf8"));
+  const manifest = sourceManifest;
   const built = {
     ...manifest,
     main: "main.js",
@@ -186,6 +190,11 @@ async function writeManifest() {
   await writeFile(
     path.join(distDir, "manifest.json"),
     `${JSON.stringify(built, null, 2)}\n`,
+    "utf8",
+  );
+  await writeFile(
+    path.join(distDir, "build-info.json"),
+    `${JSON.stringify({ port: bridgePort, plugin_id: manifest.id })}\n`,
     "utf8",
   );
   return built;
@@ -225,7 +234,14 @@ async function runWatch() {
     }
   };
 
-  for (const candidate of [...HTML_CANDIDATES, "manifest.json", "ui/assets/figtether-icon.png"]) {
+  // esbuild's defines are fixed for this watch session. A manifest change
+  // needs a full restart; never emit a new CSP around bundles for the old port.
+  const { watch: watchManifest } = await import("node:fs");
+  watchManifest(manifestSource, () => {
+    console.error("Manifest changed. Restart the plugin build to update its port and identity.");
+    process.exit(1);
+  });
+  for (const candidate of [...HTML_CANDIDATES, "ui/assets/figtether-icon.png"]) {
     const absolute = path.join(here, candidate);
     if (!existsSync(absolute)) {
       continue;

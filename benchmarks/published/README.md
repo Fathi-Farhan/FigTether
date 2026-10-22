@@ -1,5 +1,10 @@
 # README chart data
 
+Historical source commit IDs predate the first public push. The
+[history mapping](../../docs/maintainers/history-provenance.md) locates identical source trees
+after the owner's pre-publication author/subject correction. Recorded measurements and hashes
+remain unchanged.
+
 The [agent integration implementation and evaluation](agent-integration-2026-10-21.md)
 separates deterministic adapter checks from real host trials, including policy restrictions,
 timeouts, unavailable clients, and unmeasured billing. Its [data](agent-integration-2026-10-21.json)
@@ -77,7 +82,7 @@ Without `--test`, Criterion performs repeated measurements; that is a different 
 Expect your measurements to differ. Inspect the `.summary.json`, review the environment and
 exclusions, then update the published aggregate deliberately. Do not auto-publish raw logs.
 
-Regenerate or check both README visuals:
+Regenerate or check all five README figures:
 
 ```sh
 node scripts/render-readme-assets.mjs

@@ -7,10 +7,17 @@ Use a current source build of both daemon and plugin; see the
 
 ## 1. Prepare Figma
 
-Start `figtether` in one terminal and leave it running. In a second terminal, run
-`figtether pair`. Paste that secret into FigTether Bridge, share the intended frame, and
+For an existing source installation, run `figtether start` and leave that terminal running.
+It preserves the manifest id/port and prints a one-use pairing secret in that terminal.
+On first setup, use `figtether start --plugin-id YOUR_PLUGIN_ID` and import the printed
+`plugins/figma/dist/manifest.json` into Figma. `manifest.local.json` is the build input,
+not the file to import. See the [quickstart](quickstart.md) for prerequisites.
+Paste the secret into FigTether Bridge, share the intended frame, and
 choose **Allow editing** if the agent should design. The secret stays local; it does not
 belong in an agent prompt or MCP configuration.
+
+The separate `figtether daemon` and `figtether pair` commands remain available for a manual
+two-terminal workflow. A copied executable alone does not install the Figma plugin or MCP host.
 
 For multiple agents, share their intended frames together and give each a clear name.
 Names coordinate work; they do not enforce per-agent isolation within one shared grant.
@@ -183,7 +190,9 @@ Rebuild the plugin for that port, because the build reads the port from the mani
 npm --prefix plugins/figma run build
 ```
 
-Import the updated local manifest and reopen the plugin. Pair again with `figtether pair`;
+Import the updated `plugins/figma/dist/manifest.json` and reopen the plugin. Figma requires
+the imported filename to be exactly `manifest.json`; the local manifest is a build input.
+Pair again with `figtether pair`;
 pairing and MCP use the port in the daemon runtime automatically. The port is never changed
 silently: the daemon keeps the port it was given and reports why it cannot bind it.
 
@@ -203,8 +212,10 @@ figtether daemon --port 39147
 ```
 
 The build reads the port from `plugins/figma/manifest.local.json`. It uses the same port for
-the socket, manifest allowlist, and private browser companion validation. Alternatively set
-`$env:FIGTETHER_PORT = '39147'` for a build; the imported manifest must still allow that port.
+the socket, manifest allowlist, and private browser companion validation. `FIGTETHER_PORT`
+may only repeat the manifest's port; a conflicting override now fails before bundling.
+For the guided equivalent, stop the daemon and run `figtether start --port 39147`, then
+reimport the printed manifest. It builds the plugin and prints the pairing secret itself.
 Do not delete Windows port reservations or disable a firewall to work around this error.
 
 The [agent workflow](agent-workflow.md) describes the tools. The

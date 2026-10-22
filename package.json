@@ -16,7 +16,7 @@
     "public:test": "node --test scripts/public-check.test.mjs",
     "docs:check": "node scripts/audit-docs.mjs",
     "design:test": "node --test .agents/skills/design-evidence/scripts/evaluate.test.mjs",
-    "ci:test": "node --test scripts/ci-gate.test.mjs scripts/schema-check.test.mjs",
+    "ci:test": "node --test scripts/ci-gate.test.mjs scripts/schema-check.test.mjs scripts/plugin-manifest.test.mjs",
     "agents:generate": "node scripts/generate-agent-workflow.mjs",
     "agents:check": "node scripts/generate-agent-workflow.mjs --check"
   },

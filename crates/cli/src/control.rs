@@ -116,31 +116,60 @@ impl ControlClient {
 /// running daemon. Without it, the local plugin manifest names the port this
 /// machine uses, because the plugin reads its port from that manifest. The
 /// default port is the last resort.
-pub fn expected_port(port: Option<u16>, runtime_dir: Option<&Path>) -> u16 {
-    expected_port_from(
-        port,
-        runtime_dir,
-        crate::commands::manifest::local_manifest_port,
-    )
+pub async fn expected_port(port: Option<u16>, runtime_dir: Option<&Path>) -> u16 {
+    expected_port_for(port, runtime_dir, None).await
+}
+
+pub async fn expected_port_for(
+    port: Option<u16>,
+    runtime_dir: Option<&Path>,
+    manifest: Option<&Path>,
+) -> u16 {
+    if let Some(port) = port {
+        return port;
+    }
+    if let Some(port) = running_daemon_port(runtime_dir).await {
+        return port;
+    }
+    expected_port_from(port, || {
+        crate::commands::manifest::discover_manifest_in(manifest, runtime_dir)
+            .and_then(|path| crate::commands::manifest::read_manifest(&path).ok())
+            .and_then(|value| crate::commands::manifest::manifest_port(&value))
+    })
 }
 
 /// The port, with the manifest lookup kept separate.
 ///
 /// The separation keeps the rule testable without a checkout next to the test.
-pub fn expected_port_from(
-    port: Option<u16>,
-    runtime_dir: Option<&Path>,
-    manifest_port: impl FnOnce() -> Option<u16>,
-) -> u16 {
+pub fn expected_port_from(port: Option<u16>, manifest_port: impl FnOnce() -> Option<u16>) -> u16 {
     if let Some(port) = port {
         return port;
     }
-    runtime::resolve(runtime_dir)
-        .ok()
-        .and_then(|dir| runtime::daemon_file(&dir))
-        .map(|file| file.port)
-        .or_else(manifest_port)
-        .unwrap_or(DEFAULT_PORT)
+    manifest_port().unwrap_or(DEFAULT_PORT)
+}
+
+/// Verify the authenticated protocol and instance, not just an open TCP port.
+/// Bound the entire probe so a stale file naming an unrelated service cannot hang setup.
+pub async fn running_daemon_port(runtime_dir: Option<&Path>) -> Option<u16> {
+    let dir = runtime::resolve(runtime_dir).ok()?;
+    let descriptor = runtime::daemon_file(&dir)?;
+    tokio::time::timeout(Duration::from_millis(750), async {
+        let client = ControlClient::connect(Some(descriptor.port), runtime_dir)
+            .await
+            .ok()?;
+        let data = client
+            .request(ClientRequest::Status {
+                request_id: new_request_id(),
+            })
+            .await
+            .ok()?;
+        (data["instance_id"].as_str()? == descriptor.instance_id.to_string()
+            && data["port"].as_u64()? == u64::from(descriptor.port))
+        .then_some(descriptor.port)
+    })
+    .await
+    .ok()
+    .flatten()
 }
 
 /// Mint a correlation id for one request.
@@ -195,6 +224,54 @@ mod tests {
     use super::*;
     use serde_json::json;
 
+    #[tokio::test]
+    async fn an_open_port_with_a_stale_descriptor_is_not_a_running_daemon() {
+        let temp = tempfile::tempdir().expect("temp");
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("listener");
+        let dir = runtime::resolve(Some(temp.path())).expect("runtime");
+        dir.write_daemon_file(&figtether_daemon::DaemonFile {
+            instance_id: uuid::Uuid::new_v4(),
+            installation_id: uuid::Uuid::new_v4(),
+            port: listener.local_addr().expect("address").port(),
+            client_credential: "synthetic-stale-credential".into(),
+            protocol_version: figtether_protocol::PROTOCOL_VERSION.into(),
+            created_at: chrono::Utc::now(),
+        })
+        .expect("stale descriptor");
+        let result = tokio::time::timeout(
+            Duration::from_secs(3),
+            running_daemon_port(Some(temp.path())),
+        )
+        .await
+        .expect("bounded probe");
+        assert_eq!(result, None);
+    }
+
+    #[tokio::test]
+    async fn the_authenticated_daemon_is_recognised_and_a_wrong_instance_is_rejected() {
+        let temp = tempfile::tempdir().expect("temp");
+        let socket = std::net::TcpListener::bind("127.0.0.1:0").expect("free port");
+        let port = socket.local_addr().expect("address").port();
+        drop(socket);
+        let handle = figtether_daemon::run(
+            figtether_daemon::DaemonConfig::new()
+                .with_port(port)
+                .with_runtime_dir(temp.path()),
+        )
+        .await
+        .expect("daemon");
+        assert_eq!(running_daemon_port(Some(temp.path())).await, Some(port));
+        let dir = runtime::resolve(Some(temp.path())).expect("runtime");
+        let mut file = dir.read_daemon_file().expect("descriptor");
+        file.instance_id = uuid::Uuid::new_v4();
+        dir.write_daemon_file(&file).expect("stale identity");
+        assert_eq!(running_daemon_port(Some(temp.path())).await, None);
+        handle.shutdown();
+        handle.wait_stopped().await;
+    }
+
     /// Run one future on a throwaway runtime.
     fn block_on<F: std::future::Future>(future: F) -> F::Output {
         tokio::runtime::Builder::new_multi_thread()
@@ -216,24 +293,13 @@ mod tests {
 
     #[test]
     fn the_expected_port_falls_back_to_the_bridge_port() {
-        let temp = tempfile::tempdir().expect("temp dir");
-        assert_eq!(
-            expected_port_from(None, Some(temp.path()), || None),
-            DEFAULT_PORT
-        );
-        assert_eq!(
-            expected_port_from(Some(1234), Some(temp.path()), || None),
-            1234
-        );
+        assert_eq!(expected_port_from(None, || None), DEFAULT_PORT);
+        assert_eq!(expected_port_from(Some(1234), || None), 1234);
     }
 
     #[test]
     fn the_manifest_port_is_used_before_the_default_port() {
-        let temp = tempfile::tempdir().expect("temp dir");
-        assert_eq!(
-            expected_port_from(None, Some(temp.path()), || Some(39029)),
-            39029
-        );
+        assert_eq!(expected_port_from(None, || Some(39029)), 39029);
     }
 
     #[test]

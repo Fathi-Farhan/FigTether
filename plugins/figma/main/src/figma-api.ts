@@ -44,8 +44,9 @@ export interface FigmaPaint {
   type: string;
   visible?: boolean;
   opacity?: number;
-  color?: FigmaColor;
+  color?: Omit<FigmaColor, "a"> & { a?: number };
   gradientStops?: FigmaGradientStop[];
+  gradientTransform?: number[][];
   imageHash?: string;
   scaleMode?: string;
   boundVariables?: Record<string, FigmaBoundVariable>;

@@ -6,6 +6,11 @@
 
 Status: `Proposed`
 
+Current assessment record: the [22 October feature/error review](../06-testing/end-user-feature-review.md)
+uses pinned upstream PentAGI methodology for scoped testing. It did not execute the PentAGI
+service or establish an independent security audit. The platform deployment and attack plan
+below remain proposed.
+
 This document defines how FigTether is validated against an autonomous attacker, and how the
 PenAGI platform is used for it. The threat model in `docs/05-security/01-threat-model.md` states
 what could go wrong; this document states how we find out whether it does.
