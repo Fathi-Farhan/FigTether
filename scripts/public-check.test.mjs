@@ -53,3 +53,9 @@ test("a byte order mark is refused, because Figma cannot parse it", () => {
   ]);
   assert.deepEqual(inspectText("plugins/figma/manifest.json", "{}"), []);
 });
+test("publication checks catch the same forbidden punctuation as hosted CI", () => {
+  for (const file of ["docs/guide.md", "assets/architecture.svg", "scripts/render.mjs"]) {
+    assert.deepEqual(inspectText(file, "preview\u2014apply"), ["em dash; use an ASCII hyphen"]);
+    assert.deepEqual(inspectText(file, "preview - apply"), []);
+  }
+});

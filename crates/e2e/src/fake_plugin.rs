@@ -561,6 +561,10 @@ impl FakePlugin {
         mode: &str,
         session_mode: &str,
     ) -> Result<u64, PluginError> {
+        // Matching roots alone can describe the previous grant. Every update,
+        // including a mode change or regrant of the same roots, needs a new
+        // daemon acknowledgement before another client sends dependent work.
+        let previous_epoch = self.grant_epoch();
         let payload = GrantUpdatePayload {
             root_ids: roots.to_vec(),
             grant_epoch: 0,
@@ -579,8 +583,14 @@ impl FakePlugin {
         let deadline = tokio::time::Instant::now() + Duration::from_secs(10);
         loop {
             let granted = self.context.granted_roots.read().await.clone();
+            let granted_mode = self.context.granted_mode.read().await.clone();
+            let granted_session_mode = self.context.session_mode.read().await.clone();
             let epoch = self.context.grant_epoch.load(Ordering::Relaxed);
-            if granted == roots && epoch > 0 {
+            if granted == roots
+                && granted_mode == mode
+                && granted_session_mode == session_mode
+                && epoch > previous_epoch
+            {
                 return Ok(epoch);
             }
             if tokio::time::Instant::now() >= deadline {

@@ -420,6 +420,7 @@ async fn an_apply_without_an_approval_token_is_refused() {
     let response = preview(&mut harness.client, &plan).await;
     let approval_id = approval_id_of(&response);
     approve(&harness.plugin).await;
+    let _token = await_token(&mut harness.client, &approval_id).await;
 
     let response = apply(&mut harness.client, &plan, None).await;
 
@@ -484,11 +485,16 @@ async fn an_apply_after_the_grant_moved_is_refused() {
 
     // The user changes the grant. The scope moves, and so does the epoch the
     // approval was bound to.
-    harness
+    let previous_epoch = harness.plugin.grant_epoch();
+    let updated_epoch = harness
         .plugin
         .grant_with_mode(std::slice::from_ref(&root_id), GRANT_MODE_WRITE)
         .await
         .expect("the grant moves");
+    assert!(
+        updated_epoch > previous_epoch,
+        "the same-root grant must receive a new daemon acknowledgement"
+    );
 
     let response = apply(&mut harness.client, &plan, Some(&token)).await;
 

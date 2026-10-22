@@ -67,7 +67,7 @@ function architecture() {
     `${heading("HOW IT WORKS", "One bridge. Native designs.", "Your agent proposes. Figma creates the real nodes.")}${nodes}
 ${lines(40, 824, ["Local WebSockets use the port in your manifest.", "The daemon validates scope before editor work."], "small")}
 ${rule(882)}${t(40, 928, "Every edit has a plan.", "label")}
-${lines(40, 970, ["1. preview_write — inspect the proposed changes.", "2. get_write_approval — check the exact plan.", "3. apply_write — create or edit native nodes."], "small", 36)}
+${lines(40, 970, ["1. preview_write - inspect the proposed changes.", "2. get_write_approval - check the exact plan.", "3. apply_write - create or edit native nodes."], "small", 36)}
 ${lines(40, 1102, ["Share a frame and enable Allow editing first.", "Review each plan, or enable Auto for eligible plans."], "small")}`,
   );
 }

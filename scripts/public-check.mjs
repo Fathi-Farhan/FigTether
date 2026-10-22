@@ -23,6 +23,7 @@ export function riskyPath(file) {
 export function inspectText(file, text) {
   const problems = [];
   if (text.charCodeAt(0) === 0xfeff) problems.push("byte order mark at the start of the file");
+  if (text.includes("\u2014")) problems.push("em dash; use an ASCII hyphen");
   if (/-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----/.test(text))
     problems.push("private key material");
   if (/\b(?:ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|AKIA[A-Z0-9]{16})\b/.test(text))

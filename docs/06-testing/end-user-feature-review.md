@@ -35,7 +35,7 @@ approval tokens remain in the local test process and are redacted from evidence.
 
 Additional findings from the live session on 22 October:
 
-- **UX-005 — large export blocks later commands.** The sandbox sent a result larger
+- **UX-005 - large export blocks later commands.** The sandbox sent a result larger
   than the UI's 1 MiB envelope limit. The UI discarded it without completing the
   active request. Subsequent native reads timed out behind that request. The runtime
   now checks the complete response envelope and returns `PAYLOAD_TOO_LARGE` with a
@@ -43,24 +43,24 @@ Additional findings from the live session on 22 October:
   cancelled operations are removed. A cancelled write stays serialized until its
   outcome is known. Regression tests cover oversize output, the next read, queued
   cancellation, and write serialization.
-- **FEAT-004 — native inspection contract drift.** The real plugin returns a bounded
+- **FEAT-004 - native inspection contract drift.** The real plugin returns a bounded
   `nodes` subtree, while the daemon expected a single `node`. The resulting
   `PROTOCOL_MISMATCH` incorrectly suggested updating compatible software. The daemon
   now normalizes the shipped subtree, preserves truncation, and accepts the legacy
   singular form. Inspection keeps the root alias for existing consumers. A regression
   uses the actual editor response shape, including a truncated subtree.
-- **FEAT-005 — incorrect transform translation.** The plugin sent four matrix
+- **FEAT-005 - incorrect transform translation.** The plugin sent four matrix
   coefficients where the Rust wire contract expects translation and scale. An
   identity transform consequently appeared at x=1 with scale_x=0. The adapter now
   extracts translation from Figma's 2×3 matrix and computes each basis-vector length.
   Rotation remains the separate contract field. Native rotated/translated matrices
   are covered by a regression. The contract does not preserve affine shear.
-- **UX-006 — discovery timeout suggests changing access.** When a root read failed,
+- **UX-006 - discovery timeout suggests changing access.** When a root read failed,
   `open_design` returned `needs_access_or_target` even though the grant was ready.
   It now preserves the original structured failure when no candidate can be read.
   A synthetic editor regression injects `TIMEOUT` and checks that the tool returns
   that error instead of asking for a new grant.
-- **FEAT-006 — FILL silently becomes fixed.** Canonical property ordering applied
+- **FEAT-006 - FILL silently becomes fixed.** Canonical property ordering applied
   `layoutSizingHorizontal` before `width`. Figma's subsequent resize restored fixed
   sizing. Native render showed a 160px child inside a 600px padded parent. The apply
   path now loads required fonts first, resizes once, and then applies sizing and

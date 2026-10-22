@@ -10,9 +10,9 @@
 <text x="40" y="824" class="small" >Local WebSockets use the port in your manifest.</text>
 <text x="40" y="856" class="small" >The daemon validates scope before editor work.</text>
 <path d="M 40 882 L 760 882" fill="none" stroke="#748375" /><text x="40" y="928" class="label" >Every edit has a plan.</text>
-<text x="40" y="970" class="small" >1. preview_write — inspect the proposed changes.</text>
-<text x="40" y="1006" class="small" >2. get_write_approval — check the exact plan.</text>
-<text x="40" y="1042" class="small" >3. apply_write — create or edit native nodes.</text>
+<text x="40" y="970" class="small" >1. preview_write - inspect the proposed changes.</text>
+<text x="40" y="1006" class="small" >2. get_write_approval - check the exact plan.</text>
+<text x="40" y="1042" class="small" >3. apply_write - create or edit native nodes.</text>
 <text x="40" y="1102" class="small" >Share a frame and enable Allow editing first.</text>
 <text x="40" y="1134" class="small" >Review each plan, or enable Auto for eligible plans.</text>
 </svg>
