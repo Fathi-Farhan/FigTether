@@ -21,6 +21,6 @@
     "agents:check": "node scripts/generate-agent-workflow.mjs --check"
   },
   "devDependencies": {
-    "prettier": "^3.4.0"
+    "prettier": "^3.10.1"
   }
 }
